@@ -736,3 +736,26 @@
   let s = (h.insert)(1, step-label: [insert duplicate 1])
   sequence(h, s, mode: "after", columns: 3, gap: 1.2em)
 })
+
+#section("Singleton structures", std.stack(
+  dir: ltr,
+  spacing: 1.5em,
+  bst(42).diagram,
+  min-heap(42).diagram,
+  linked-list(42, head: true).diagram,
+  stack(42).diagram,
+  queue(42).diagram,
+))
+
+#section("Unsuccessful tree search preserves the tree", transition(
+  "bst",
+  (50, 30, 70, 20, 40, 60, 80),
+  tree-search(65),
+))
+
+#section("Heap insert and extract round trip", {
+  let h0 = min-heap(3, 5, 7)
+  let s1 = (h0.insert)(1, step-label: [insert 1])
+  let s2 = ((s1.result).extract)(step-label: [extract minimum])
+  sequence(h0, s1, s2, mode: "after", columns: 5, gap: 1.2em)
+})

@@ -6,16 +6,19 @@
 // the drawing (`diagram`) and the thing you operate on: operation fields
 // return a step `(label, before, after, diagram, result)`, like the trees.
 // `marks` maps `str(index)` to a highlight kind ("new"/"remove"), resolved
-// against `th`'s `<kind>-style` via `mark-style` at draw time — so a per-call
+// against `th`'s `<kind>-style` at draw time — so a per-call
 // `style:` override actually reaches the mark, not just the theme default.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": resolve, scaled, mark-style
+#import "style.typ": resolve, scaled, resolve-mark-style
 #import "tree.typ": trans-view
 #import cetz.draw: line, rect, content
 
 #let _ann(pos, body, th) = {
-  content(pos, text(..th.label-text)[#body])
+  let text-style = th.label-text
+  let rotation = text-style.at("rotation", default: 0deg)
+  if "rotation" in text-style { let _ = text-style.remove("rotation") }
+  content(pos, text(..text-style)[#body], angle: rotation)
 }
 
 #let _node-content(pos, body, th) = {
@@ -31,7 +34,7 @@
 #let _cell(x, y, body, th, fill: auto, mark: none, w: auto) = {
   let ww = if w == auto { th.box-w } else { w }
   let base-fill = if fill == auto { th.box-fill } else { fill }
-  let m = if mark != none { mark-style(th, mark, base-fill: base-fill) } else { none }
+  let m = if mark != none { resolve-mark-style(th, mark, base-fill: base-fill) } else { none }
   let f = if m != none { m.fill } else { base-fill }
   let s = if m != none { m.stroke } else { th.box-stroke }
   let text-style = if m != none { m.text } else { th.node-text }
@@ -214,35 +217,35 @@
 // ── Stack ────────────────────────────────────────────────────────────────────
 
 // First value is the top of the stack.
-#let _stack-render(vs, th, marks) = {
+#let _stack-render(vs, th, marks, top-label) = {
   let step = th.box-h + th.box-gap * 0.35
   let label-gap = if th.box-gap > 0.45 { th.box-gap } else { 0.45 }
   scaled(th, cetz.canvas({
     for (i, v) in vs.enumerate() { _cell(0, -i * step, v, th, mark: _mark(marks, i)) }
-    if vs.len() > 0 { _ann((th.box-w + label-gap, th.box-h / 2), [top], th) }
+    if vs.len() > 0 { _ann((th.box-w + label-gap, th.box-h / 2), top-label, th) }
   }))
 }
 
-#let _stack-obj(vs, style) = {
-  let th = resolve(style)
+#let _stack-obj(vs, style, top-label) = {
+  let th = resolve((box-gap: 0) + style)
   (
-    diagram: _stack-render(vs, th, (:)),
+    diagram: _stack-render(vs, th, (:), top-label),
     push: (v, step-label: none) => _step(
       if step-label == none { [push #v] } else { step-label },
-      _stack-render(vs, th, (:)),
-      _stack-render((v,) + vs, th, ("0": "new")),
-      _stack-obj((v,) + vs, style),
+      _stack-render(vs, th, (:), top-label),
+      _stack-render((v,) + vs, th, ("0": "new"), top-label),
+      _stack-obj((v,) + vs, style, top-label),
     ),
     pop: (step-label: none) => _step(
       if step-label == none { [pop] } else { step-label },
-      _stack-render(vs, th, ("0": "remove")),
-      _stack-render(vs.slice(1), th, (:)),
-      _stack-obj(vs.slice(1), style),
+      _stack-render(vs, th, ("0": "remove"), top-label),
+      _stack-render(vs.slice(1), th, (:), top-label),
+      _stack-obj(vs.slice(1), style, top-label),
     ),
   )
 }
 
-#let stack(style: (:), ..vals) = _stack-obj(vals.pos(), style)
+#let stack(style: (:), top-label: [top], ..vals) = _stack-obj(vals.pos(), style, top-label)
 
 // ── Queue ────────────────────────────────────────────────────────────────────
 

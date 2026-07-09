@@ -31,6 +31,13 @@
   res
 }
 
+#let _text-content(pos, body, style) = {
+  let text-style = _text-style(style)
+  let rotation = text-style.at("rotation", default: 0deg)
+  if "rotation" in text-style { let _ = text-style.remove("rotation") }
+  content(pos, text(..text-style)[#body], angle: rotation)
+}
+
 #let _cell(x, y, body, th, custom: none, fill: auto, w: auto, h: auto) = {
   let ww = if w == auto { th.box-w } else { w }
   let hh = if h == auto { th.box-h } else { h }
@@ -81,7 +88,7 @@
       if label != none {
         let dx = index-config.offset.at(0)
         let dy = index-config.offset.at(1)
-        content((i * th.box-w + th.box-w / 2 + dx, dy), text(..index-config.text)[#label])
+        _text-content((i * th.box-w + th.box-w / 2 + dx, dy), label, index-config.text)
       }
     }
   }
@@ -103,12 +110,12 @@
         _cell(c * th.box-w, -r * th.box-h, body, th, custom: _custom-at(cell-customizations, (r, c)))
       }
       if row-labels != none and r < row-labels.len() {
-        content((-0.42, -r * th.box-h + th.box-h / 2), text(..th.label-text)[#row-labels.at(r)])
+        _text-content((-0.42, -r * th.box-h + th.box-h / 2), row-labels.at(r), th.label-text)
       }
     }
     if column-labels != none {
       for c in range(calc.min(column-labels.len(), ccount)) {
-        content((c * th.box-w + th.box-w / 2, th.box-h + 0.32), text(..th.label-text)[#column-labels.at(c)])
+        _text-content((c * th.box-w + th.box-w / 2, th.box-h + 0.32), column-labels.at(c), th.label-text)
       }
     }
   }))

@@ -64,6 +64,12 @@
   transition: transition,
   tree-insert: tree-insert, tree-delete: tree-delete, tree-search: tree-search,
   heap-insert: heap-insert, heap-extract: heap-extract,
+  tree-style: tree-style, heap-style: heap-style, graph-style: graph-style,
+  list-style: list-style, stack-style: stack-style, queue-style: queue-style,
+  array-style: array-style, matrix-style: matrix-style,
+  text-style: text-style, label-style: label-style,
+  node-mark-style: node-mark-style, cell-mark-style: cell-mark-style,
+  node-label-style: node-label-style, indices-style: indices-style,
   sequence: sequence, op-arrow: op-arrow, std: std,
 )
 
@@ -201,7 +207,7 @@
   subargtable([Nested keys for #c("style")],
     [#c("style.box-w")], [`float`], [`0.95`], [Cell width.],
     [#c("style.box-h")], [`float`], [`0.7`], [Cell height.],
-    [#c("style.box-gap")], [`float`], [`0.55`], [Gap between cells or list nodes.],
+    [#c("style.box-gap")], [`float`], [#if kind == "stack" { c("0") } else { c("0.55") }], [Gap between cells or list nodes.],
     [#c("style.box-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Cell outline.],
     [#c("style.box-fill")], [`color`], [`white`], [Default cell fill.],
     [#c("style.ptr-fill")], [`color`], [#c("rgb(\"#D7ECC9\")")], [Next-pointer cell fill for #c("linked-list(pointer: true)").],
@@ -823,13 +829,14 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   Full signature:
 
   ```typ
-  #stack(..vals, style: (:))
+  #stack(..vals, style: (:), top-label: [top])
   ```
 ]
 
 #argtable(
   [#c("..vals")], [`int` / `content`], [(required)], [Values in the stack; the *first* argument is the top.],
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
+  [#c("top-label")], [`content`], [`[top]`], [Label beside the top cell.],
 )
 
 #linear-style-reference("stack")
@@ -843,6 +850,12 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 #demo[
   #example(```typ
   #stack(9, 7, 2).diagram
+  ```)
+]
+
+#demo[
+  #example(```typ
+  #stack(9, 7, 2, top-label: [Peek]).diagram
   ```)
 ]
 
@@ -1807,18 +1820,73 @@ the resulting object, and it doesn't accumulate across a chain of
   package defaults, so colors, size, and shape can be overridden per call.
   #c("theme") is the default dictionary itself and #c("resolve(style)") is the
   merge helper (#c("theme + style")); both are exported if you want to build
-  your own styling utilities on top.
+  your own styling utilities on top. Raw dictionaries remain supported.
 
   #example(```typ
-  #bst(50, 30, 70, 20, style: (
-    node-shape: "square", node-radius: 0.4, node-fill: rgb("#E3F2FD"),
-    node-stroke: 1pt + rgb("#1565C0"), node-text: (size: 11pt),
+  #bst(50, 30, 70, 20, style: tree-style(
+    node-shape: "square",
+    node-radius: 0.4,
+    node-fill: rgb("#E3F2FD"),
+    node-stroke: 1pt + rgb("#1565C0"),
+    node-text: text-style(size: 11pt),
   )).diagram
   ```)
 ]
 
 #note[To set a document-wide default instead of repeating #c("style:") at
-every call, rebind the builder once: #c("#let bst = bst.with(style: (..))").]
+every call, rebind the builder once:
+#c("#let bst = bst.with(style: tree-style(..))").]
+
+#note[Editor tip: Typst dictionaries do not expose a schema to autocomplete.
+Use the style-builder functions when you want argument suggestions while
+writing #c("style:"). Raw dictionaries still work when you prefer them.]
+
+== Autocomplete-friendly style builders
+
+#demo[
+  Structure-specific style builders return sparse dictionaries. Because their
+  keys are named function arguments, Typst editors suggest only relevant keys
+  while you type #c("style: tree-style(...)"), #c("style: stack-style(...)"),
+  and so on. Omitted arguments do not overwrite package or structure-specific
+  defaults. Nested builders provide the same completion for dictionary-valued
+  settings.
+
+  #example(```typ
+  #bst(
+    50, 30, 70,
+    style: tree-style(
+      x-gap: 1.4,
+      node-fill: rgb("#E7F5FF"),
+      node-text: text-style(
+        size: 10pt,
+        color: rgb("#1864AB"),
+        weight: "bold",
+      ),
+      new-style: node-mark-style(
+        fill: rgb("#D3F9D8"),
+        stroke: 1pt + rgb("#2B8A3E"),
+      ),
+    ),
+  ).diagram
+  ```, side: false)
+]
+
+#argtable(
+  [#c("tree-style(...)")], [`function`], [n/a], [Styles BSTs, AVL trees, manual trees, and tree transitions.],
+  [#c("heap-style(...)")], [`function`], [n/a], [Styles min/max heaps and heap transitions.],
+  [#c("graph-style(...)")], [`function`], [n/a], [Styles graphs.],
+  [#c("list-style(...)")], [`function`], [n/a], [Styles linked and doubly linked lists.],
+  [#c("stack-style(...)")], [`function`], [n/a], [Styles stacks.],
+  [#c("queue-style(...)")], [`function`], [n/a], [Styles queues.],
+  [#c("array-style(...)")], [`function`], [n/a], [Styles arrays, including #c("indices:").],
+  [#c("matrix-style(...)")], [`function`], [n/a], [Styles matrices.],
+  [#c("text-style(size:, color:, fill:, font:, weight:, rotation:)")], [`function`], [n/a], [Builds #c("style.node-text") or mark text overrides.],
+  [#c("label-style(size:, color:, fill:, font:, weight:, rotation:)")], [`function`], [n/a], [Builds #c("style.label-text").],
+  [#c("node-mark-style(fill:, shape:, stroke:, node-radius:, text:)")], [`function`], [n/a], [Builds tree/heap diff styles.],
+  [#c("cell-mark-style(fill:, stroke:, text:)")], [`function`], [n/a], [Builds linear-structure diff styles without unsupported node geometry.],
+  [#c("node-label-style(position:, offset:, gap:, size:, color:, font:, weight:, rotation:)")], [`function`], [n/a], [Builds #c("style.node-labels").],
+  [#c("indices-style(enabled:, labels:, offset:, size:, color:, font:, weight:)")], [`function`], [n/a], [Builds #c("style.indices"). Pass #c("labels: auto") for zero-based indices.],
+)
 
 == Where keys are documented
 
@@ -1985,7 +2053,7 @@ One stone remains, weight *1*, matching
   [#c("max-heap(..keys, style:)")], [Array-backed complete binary tree, largest key at the root; ops #c("insert"), #c("extract")],
   [#c("linked-list(..vals, style:, pointer:, addresses:, head:)")], [Linked list; #c("pointer") shows #c("data | next") cells; ops #c("insert"), #c("delete")],
   [#c("doubly-linked-list(..vals, style:, pointer:, addresses:, head:)")], [Doubly linked list; #c("pointer") shows #c("prev | data | next") cells; ops #c("insert"), #c("delete")],
-  [#c("stack(..vals, style:)")], [Stack, first argument is the top; ops #c("push"), #c("pop")],
+  [#c("stack(..vals, style:, top-label:)")], [Stack, first argument is the top; ops #c("push"), #c("pop")],
   [#c("queue(..vals, style:, enqueue:, dequeue:, front-label:, rear-label:)")], [Queue, first argument is the front; ops #c("enqueue"), #c("dequeue")],
   [#c("array-view(..vals, style:, cell-customizations:)")], [Static array cells with optional #c("style.indices") and per-cell overrides],
   [#c("matrix(rows, style:, cell-customizations:, row-labels:, column-labels:)")], [Static matrix/grid cells with optional row/column labels and per-cell overrides],
@@ -2058,4 +2126,27 @@ One stone remains, weight *1*, matching
   [#c("path-style")], [`#FFE9A8`], [Traversal / sift path; color or dict, as above.],
   [#c("remove-style")], [`#FFCDD2`], [Removed node/cell; color or dict, as above.],
   [#c("rotate-style")], [`#BBDEFB`], [AVL rotation nodes and visible subtree roots; color or dict, as above.],
+)
+
+== Styling helpers
+
+#table(
+  columns: (auto, 1fr), inset: 6.5pt,
+  align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
+  fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
+  [*Call*], [*Result*],
+  [#c("tree-style(..tree keys)")], [Sparse BST/AVL/manual-tree style dictionary],
+  [#c("heap-style(..heap keys)")], [Sparse min/max-heap style dictionary],
+  [#c("graph-style(..graph keys)")], [Sparse graph style dictionary],
+  [#c("list-style(..list keys)")], [Sparse linked-list style dictionary],
+  [#c("stack-style(..stack keys)")], [Sparse stack style dictionary],
+  [#c("queue-style(..queue keys)")], [Sparse queue style dictionary],
+  [#c("array-style(..array keys)")], [Sparse array style dictionary],
+  [#c("matrix-style(..matrix keys)")], [Sparse matrix style dictionary],
+  [#c("text-style(size:, color:, fill:, font:, weight:, rotation:)")], [Node/cell or mark text dictionary],
+  [#c("label-style(size:, color:, fill:, font:, weight:, rotation:)")], [Annotation/edge text dictionary],
+  [#c("node-mark-style(fill:, shape:, stroke:, node-radius:, text:)")], [Tree/heap diff-highlight dictionary],
+  [#c("cell-mark-style(fill:, stroke:, text:)")], [Linear-cell diff-highlight dictionary],
+  [#c("node-label-style(position:, offset:, gap:, size:, color:, font:, weight:, rotation:)")], [Default external node-label dictionary],
+  [#c("indices-style(enabled:, labels:, offset:, size:, color:, font:, weight:)")], [Array-index dictionary],
 )

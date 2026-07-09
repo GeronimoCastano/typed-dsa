@@ -761,3 +761,37 @@
 })
 
 #section("One-cell queue combines front and rear labels", queue(42).diagram)
+
+#section("Custom stack top label persists through operations", {
+  let s = stack(9, 7, 2, top-label: [Top])
+  std.stack(dir: ltr, spacing: 2.5em, s.diagram, (s.push)(4).diagram, (s.pop)().diagram)
+})
+
+#section("Named style builders match dictionary styling", std.stack(
+  dir: ltr,
+  spacing: 2em,
+  {
+    assert.eq(tree-style(), (:))
+    assert.eq(stack-style(box-gap: 0), (box-gap: 0))
+    assert.eq(text-style(size: 10pt), (size: 10pt))
+    assert.eq(node-mark-style(fill: red), (fill: red))
+    assert.eq(cell-mark-style(fill: red), (fill: red))
+    none
+  },
+  bst(
+    50, 30, 70,
+    style: tree-style(
+      x-gap: 1.4,
+      node-fill: rgb("#E7F5FF"),
+      node-text: text-style(color: rgb("#1864AB"), weight: "bold"),
+      path-style: node-mark-style(fill: rgb("#FFF3BF"), stroke: 1pt + rgb("#F08C00")),
+    ),
+  ).diagram,
+  array-view(
+    [A], [B], [C],
+    style: array-style(
+      box-fill: rgb("#F3F0FF"),
+      indices: indices-style(enabled: true, labels: auto, color: rgb("#7048E8")),
+    ),
+  ).diagram,
+))

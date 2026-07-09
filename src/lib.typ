@@ -9,7 +9,7 @@
 #import "heap.typ": min-heap, max-heap, _transition as _heap-trans, heap-insert, heap-extract
 #import "graph.typ": graph
 #import "grid.typ": array-view, matrix, sequence
-#import "style.typ": theme, resolve
+#import "style.typ": theme, resolve, tree-style, heap-style, graph-style, list-style, stack-style, queue-style, array-style, matrix-style, text-style, label-style, node-mark-style, cell-mark-style, node-label-style, indices-style
 
 #let transition(variant, keys, op, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
   if variant == "min-heap" { return _heap-trans("min", keys, op, style: style) }

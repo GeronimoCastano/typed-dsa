@@ -150,23 +150,31 @@ instead of building one very long horizontal trace.
 
 ## Styling
 
-Every builder accepts `style:`. Common tree and graph keys include
+Every builder accepts `style:`. Use structure-specific helpers such as
+`tree-style(...)`, `stack-style(...)`, or `graph-style(...)` to get relevant
+named-argument suggestions from Typst editors, or pass a raw dictionary.
+Tip: if you forget a key like `x-gap` or `box-gap`, start typing inside the
+helper call and your editor can autocomplete the supported arguments.
+Common tree and graph keys include
 `node-shape`, `node-radius`, `node-fill`, `node-stroke`, `edge-stroke`,
 `edge-arrow`, and `edge-pattern`. Linear structures use box keys such as
 `box-fill`, `box-stroke`, `ptr-fill`, `prev-ptr-fill`, and `next-ptr-fill`.
 
 ```typst
-#bst(50, 30, 70, 20, 40, style: (
+#bst(50, 30, 70, 20, 40, style: tree-style(
   node-shape: "square",
   node-radius: 0.4,
   node-fill: rgb("#E3F2FD"),
   node-stroke: 1pt + rgb("#1565C0"),
+  node-text: text-style(weight: "bold"),
 )).diagram
 ```
 
 Diff highlights are styleable too. `new-style`, `path-style`, `remove-style`,
 and `rotate-style` can be colors or dictionaries with `fill`, `shape`,
-`stroke`, `node-radius`, and `text`. Set `diff-colors: false` to keep
+`stroke`, `node-radius`, and `text`; `node-mark-style(...)` provides completion
+for tree/heap marks, while `cell-mark-style(...)` exposes only the options
+supported by linear cells. Set `diff-colors: false` to keep
 operation marks while drawing their fills like ordinary nodes.
 
 ![Per-call styling and hand-composed trees](assets/readme/styling.png)

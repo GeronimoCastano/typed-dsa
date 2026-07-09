@@ -8,7 +8,7 @@
 // written onto the nodes, so labels can be any content.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": theme, resolve, scaled, mark-style, edge-mark, edge-stroke, edge-wave, wavy-parts
+#import "style.typ": theme, resolve, scaled, resolve-mark-style, edge-mark, edge-stroke, edge-wave, wavy-parts
 #import cetz.draw: line, circle, rect, content, bezier-through
 
 // ── Model: generated BST/AVL ─────────────────────────────────────────────────
@@ -658,7 +658,7 @@
     _draw-shape(_xy(n, th), label, th, tint, custom: custom)
   } else {
     let kind = if key == none { none } else { marks.at(str(key), default: none) }
-    let mark = if kind != none { mark-style(th, kind, base-fill: th.node-fill) } else { none }
+    let mark = if kind != none { resolve-mark-style(th, kind, base-fill: th.node-fill) } else { none }
     _draw-shape(_xy(n, th), label, th, th.node-fill, mark: mark, custom: custom)
   }
   let boundary = (_shape-name(th, custom: custom), _shape-radius(th, custom: custom))

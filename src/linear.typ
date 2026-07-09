@@ -256,7 +256,9 @@
   let op-fill = rgb("#DCE5FB")
   scaled(th, cetz.canvas({
     for (i, v) in vs.enumerate() { _cell(i * bw, 0, v, th, mark: _mark(marks, i)) }
-    if n > 0 {
+    if n == 1 {
+      _ann((bw / 2, th.box-h + 0.38), [#front-label, #rear-label], th)
+    } else if n > 1 {
       _ann((bw / 2, th.box-h + 0.38), front-label, th)
       _ann((w - bw / 2, th.box-h + 0.38), rear-label, th)
     }

@@ -891,8 +891,8 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
   [#c("enqueue")], [`none` / `int` / `content`], [`none`], [Draw one extra element entering at the rear, with an arrow, in the same frame.],
   [#c("dequeue")], [`none` / `int` / `content`], [`none`], [Draw the front element leaving to the left, with an arrow, in the same frame.],
-  [#c("front-label")], [`content`], [`[Front]`], [Label over the front cell.],
-  [#c("rear-label")], [`content`], [`[Rear]`], [Label over the rear cell.],
+  [#c("front-label")], [`content`], [`[Front]`], [Label over the front cell. Combined with #c("rear-label") for a one-cell queue.],
+  [#c("rear-label")], [`content`], [`[Rear]`], [Label over the rear cell. Combined with #c("front-label") for a one-cell queue.],
 )
 
 #linear-style-reference("queue")

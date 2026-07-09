@@ -759,3 +759,5 @@
   let s2 = ((s1.result).extract)(step-label: [extract minimum])
   sequence(h0, s1, s2, mode: "after", columns: 5, gap: 1.2em)
 })
+
+#section("One-cell queue combines front and rear labels", queue(42).diagram)

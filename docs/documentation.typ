@@ -7,7 +7,7 @@
 #import "@preview/codly-languages:0.1.1": *
 #import "../src/lib.typ": *
 
-#let version = "0.1.0"
+#let version = "0.2.0"
 #let accent = rgb("#1565C0")
 #let accent-soft = rgb("#E3F2FD")
 
@@ -60,6 +60,8 @@
   bst: bst, avl: avl, min-heap: min-heap, max-heap: max-heap,
   linked-list: linked-list, doubly-linked-list: doubly-linked-list, stack: stack, queue: queue,
   array-view: array-view, matrix: matrix, graph: graph,
+  merge-sort: merge-sort, merge-operation: merge-operation, partition-step: partition-step, quick-sort: quick-sort, bubble-sort: bubble-sort,
+  insertion-sort: insertion-sort, selection-sort: selection-sort, sort-sequence: sort-sequence,
   tree: tree, node: node, subtree: subtree,
   transition: transition,
   tree-insert: tree-insert, tree-delete: tree-delete, tree-search: tree-search,
@@ -96,6 +98,27 @@
     }
   },
 )
+
+// Long sorting traces flow one complete step at a time instead of forcing an
+// entire trace into a single example block.
+#let sorting-example(source, body) = {
+  block(width: 100%, fill: luma(248), inset: (y: 4pt), source)
+  v(0.7em)
+  body
+}
+
+#let sorting-steps(steps) = {
+  for step in steps {
+    block(width: 100%, breakable: false, {
+      align(center)[#step.diagram]
+    })
+    v(0.8em)
+  }
+}
+
+#let sorting-diagram(diagram) = block(width: 100%, breakable: false, {
+  align(center)[#diagram]
+})
 
 // Keep a subsection's prose and example together on one page.
 #let demo(body) = block(breakable: false, width: 100%, body)
@@ -474,6 +497,7 @@ The package exports these symbols:
   [#c("min-heap"), #c("max-heap")], [Binary heap builders.],
   [#c("linked-list"), #c("doubly-linked-list"), #c("stack"), #c("queue")], [Linear-structure builders.],
   [#c("array-view"), #c("matrix")], [Static array and matrix/grid builders.],
+  [#c("merge-sort"), #c("merge-operation"), #c("partition-step"), #c("quick-sort"), #c("bubble-sort"), #c("insertion-sort"), #c("selection-sort")], [Automatic sorting traces.],
   [#c("graph")], [Graph builder, from an adjacency dict.],
   [#c("tree"), #c("node"), #c("subtree")], [Hand-composed abstract trees.],
   [#c("transition")], [One-shot before → after operation diagrams for trees and heaps.],
@@ -967,7 +991,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   Full signatures:
 
   ```typ
-  #array-view(..vals, style: (:), cell-customizations: ())
+  #array-view(..vals, style: (:), cell-customizations: (), pointers: ())
   #matrix(rows, style: (:), cell-customizations: (), row-labels: none, column-labels: none)
   ```
 
@@ -975,13 +999,14 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   #c("cell-customizations") restyles individual array cells by index or matrix
   cells by #c("(row, column)") coordinate.
   #c("style.indices: (enabled: true)") draws zero-based array indices under
-  the cells.
+  the cells. #c("pointers") draws labelled arrows above array cells.
 ]
 
 #argtable(
   [#c("..vals")], [`content`], [(required for #c("array-view"))], [Array cells, left to right.],
   [#c("rows")], [`array`], [(required for #c("matrix"))], [Rows of cells, written as nested arrays such as #c("((1, 2), (3, 4))").],
   [#c("cell-customizations")], [`array` / `dictionary`], [`()`], [Cell overrides. For arrays, use #c("((index, options), ...)"). For matrices, use #c("(((row, col), options), ...)").],
+  [#c("pointers")], [`array`], [`()`], [#c("array-view") only. Labelled arrows above cells, each #c("(index: , label: , color: , text: )"). Markers sharing a cell spread across its width.],
   [#c("row-labels")], [`none` / `array`], [`none`], [Matrix only. Labels drawn to the left of rows.],
   [#c("column-labels")], [`none` / `array`], [`none`], [Matrix only. Labels drawn above columns.],
   [#c("style")], [`dictionary`], [`(:)`], [Cell style override. Uses #c("box-*"), #c("node-text"), #c("label-text"), and diff-highlight style keys.],
@@ -1031,6 +1056,230 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   ).diagram
   ```, side: false)
 ]
+
+== Sorting algorithms
+
+#demo[
+  Full signatures:
+
+  ```typ
+  #merge-sort(array, order: "asc", labels: true)
+  #merge-operation(left, right, order: "asc", pointers: true, labels: true)
+  #partition-step(array, order: "asc", pivot: "middle", pointers: false, labels: true)
+  #quick-sort(array, order: "asc", pivot: "last", labels: true)
+  #bubble-sort(array, order: "asc", pointers: true, labels: true, compare: none, swap: none)
+  #insertion-sort(array, order: "asc", pointers: true, labels: true, compare: none, swap: none)
+  #selection-sort(array, order: "asc", pointers: true, labels: true,
+    compare: none, current: none, minimum: none, swap: none)
+  #sort-sequence(steps, columns: 3, gap: 1em, row-gap: 1em)
+  ```
+
+  Sorting builders generate full traces from a single input array. Each returns
+  #c(".diagram"), #c(".steps"), and #c(".result"). Use #c(".diagram") for the
+  default wrapped trace, or pass #c(".steps") to #c("sort-sequence(...)") when
+  you want different columns or spacing. Every trace records all comparison and
+  swap steps. Each step keeps its label and array together when a page break is
+  needed. Merge sort renders a connected tree: arrows lead from each array
+  to its two divided arrays, then from each pair into its merged result. Curly
+  braces identify the Divide, Merge, and Partition phases. Quicksort groups all
+  active recursive partitions on the same row before expanding them together on
+  the next row. Use #c("partition-step(..., pivot: \"last\")") for the
+  detailed partition used by a last-pivot quicksort; #c("pointers: true") adds
+  labelled cursor arrows, and each successful comparison includes the
+  subsequent #c("i") advance as its own frame.
+
+  To style a trace, pass a styled #c("array-view(...)") in place of the bare
+  array: its style (fills, text, and index configuration) is carried through
+  every step of the trace. Bubble sort adds a pointer-free settled frame after
+  each pass to highlight its green suffix, and selection sort adds one after
+  each minimum swap to highlight its sorted prefix. Settled frames name the
+  newly settled value, and selection scan labels list position, minimum, then
+  item.
+
+  Merge operation, bubble, insertion, and selection sort show labelled arrows
+  above their active positions by default. Pass #c("pointers: false") to hide
+  them. Merge operation labels its left, right, and output cursors #c("i"),
+  #c("j"), and #c("i+j") respectively. Each arrow sits over a marked cell,
+  and several markers on one cell spread across its width. The arrows are
+  additive: the role still fills its cells, so pointers layer on top of the
+  fill. Each role (#c("compare"), #c("swap"), and, for selection sort,
+  #c("current") and #c("minimum")) takes a #c("node-mark-style(...)") that
+  restyles that role's fill, stroke, and text in either mode; the arrow colour
+  comes from the mark's stroke, or its fill when no stroke is set. To keep a
+  cell unfilled under a pointer, set the role's #c("fill") to #c("none"). Quick
+  sort and merge sort render composite phase diagrams and do not take marker
+  roles.
+
+  Pass #c("labels: false") to hide generated text captions while preserving
+  the arrays, highlights, indices, and optional pointer arrows. This also hides
+  merge's left/right/result headings, partition metadata, and composite phase
+  labels, which lets you supply your own translated explanation alongside a
+  trace.
+]
+
+#demo[
+  Sorting traces work directly with Touying reveals: #c(".steps") is an
+  ordered array of rendered frames, so it can be revealed one at a time.
+
+  ```typ
+  #let trace = bubble-sort((5, 1, 4, 2))
+
+  #for (index, step) in trace.steps.enumerate() [
+    #only(index + 1)[#step.diagram]
+  ]
+  ```
+
+  #c("only(index + 1)") shows exactly one step per reveal in the same spot.
+  Using #c("#pause") instead accumulates the steps, stacking every frame on
+  screen at once.
+]
+
+#argtable(
+  [#c("array")], [`array` / `array-view`], [(required)], [Values to sort from left to right, as a plain array or a styled #c("array-view(...)") whose style is reused for every step. Values must be comparable with #c("<")/#c(">"). #c("merge-operation") takes two such arguments (#c("left"), #c("right")); every other builder takes one.],
+  [#c("order")], [`"asc"` / `"desc"`], [`"asc"`], [Sort direction.],
+  [#c("pivot")], [`"first"` / `"last"` / `int` / `"middle"`], [`"last"` / `"middle"`], [Quicksort selects an end of each subarray or a position index. #c("partition-step") accepts #c("middle") or #c("last"); use #c("last") for the detailed quicksort partition trace.],
+  [#c("pointers")], [`bool`], [`true` / `false`], [Merge operation, bubble, insertion, selection sort, and last-pivot #c("partition-step") only. Draw labelled index arrows above the marked cells, layered on top of their fills. Merge operation uses #c("i"), #c("j"), and #c("i+j"); last-pivot partition uses #c("i"), #c("j"), and #c("pivot").],
+  [#c("labels")], [`bool`], [`true`], [All sorting builders. Set to #c("false") to hide generated step captions and structural text while preserving diagrams, highlights, indices, and pointer arrows.],
+  [#c("compare"), #c("swap"), #c("current"), #c("minimum")], [`dictionary`], [`none`], [Bubble, insertion, and selection sort only. A #c("node-mark-style(...)") override for that role's marker. #c("current") and #c("minimum") apply to selection sort only.],
+)
+
+#methodtable(
+  [#c(".diagram")], [n/a], [Rendered full sorting trace.],
+  [#c(".steps")], [`array`], [Generated step dictionaries. Each step has #c("label"), #c("diagram"), and #c("values").],
+  [#c(".result")], [`array`], [Sorted values.],
+)
+
+=== Full traces
+
+Long traces below flow one labelled step at a time, so page breaks cannot
+separate a label from its array or make neighbouring frames overlap.
+
+*Merge sort*
+
+#sorting-example(```typ
+#let trace = merge-sort((38, 27, 43))
+#trace.diagram
+```, {
+  let trace = merge-sort((38, 27, 43))
+  sorting-diagram(trace.diagram)
+})
+
+*Merge operation*
+
+#sorting-example(```typ
+#let trace = merge-operation((1, 4), (2, 3))
+#for step in trace.steps [#step.diagram]
+```, {
+  let trace = merge-operation((1, 4), (2, 3))
+  sorting-steps(trace.steps)
+})
+
+*Partition around a middle pivot*
+
+#sorting-example(```typ
+#let trace = partition-step((7, 2, 9, 3, 6))
+#for step in trace.steps [#step.diagram]
+```, {
+  let trace = partition-step((7, 2, 9, 3, 6))
+  sorting-steps(trace.steps)
+})
+
+*Quick sort*
+
+#sorting-example(```typ
+#let trace = quick-sort((3, 1, 2))
+#trace.diagram
+```, {
+  let trace = quick-sort((3, 1, 2))
+  sorting-diagram(trace.diagram)
+})
+
+*Bubble sort*
+
+#sorting-example(```typ
+#let trace = bubble-sort((3, 1, 2))
+#for step in trace.steps [#step.diagram]
+```, {
+  let trace = bubble-sort((3, 1, 2))
+  sorting-steps(trace.steps)
+})
+
+*Insertion sort*
+
+#sorting-example(```typ
+#let trace = insertion-sort((3, 1, 2))
+#for step in trace.steps [#step.diagram]
+```, {
+  let trace = insertion-sort((3, 1, 2))
+  sorting-steps(trace.steps)
+})
+
+*Selection sort*
+
+#sorting-example(```typ
+#let trace = selection-sort((3, 1, 2))
+#for step in trace.steps [#step.diagram]
+```, {
+  let trace = selection-sort((3, 1, 2))
+  sorting-steps(trace.steps)
+})
+
+*Hide generated captions*
+
+#sorting-example(```typ
+#let trace = selection-sort((3, 1, 2), labels: false)
+#trace.steps.at(1).diagram
+```, {
+  let trace = selection-sort((3, 1, 2), labels: false)
+  align(center)[#trace.steps.at(1).diagram]
+})
+
+With #c("pivot: \"last\""), placing the median at the end produces an even
+quicksort partition: three values on each side of the pivot. This trace renders
+every comparison, swap, and cursor position.
+
+#sorting-example(```typ
+#let trace = partition-step(
+  (7, 1, 6, 2, 5, 3, 4),
+  pivot: "last",
+  pointers: true,
+)
+#for step in trace.steps [#step.diagram]
+```, {
+  let trace = partition-step((7, 1, 6, 2, 5, 3, 4), pivot: "last", pointers: true)
+  sorting-steps(trace.steps)
+})
+
+Pointer markers keep the cell fill clean and let each role carry its own
+colour. These focused frames show selection's #c("i"), #c("min"), and #c("j")
+markers together, plus customized bubble-sort marker strokes.
+
+#sorting-example(```typ
+#let selection = selection-sort((64, 25, 12, 22, 11), pointers: true)
+#selection.steps.at(1).diagram
+
+#let bubble = bubble-sort(
+  (5, 1, 4, 2),
+  pointers: true,
+  compare: node-mark-style(stroke: 1pt + rgb("#E8590C")),
+  swap: node-mark-style(stroke: 1pt + rgb("#2F9E44")),
+)
+#bubble.steps.at(1).diagram
+```, {
+  let selection = selection-sort((64, 25, 12, 22, 11), pointers: true)
+  let bubble = bubble-sort(
+    (5, 1, 4, 2),
+    pointers: true,
+    compare: node-mark-style(stroke: 1pt + rgb("#E8590C")),
+    swap: node-mark-style(stroke: 1pt + rgb("#2F9E44")),
+  )
+  std.stack(
+    dir: ttb,
+    spacing: 1em,
+    align(center)[#selection.steps.at(1).diagram],
+    align(center)[#bubble.steps.at(1).diagram],
+  )
+})
 
 == #raw("graph()")
 
@@ -2055,9 +2304,26 @@ One stone remains, weight *1*, matching
   [#c("doubly-linked-list(..vals, style:, pointer:, addresses:, head:)")], [Doubly linked list; #c("pointer") shows #c("prev | data | next") cells; ops #c("insert"), #c("delete")],
   [#c("stack(..vals, style:, top-label:)")], [Stack, first argument is the top; ops #c("push"), #c("pop")],
   [#c("queue(..vals, style:, enqueue:, dequeue:, front-label:, rear-label:)")], [Queue, first argument is the front; ops #c("enqueue"), #c("dequeue")],
-  [#c("array-view(..vals, style:, cell-customizations:)")], [Static array cells with optional #c("style.indices") and per-cell overrides],
+  [#c("array-view(..vals, style:, cell-customizations:, pointers:)")], [Static array cells with optional #c("style.indices"), per-cell overrides, and labelled #c("pointers") arrows above cells],
   [#c("matrix(rows, style:, cell-customizations:, row-labels:, column-labels:)")], [Static matrix/grid cells with optional row/column labels and per-cell overrides],
   [#c("graph(adjacency, directed:, labels:, positions:, layout:, radius:, edge-customizations:, node-customizations:, node-labels:, style:)")], [Graph from an adjacency dict; circular or manual layout, no ops yet],
+)
+
+== Sorting algorithms
+
+#table(
+  columns: (52%, 48%), inset: 6.5pt,
+  align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
+  fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
+  [*Call*], [*Result*],
+  [#c("merge-sort(array, order:, labels:)")], [One breadth-by-depth divide-and-merge tree from a single input array; returns #c(".diagram"), #c(".steps"), and #c(".result")],
+  [#c("merge-operation(left, right, order:, pointers:, labels:)")], [Step-by-step merge of two sorted arrays, with default #c("i"), #c("j"), and #c("i+j") cursor pointers and a progressively filled result array],
+  [#c("partition-step(array, order:, pivot:, pointers:, labels:)")], [Partition trace with a middle pivot, or a detailed last-pivot quicksort trace with #c("i"), #c("j"), and #c("pivot") markers],
+  [#c("quick-sort(array, order:, pivot:, labels:)")], [Breadth-by-depth partition tree: every active subarray partitions on the same level; #c("pivot") is #c("\"first\""), #c("\"last\""), or an index],
+  [#c("bubble-sort(array, order:, pointers:, labels:, compare:, swap:)")], [Comparison and swap trace; pointers mark positions with index arrows by default],
+  [#c("insertion-sort(array, order:, pointers:, labels:, compare:, swap:)")], [Sorted-prefix insertion trace using adjacent swaps and default pointer markers],
+  [#c("selection-sort(array, order:, pointers:, labels:, compare:, current:, minimum:, swap:)")], [Selection and swap trace with default pointer markers; red marks #c("i"), purple marks minimum index #c("m"), and yellow marks inspected index #c("j"). When #c("i = m"), the cell combines red with purple stripes],
+  [#c("sort-sequence(steps, columns:, gap:, row-gap:)")], [Custom layout for generated sorting steps],
 )
 
 == Hand-composed trees

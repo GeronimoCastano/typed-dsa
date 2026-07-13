@@ -8,7 +8,7 @@ consistent styling. It is built on top of
 [CeTZ](https://typst.app/universe/package/cetz).
 
 ```typst
-#import "@preview/typed-dsa:0.1.0": *
+#import "@preview/typed-dsa:0.2.0": *
 ```
 
 For the complete argument reference, including all nested `style:` and
@@ -113,6 +113,25 @@ individual cells.
   ((0, 1, 0), (1, 0, 1), (0, 1, 0)),
   cell-customizations: (((1, 2), (fill: rgb("#E7F5FF"), stroke: 1pt + rgb("#1971C2"))),),
 ).diagram
+```
+
+### Sorting Algorithms
+
+Sorting builders generate full teaching traces automatically. Each takes one
+array plus `order:` (`quick-sort` also takes `pivot:`), and returns `.diagram`,
+`.steps`, and `.result`, so you can show the whole algorithm or lay out selected
+steps yourself. Pass a styled `array-view(...)` instead of a bare array to carry
+its style through every step. `merge-operation`, bubble sort, insertion sort,
+and selection sort show cursor pointers by default; pass `pointers: false` to
+hide them. Pass `labels: false` to hide generated trace captions while keeping
+the arrays, highlights, indices, and pointers.
+
+```typst
+#merge-sort((38, 27, 43, 3, 9)).diagram
+#merge-operation((1, 4, 7), (2, 3, 8)).diagram
+#partition-step((7, 2, 9, 3, 6)).diagram
+#quick-sort((8, 3, 1, 7, 0, 10, 2), pivot: "last").diagram
+#bubble-sort((5, 1, 4, 2)).diagram
 ```
 
 ## Operation Transitions

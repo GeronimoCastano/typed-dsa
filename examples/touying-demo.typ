@@ -100,3 +100,11 @@ from the structure operation.
 ]
 
 Use Touying reveals for the teaching flow; typed-dsa only handles the diagram.
+
+== Bubble sort, one step per reveal
+
+#let bubble-trace = bubble-sort((5, 1, 4, 2))
+
+#for (i, step) in bubble-trace.steps.enumerate(){
+  only(i + 1)[#step.diagram]
+}

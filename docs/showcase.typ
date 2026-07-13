@@ -4,6 +4,7 @@
 //   typst compile --root . docs/showcase.typ docs/showcase.pdf
 
 #import "../src/lib.typ": *
+#import "@preview/algo:0.3.6": algo, i, d
 
 #let ink = rgb("#263238")
 #let muted = rgb("#607D8B")
@@ -54,6 +55,46 @@
   ),
   align(center + horizon, scale(82%, reflow: true, body)),
 )
+
+#let algorithm-card(pseudocode, body) = grid(
+  columns: (0.34fr, 0.66fr),
+  column-gutter: 0pt,
+  align: horizon,
+  align(center + horizon, pseudocode),
+  align(center + horizon, scale(82%, reflow: true, body)),
+)
+
+#let pseudocode(title, body) = algo(
+  title: title,
+  line-numbers: true,
+  indent-size: 10pt,
+  row-gutter: 10pt,
+  column-gutter: 10pt,
+  inset: 6pt,
+  fill: luma(248),
+  stroke: 2pt + luma(225),
+  radius: 4pt,
+  block-align: none,
+  main-text-styles: (size: 11pt),
+  line-number-styles: (size: 6.5pt, fill: muted),
+)[#body]
+
+#let step-trace(steps, columns: 2, column-gutter: -120pt, frame-scale: 100%) = {
+  let frames = ()
+  for (index, step) in steps.enumerate() {
+    frames.push(scale(frame-scale, reflow: true, align(center)[
+      #text(size: 6.4pt, fill: muted, weight: "bold")[Step #(index + 1)]
+      #v(0.12em)
+      #step.diagram
+    ]))
+  }
+  grid(
+    columns: columns,
+    column-gutter: column-gutter,
+    row-gutter: 3em,
+    ..frames,
+  )
+}
 
 #let diagram-row(..items) = grid(
   columns: items.pos().map(_ => 1fr),
@@ -351,6 +392,95 @@
     )
   },
 )
+
+#v(0.8em)
+
+#align(left)[
+  #text(size: 16pt, weight: "bold", fill: blue)[Sorting algorithms: pseudocode and traces]
+  #v(0.25em)
+  #text(fill: muted)[Each trace uses a small array and shows every generated step.]
+]
+
+#v(0.7em)
+
+#panel([Bubble sort], algorithm-card(
+  pseudocode("Bubble sort")[
+    for $p <- 0$ to $n - 2$:#i\
+    for $j <- 0$ to $n - p - 2$:#i\
+    if $A_j > A_(j + 1)$:#i\
+    swap $A_j$ and $A_(j + 1)$#d#d#d
+  ],
+  step-trace(bubble-sort((3, 1, 2), pointers: true).steps),
+))
+
+#v(0.7em)
+
+#panel([Insertion sort], algorithm-card(
+  pseudocode("Insertion sort")[
+    for $i <- 1$ to $n - 1$:#i\
+    $k <- A[i]$\
+    $j <- i$\
+    while $j > 0$ and $A[j] < A[j - 1]$:#i\
+    swap $A[j]$ and $A[j - 1]$\
+    $j <- j - 1$#d#d
+  ],
+  step-trace(insertion-sort((3, 1, 2), pointers: true).steps),
+))
+
+#v(0.7em)
+
+#panel([Selection sort], algorithm-card(
+  pseudocode("Selection sort")[
+    for $i <- 0$ to $n - 1$:#i\
+    $m <- i$\
+    for $j <- i + 1$ to $n - 1$:#i\
+    if $A[j] < A[m]$:#i\
+    $m <- j$#d#d\
+    swap $A[i]$ and $A[m]$#d
+  ],
+  step-trace(selection-sort((3, 1, 2), pointers: true).steps),
+))
+
+#v(0.7em)
+
+#panel([Merge operation], algorithm-card(
+  pseudocode("Merge")[
+    $i <- 0$; $j <- 0$; $M <- ()$\
+    while $i < |L|$ and $j < |R|$:#i\
+    if $L_i <= R_j$:#i\
+    append $L_i$ to $M$; $i <- i + 1$#d\
+    else:#i\
+    append $R_j$ to $M$; $j <- j + 1$#d#d\
+    append remaining $L$ and $R$ to $M$\
+    return $M$
+  ],
+  {
+    let trace = merge-operation((1,), (2,), pointers: true)
+    step-trace(trace.steps, columns: 1)
+  },
+))
+
+#v(0.7em)
+
+#panel([Quick sort: last-pivot partition], {
+  let trace = partition-step((5, 1, 4, 2, 3), pivot: "last", pointers: true)
+  std.stack(
+    dir: ttb,
+    spacing: 0.45em,
+    align(center)[
+      #pseudocode("Last-pivot partition")[
+        $p <- A_(n - 1)$\
+        $i <- 0$\
+        for $j <- 0$ to $n - 2$:#i\
+        if $A_j <= p$:#i\
+        swap $A_i$ and $A_j$\
+        $i <- i + 1$#d#d\
+        swap $A_i$ and $A_(n - 1)$
+      ]
+    ],
+    step-trace(trace.steps, columns: 3, column-gutter: 16pt, frame-scale: 80%),
+  )
+})
 
 #v(0.8em)
 

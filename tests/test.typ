@@ -1,6 +1,6 @@
 #import "../src/lib.typ": *
 
-#set page(width: auto, height: auto, margin: 1cm)
+#set page(paper: "a4", margin: 1.2cm)
 #set text(font: "New Computer Modern", size: 11pt)
 
 #let section(title, body) = {
@@ -795,3 +795,178 @@
     ),
   ).diagram,
 ))
+
+#section("Merge sort renders one breadth-by-depth divide and merge tree", merge-sort((38, 27, 43, 3, 9)).diagram)
+
+#section("Quick sort partitions every active subarray at the same level", quick-sort((8, 3, 1, 7, 0, 10, 2)).diagram)
+
+#section("Bubble sort shows compare and swap steps", bubble-sort((5, 1, 4, 2)).diagram)
+
+#section("Insertion sort shows comparisons and adjacent swaps", insertion-sort((5, 2, 4, 1)).diagram)
+
+#section("Selection sort shows inspected positions and swaps", selection-sort((64, 25, 12, 22, 11)).diagram)
+
+#section("Merge sort handles duplicates", merge-sort((4, 2, 4, 1, 2)).diagram)
+
+#section("Sorting result fields", {
+  let m = merge-sort((4, 2, 4, 1, 2))
+  let q = quick-sort((4, 2, 4, 1, 2), order: "desc")
+  assert.eq(m.result, (1, 2, 2, 4, 4))
+  assert(m.steps.len() > 3)
+  assert.eq(q.result, (4, 4, 2, 2, 1))
+  assert(q.steps.len() > 3)
+  assert.eq(bubble-sort((3, 2, 1)).result, (1, 2, 3))
+  assert.eq(insertion-sort((3, 2, 1)).result, (1, 2, 3))
+  assert.eq(selection-sort((3, 2, 1)).result, (1, 2, 3))
+  [OK]
+})
+
+#section("Sorting comparison and swap steps", {
+  let bubble = bubble-sort((2, 1))
+  let insertion = insertion-sort((5, 2))
+  let selection = selection-sort((2, 1))
+  assert.eq(bubble.result, (1, 2))
+  assert.eq(insertion.result, (2, 5))
+  assert.eq(selection.result, (1, 2))
+  std.stack(dir: ttb, spacing: 1em, bubble.diagram, insertion.diagram, selection.diagram)
+})
+
+#section("Merge operation compares two sorted arrays into a progressive result", {
+  let asc = merge-operation((1, 4, 7), (2, 3, 8))
+  let desc = merge-operation((9, 5, 1), (8, 4, 2), order: "desc")
+  assert.eq(asc.result, (1, 2, 3, 4, 7, 8))
+  assert.eq(desc.result, (9, 8, 5, 4, 2, 1))
+  std.stack(dir: ttb, spacing: 1em, asc.diagram, desc.diagram)
+})
+
+#section("Phase braces and striped i = m selection scans", std.stack(
+  dir: ttb,
+  spacing: 1em,
+  merge-operation((1, 4), (2, 3)).diagram,
+  selection-sort((3, 1, 2)).diagram,
+))
+
+#section("Partition step scans around a selected pivot", {
+  let partition = partition-step((7, 2, 9, 3, 6))
+  assert.eq(partition.result, (7, 2, 6, 3, 9))
+  partition.diagram
+})
+
+#section("Quick sort pivot: first, last, and index all sort correctly", {
+  let data = (8, 3, 1, 7, 0, 10, 2)
+  let sorted = (0, 1, 2, 3, 7, 8, 10)
+  assert.eq(quick-sort(data, pivot: "first").result, sorted)
+  assert.eq(quick-sort(data, pivot: "last").result, sorted)
+  assert.eq(quick-sort(data, pivot: 3).result, sorted)
+  std.stack(
+    dir: ttb,
+    spacing: 1.2em,
+    quick-sort((5, 1, 4, 2), pivot: "first").diagram,
+    quick-sort((5, 1, 4, 2), pivot: 0).diagram,
+  )
+})
+
+#section("Sorting carries the array's own style through every step", {
+  let styled = array-view(
+    5, 1, 4, 2,
+    style: array-style(
+      box-fill: rgb("#EEF6FF"),
+      node-text: text-style(fill: rgb("#1D4ED8")),
+      indices: indices-style(enabled: true, labels: auto, color: rgb("#1D4ED8")),
+    ),
+  )
+  assert.eq(bubble-sort(styled).result, (1, 2, 4, 5))
+  std.stack(
+    dir: ttb,
+    spacing: 1.2em,
+    bubble-sort(styled).diagram,
+    merge-sort(styled).diagram,
+  )
+})
+
+#section("Pointer markers: index arrows above cells instead of fills", {
+  // Pointers keep the cell fill clean and spread when they share a cell.
+  assert.eq(bubble-sort((5, 1, 4, 2)).result, (1, 2, 4, 5))
+  std.stack(
+    dir: ttb,
+    spacing: 1.2em,
+    bubble-sort((5, 1, 4, 2)).diagram,
+    insertion-sort((5, 2, 4, 1)).diagram,
+    selection-sort((64, 25, 12, 22, 11)).diagram,
+  )
+})
+
+#section("Per-role mark styling in both fill and pointer mode", std.stack(
+  dir: ttb,
+  spacing: 1.2em,
+  selection-sort(
+    (5, 1, 4, 2),
+    current: node-mark-style(fill: rgb("#FFC9C9")),
+    minimum: node-mark-style(fill: rgb("#B2F2BB")),
+    compare: node-mark-style(fill: rgb("#D0EBFF")),
+  ).steps.at(1).diagram,
+  bubble-sort(
+    (5, 1, 4, 2),
+    pointers: true,
+    compare: node-mark-style(stroke: 1pt + rgb("#E8590C")),
+    swap: node-mark-style(stroke: 1pt + rgb("#2F9E44")),
+  ).diagram,
+))
+
+#section("Sorting step panels keep labels with their arrays", {
+  let steps = bubble-sort((5, 1, 4, 2)).steps
+  std.stack(dir: ttb, spacing: 1em, steps.at(0).diagram, steps.at(1).diagram)
+})
+
+#section("Bubble sort keeps its settled suffix green after each pass", {
+  let steps = bubble-sort((5, 1, 4, 2)).steps
+  std.stack(dir: ttb, spacing: 1em, steps.at(10).diagram, steps.at(11).diagram)
+})
+
+#section("Selection sort keeps its sorted prefix green after each minimum swap", {
+  let steps = selection-sort((64, 25, 12, 22, 11)).steps
+  std.stack(dir: ttb, spacing: 1em, steps.at(5).diagram, steps.at(6).diagram)
+})
+
+#section("Merge operation labels left, right, and output cursors", {
+  let merge = merge-operation((1, 4), (2, 3))
+  assert.eq(merge.result, (1, 2, 3, 4))
+  assert.eq(merge-operation((1, 4), (2, 3), pointers: false).result, (1, 2, 3, 4))
+  std.stack(dir: ttb, spacing: 1em, merge.steps.at(0).diagram, merge.steps.at(1).diagram)
+})
+
+#section("Last-pivot partition shows every quicksort cursor step", {
+  let partition = partition-step((7, 1, 6, 2, 5, 3, 4), pivot: "last", pointers: true)
+  assert.eq(partition.result, (1, 2, 3, 4, 5, 6, 7))
+  partition.diagram
+})
+
+#section("Sorting labels can be hidden without removing pointers or marks", {
+  let merge = merge-operation((1, 4), (2, 3), labels: false)
+  let partition = partition-step((3, 1, 2), pivot: "last", pointers: true, labels: false)
+  let bubble = bubble-sort((3, 1, 2), labels: false)
+  let insertion = insertion-sort((3, 1, 2), labels: false)
+  let selection = selection-sort((3, 1, 2), labels: false)
+  assert.eq(merge.result, (1, 2, 3, 4))
+  assert.eq(partition.result, (1, 2, 3))
+  assert.eq(bubble.result, (1, 2, 3))
+  assert.eq(insertion.result, (1, 2, 3))
+  assert.eq(selection.result, (1, 2, 3))
+  std.stack(
+    dir: ttb,
+    spacing: 1em,
+    merge.steps.at(1).diagram,
+    partition.steps.at(1).diagram,
+    bubble.steps.at(1).diagram,
+    insertion.steps.at(1).diagram,
+    selection.steps.at(1).diagram,
+  )
+})
+
+#section("Composite sorting diagrams can hide structural labels", {
+  let merge = merge-sort((3, 1, 2), labels: false)
+  let quick = quick-sort((3, 1, 2), labels: false)
+  assert.eq(merge.result, (1, 2, 3))
+  assert.eq(quick.result, (1, 2, 3))
+  std.stack(dir: ttb, spacing: 1em, merge.diagram, quick.diagram)
+})

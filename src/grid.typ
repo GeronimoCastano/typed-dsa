@@ -5,7 +5,7 @@
 
 #import "@preview/cetz:0.5.2"
 #import "style.typ": resolve, scaled
-#import cetz.draw: rect, content
+#import cetz.draw: rect, content, line
 
 #let _key-str(key) = if type(key) == array {
   key.map(k => str(k)).join(",")
@@ -44,12 +44,19 @@
   let base-fill = if fill == auto { th.box-fill } else { fill }
   let f = if custom != none and "fill" in custom { custom.fill } else { base-fill }
   let s = if custom != none and "stroke" in custom { custom.stroke } else { th.box-stroke }
+  let stripe-fill = if custom != none { custom.at("stripe-fill", default: none) } else { none }
   let text-style = th.node-text
   if custom != none and "text" in custom { text-style = text-style + custom.text }
   text-style = _text-style(text-style)
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  rect((x, y), (x + ww, y + hh), fill: f, stroke: s)
+  rect((x, y), (x + ww, y + hh), fill: f, stroke: if stripe-fill == none { s } else { none })
+  if stripe-fill != none {
+    for offset in (0, 0.2, 0.4, 0.6, 0.8) {
+      rect((x + ww * offset, y), (x + ww * (offset + 0.1), y + hh), fill: stripe-fill, stroke: none)
+    }
+    rect((x, y), (x + ww, y + hh), fill: none, stroke: s)
+  }
   content((x + ww / 2, y + hh / 2), text(..text-style)[#body], angle: rotation)
 }
 
@@ -76,7 +83,33 @@
   none
 }
 
-#let _array-render(vals, th, cell-customizations) = scaled(th, cetz.canvas({
+// Draw labeled arrows above the cells they mark. Each entry is a dictionary
+// with `index`, `label`, `color`, and an optional `text` style. Several
+// pointers on the same cell spread evenly across its width instead of
+// overlapping.
+#let _pointer-render(pointers, th) = {
+  let by-cell = (:)
+  for p in pointers {
+    let key = str(p.index)
+    by-cell.insert(key, by-cell.at(key, default: ()) + (p,))
+  }
+  for (key, group) in by-cell {
+    let i = int(key)
+    let n = group.len()
+    for (m, p) in group.enumerate() {
+      let cx = i * th.box-w + th.box-w * (m + 1) / (n + 1)
+      line(
+        (cx, th.box-h + 0.5), (cx, th.box-h + 0.08),
+        stroke: (paint: p.color, thickness: 1pt),
+        mark: (end: ">", fill: p.color),
+      )
+      let text-style = th.label-text + (fill: p.color) + p.at("text", default: (:))
+      _text-content((cx, th.box-h + 0.72), p.label, text-style)
+    }
+  }
+}
+
+#let _array-render(vals, th, cell-customizations, pointers: (), reserve-pointers: false) = scaled(th, cetz.canvas({
   let index-config = _index-config(th)
   for (i, v) in vals.enumerate() {
     _cell(i * th.box-w, 0, v, th, custom: _custom-at(cell-customizations, i))
@@ -92,10 +125,18 @@
       }
     }
   }
+  _pointer-render(pointers, th)
+  // Keep the pointer row's height even when this array has no pointers, so a
+  // row of panels stays vertically aligned.
+  if reserve-pointers and pointers.len() == 0 {
+    content((th.box-w / 2, th.box-h + 0.72), hide[0])
+  }
 }))
 
-#let array-view(style: (:), cell-customizations: (), ..vals) = (
-  diagram: _array-render(vals.pos(), resolve(style), cell-customizations),
+#let array-view(style: (:), cell-customizations: (), pointers: (), reserve-pointers: false, ..vals) = (
+  diagram: _array-render(vals.pos(), resolve(style), cell-customizations, pointers: pointers, reserve-pointers: reserve-pointers),
+  values: vals.pos(),
+  style: style,
 )
 
 #let _matrix-render(rows, th, cell-customizations, row-labels, column-labels) = {

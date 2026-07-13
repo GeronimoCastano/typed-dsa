@@ -134,6 +134,8 @@ the arrays, highlights, indices, and pointers.
 #bubble-sort((5, 1, 4, 2)).diagram
 ```
 
+![Bubble sort step-by-step trace](assets/readme/bubble-sort.png)
+
 ## Operation Transitions
 
 For operation diagrams, use the object notation. Call an operation field with

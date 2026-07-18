@@ -237,6 +237,11 @@
   std.stack(spacing: 1em, (l.insert)(5).diagram, (l.delete)(1).diagram)
 })
 
+#section("Skip list (simple)", {
+  let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
+  (l.search)(4).diagram
+})
+
 #section("Stack", stack(9, 7, 2).diagram)
 
 #section("Stack object: push (green top) and pop (red top)", {

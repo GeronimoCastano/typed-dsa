@@ -5,7 +5,7 @@
 // an arrow, and the derived after state with the diff highlighted.
 
 #import "tree.typ": bst, avl, tree, node, subtree, transition as _tree-transition, op-arrow, tree-insert, tree-delete, tree-search
-#import "linear.typ": linked-list, doubly-linked-list, stack, queue
+#import "linear.typ": linked-list, doubly-linked-list, skip-list, stack, queue
 #import "heap.typ": min-heap, max-heap, _transition as _heap-trans, heap-insert, heap-extract
 #import "graph.typ": graph
 #import "grid.typ": array-view, matrix, sequence

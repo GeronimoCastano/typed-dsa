@@ -311,3 +311,125 @@
   rear-label: [Rear],
   ..vals,
 ) = _queue-obj(vals.pos(), style, enqueue, dequeue, front-label, rear-label)
+
+#let _skip-list-row(vs, marks, th, level-filter, level, level-spacing) = {
+  let step = th.box-w + th.box-gap
+  let level-offset = level-spacing * level
+
+  for (i, v) in vs.enumerate() {
+    if not level-filter.at(i) {
+      continue
+    }
+    _cell(i * step, level-offset, v, th, mark: if (level, i) in marks { "path" } else { none })
+
+    // line to item directly below
+    if level != 0 {
+      line(
+        (i * step + th.box-w / 2, level-offset),
+        (i * step + th.box-w / 2, th.box-h + (level-offset - level-spacing)),
+        mark: (end: ">"),
+        stroke: th.box-stroke,
+      )
+    }
+
+    // line to next node (left to right)
+    let next-visible-i = level-filter.enumerate().position(n => n.at(0) > i and n.at(1))
+    if next-visible-i == none {
+      next-visible-i = vs.len() // nothing element
+    }
+    line(
+      (i * step + th.box-w, th.box-h / 2 + level-offset),
+      (next-visible-i * step, th.box-h / 2 + level-offset),
+      mark: (end: ">"),
+      stroke: th.box-stroke,
+    )
+  }
+  _node-content((vs.len() * step + th.box-w / 2, th.box-h / 2 + level-offset), $nothing$, th)
+}
+
+#let _simple-skip-list(vs, marks, th, skip-list-levels, level-spacing) = {
+  scaled(th, cetz.canvas({
+    for (level, level-filter) in skip-list-levels.enumerate() {
+      _skip-list-row(vs, marks, th, level-filter, int(level), level-spacing)
+    }
+  }))
+}
+
+#let _skip-list-levels(vs, decision-fn) = {
+  // build dictionary of height to whether to include v = vs.at(index) in the level
+  let levels = ()
+  // 0th layer always includes all items
+  levels.push(vs.map(_ => true))
+
+  let cur-level = 1
+  while levels.last().filter(keep => keep).len() > 1 {    
+    let prev-level-filter = levels.last()
+
+    // first item must always be in skip list
+    let cur-level-filter = (true,)
+    for (i, v) in vs.enumerate().slice(1) {
+      if prev-level-filter.at(i) and decision-fn(cur-level, i, vs.len()) {
+        cur-level-filter.push(true)
+      } else {
+        cur-level-filter.push(false)
+      }
+    }
+
+    levels.push(cur-level-filter)
+    cur-level += 1
+  }
+
+  levels
+}
+
+// returns the list of list entries to mark as tuple (level, column-index)
+#let _skip-list-search-marks(vs, skip-list-levels, key) = {
+  assert(key in vs, message: "search key is not part of linked list")
+  let key-index = vs.position(k => k == key)
+
+  let marks = ()
+
+  let current-column = 0
+  for (current-level, level-filter) in skip-list-levels.enumerate().rev() {
+    let next-entry-indices = level-filter.enumerate().filter(l => l.at(0) >= current-column and l.at(1)).map(l => l.at(0))
+    let next-entry-index = next-entry-indices.remove(0)
+
+    while next-entry-index != none and next-entry-index <= key-index {
+      marks.push((current-level, next-entry-index))
+      current-column = next-entry-index
+
+      if key-index == next-entry-index or next-entry-indices.len() == 0 {
+          break
+      }
+      next-entry-index = next-entry-indices.remove(0)
+    }
+  }
+
+  marks
+}
+
+#let _skip-list-obj(vs, style, decision-fn, level-spacing) = {
+  let th = resolve(style)
+  let skip-list-levels = _skip-list-levels(vs, decision-fn)
+  let draw(marks) = _simple-skip-list(vs, marks, th, skip-list-levels, level-spacing)
+  (
+    diagram: draw(()),
+    search: (key, step-label: none) => _step(
+      if step-label == none { [search #key] } else { step-label },
+      draw(()),
+      draw(_skip-list-search-marks(vs, skip-list-levels, key)),
+      _skip-list-obj(vs, style, decision-fn, level-spacing),
+    ),
+  )
+}
+
+// Naive deterministic `decision-fn` implementation to determine whether
+// the item at index should be included at level. In reality, this should
+// be replaced with a real implementation using a random number generator.
+#let default-decision-fn(level, index, length) = {
+  return level * 1.5 + index < length and calc.even(index)
+}
+
+#let skip-list(style: (:), decision-fn: default-decision-fn, level-spacing: 1.4, ..vals) = {
+  _skip-list-obj(vals.pos(), style, decision-fn, level-spacing)
+}

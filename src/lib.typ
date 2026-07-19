@@ -7,10 +7,11 @@
 #import "tree.typ": bst, avl, tree, node, subtree, transition as _tree-transition, op-arrow, tree-insert, tree-delete, tree-search
 #import "linear.typ": linked-list, doubly-linked-list, stack, queue
 #import "heap.typ": min-heap, max-heap, _transition as _heap-trans, heap-insert, heap-extract
-#import "graph.typ": graph
-#import "grid.typ": array-view, matrix, sequence
+#import "graph.typ": graph, bfs, dfs, dijkstra
+#import "grid.typ": array-view, matrix, sequence, operation-sequence
 #import "sorting.typ": merge-sort, merge-operation, partition-step, quick-sort, bubble-sort, insertion-sort, selection-sort, sort-sequence
-#import "style.typ": theme, resolve, tree-style, heap-style, graph-style, list-style, stack-style, queue-style, array-style, matrix-style, text-style, label-style, node-mark-style, cell-mark-style, node-label-style, indices-style
+#import "hash.typ": hash-table
+#import "style.typ": theme, themes, theme-preset, resolve, tree-style, heap-style, graph-style, list-style, stack-style, queue-style, array-style, matrix-style, text-style, label-style, node-mark-style, cell-mark-style, node-label-style, indices-style
 
 #let transition(variant, keys, op, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
   if variant == "min-heap" { return _heap-trans("min", keys, op, style: style) }

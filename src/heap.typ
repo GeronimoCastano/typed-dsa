@@ -117,7 +117,7 @@
       label: label,
       before: draw(arr, mb),
       after: draw(after, ma),
-      diagram: trans-view(draw(arr, mb), label, draw(after, ma)),
+      diagram: trans-view(draw(arr, mb), label, draw(after, ma), style: style),
       result: _heap-obj(variant, after, style: style),
     )
   }
@@ -141,5 +141,6 @@
     _render(_array-to-tree(before, 0), marks: mb, th: th),
     label,
     _render(_array-to-tree(after, 0), marks: ma, th: th),
+    style: style,
   )
 }

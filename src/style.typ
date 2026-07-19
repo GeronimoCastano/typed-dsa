@@ -8,7 +8,7 @@
 #let theme = (
   // Trees
   node-radius: 0.34,
-  node-shape: "circle", // "circle" or "square"
+  node-shape: "circle", // circle, square, rounded, capsule, diamond, or hexagon
   x-gap: 1.05,
   y-gap: 1.2,
   node-stroke: 0.6pt + rgb("#333333"),
@@ -27,6 +27,7 @@
   // Linear structures
   box-w: 0.95,
   box-h: 0.7,
+  box-shape: "square", // square, rounded, or capsule
   box-gap: 0.55,
   box-stroke: 0.6pt + rgb("#333333"),
   box-fill: white,
@@ -36,7 +37,13 @@
 
   // Shared
   node-text: (size: 9pt),
+  value-text: (:), // inherits node-text
   label-text: (color: rgb("#555555")), // annotations: head, front/rear, addresses; inherits size from node-text
+  index-text: (size: 7.5pt), // inherits label-text
+  pointer-text: (:), // inherits label-text
+  operation-text: (size: 8pt), // transition arrow captions
+  edge-label-text: (:), // inherits label-text
+  algorithm-label-text: (size: 8pt), // sorting and graph trace captions
   scale: 1.0, // uniform scale applied to the whole rendered diagram
   diff-colors: true, // false keeps operation marks but uses the normal fill
 
@@ -47,7 +54,52 @@
   path-style: rgb("#FFE9A8"),    // nodes on the traversal path
   remove-style: rgb("#FFCDD2"),  // node removed by the operation
   rotate-style: rgb("#BBDEFB"),  // pivot of an AVL rotation
+
+  // Graph-algorithm state roles.
+  visited-style: (fill: rgb("#C8E6C9"), stroke: 1pt + rgb("#2E7D32")),
+  current-style: (fill: rgb("#BBDEFB"), stroke: 1pt + rgb("#1565C0")),
+  queued-style: (fill: rgb("#FFE9A8"), stroke: 1pt + rgb("#F08C00")),
+  active-edge-style: (stroke: 2pt + rgb("#1971C2")),
 )
+
+// Sparse presets are passed through `style:` and keep the default sizing and
+// layout. `theme` remains the default dictionary for backwards compatibility.
+#let themes = (
+  "default": (:),
+  "dark": (
+    node-fill: rgb("#20242B"), node-stroke: 0.8pt + rgb("#E9ECEF"),
+    edge-stroke: 0.8pt + rgb("#CED4DA"), box-fill: rgb("#20242B"),
+    box-stroke: 0.8pt + rgb("#E9ECEF"), ptr-fill: rgb("#364152"),
+    prev-ptr-fill: rgb("#364152"), next-ptr-fill: rgb("#364152"),
+    node-text: (fill: rgb("#F8F9FA")), label-text: (fill: rgb("#CED4DA")),
+  ),
+  "print": (
+    node-fill: white, node-stroke: 0.9pt + black, edge-stroke: 0.9pt + black,
+    box-fill: white, box-stroke: 0.9pt + black, ptr-fill: luma(225),
+    prev-ptr-fill: luma(225), next-ptr-fill: luma(225),
+    label-text: (fill: black), diff-colors: false,
+  ),
+  "colorblind": (
+    new-style: rgb("#009E73"), path-style: rgb("#F0E442"),
+    remove-style: rgb("#D55E00"), rotate-style: rgb("#56B4E9"),
+    visited-style: (fill: rgb("#009E73").lighten(65%), stroke: 1pt + rgb("#007A5A")),
+    current-style: (fill: rgb("#56B4E9").lighten(55%), stroke: 1pt + rgb("#0072B2")),
+    queued-style: (fill: rgb("#F0E442").lighten(45%), stroke: 1pt + rgb("#B28B00")),
+    active-edge-style: (stroke: 2pt + rgb("#CC79A7")),
+  ),
+  "chalkboard": (
+    node-fill: rgb("#254B3C"), node-stroke: 1pt + rgb("#173C30"),
+    edge-stroke: 1pt + rgb("#254B3C"), box-fill: rgb("#254B3C"),
+    box-stroke: 1pt + rgb("#173C30"), ptr-fill: rgb("#315F4D"),
+    prev-ptr-fill: rgb("#315F4D"), next-ptr-fill: rgb("#315F4D"),
+    node-text: (fill: white), label-text: (fill: rgb("#254B3C")),
+  ),
+)
+
+#let theme-preset(name) = {
+  assert(name in themes, message: "unknown typed-dsa theme: " + name)
+  themes.at(name)
+}
 
 // Named-argument style builders provide editor completion while returning the
 // same sparse dictionaries accepted by every public `style:` argument.
@@ -163,6 +215,7 @@
   tri-h: auto,
   box-w: auto,
   box-h: auto,
+  box-shape: auto,
   box-gap: auto,
   box-stroke: auto,
   box-fill: auto,
@@ -170,7 +223,13 @@
   prev-ptr-fill: auto,
   next-ptr-fill: auto,
   node-text: auto,
+  value-text: auto,
   label-text: auto,
+  index-text: auto,
+  pointer-text: auto,
+  operation-text: auto,
+  edge-label-text: auto,
+  algorithm-label-text: auto,
   node-labels: auto,
   indices: auto,
   scale: auto,
@@ -179,6 +238,10 @@
   path-style: auto,
   remove-style: auto,
   rotate-style: auto,
+  visited-style: auto,
+  current-style: auto,
+  queued-style: auto,
+  active-edge-style: auto,
 ) = {
   let result = (:)
   if node-radius != auto { result.node-radius = node-radius }
@@ -197,6 +260,7 @@
   if tri-h != auto { result.tri-h = tri-h }
   if box-w != auto { result.box-w = box-w }
   if box-h != auto { result.box-h = box-h }
+  if box-shape != auto { result.box-shape = box-shape }
   if box-gap != auto { result.box-gap = box-gap }
   if box-stroke != auto { result.box-stroke = box-stroke }
   if box-fill != auto { result.box-fill = box-fill }
@@ -204,7 +268,13 @@
   if prev-ptr-fill != auto { result.prev-ptr-fill = prev-ptr-fill }
   if next-ptr-fill != auto { result.next-ptr-fill = next-ptr-fill }
   if node-text != auto { result.node-text = node-text }
+  if value-text != auto { result.value-text = value-text }
   if label-text != auto { result.label-text = label-text }
+  if index-text != auto { result.index-text = index-text }
+  if pointer-text != auto { result.pointer-text = pointer-text }
+  if operation-text != auto { result.operation-text = operation-text }
+  if edge-label-text != auto { result.edge-label-text = edge-label-text }
+  if algorithm-label-text != auto { result.algorithm-label-text = algorithm-label-text }
   if node-labels != auto { result.node-labels = node-labels }
   if indices != auto { result.indices = indices }
   if scale != auto { result.scale = scale }
@@ -213,6 +283,10 @@
   if path-style != auto { result.path-style = path-style }
   if remove-style != auto { result.remove-style = remove-style }
   if rotate-style != auto { result.rotate-style = rotate-style }
+  if visited-style != auto { result.visited-style = visited-style }
+  if current-style != auto { result.current-style = current-style }
+  if queued-style != auto { result.queued-style = queued-style }
+  if active-edge-style != auto { result.active-edge-style = active-edge-style }
   result
 }
 
@@ -221,18 +295,25 @@
   node-stroke: auto, node-fill: auto, edge-stroke: auto,
   edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
   edge-wave-amplitude: auto, edge-wave-step: auto,
-  tri-w: auto, tri-h: auto, node-text: auto, label-text: auto,
+  tri-w: auto, tri-h: auto, node-text: auto, value-text: auto, label-text: auto,
+  index-text: auto, pointer-text: auto, operation-text: auto,
+  edge-label-text: auto, algorithm-label-text: auto,
   node-labels: auto, scale: auto, diff-colors: auto,
   new-style: auto, path-style: auto, remove-style: auto, rotate-style: auto,
+  visited-style: auto, current-style: auto, queued-style: auto, active-edge-style: auto,
 ) = _style(
   node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
   edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
   edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
-  tri-w: tri-w, tri-h: tri-h, node-text: node-text, label-text: label-text,
+  tri-w: tri-w, tri-h: tri-h, node-text: node-text, value-text: value-text, label-text: label-text,
+  index-text: index-text, pointer-text: pointer-text, operation-text: operation-text,
+  edge-label-text: edge-label-text, algorithm-label-text: algorithm-label-text,
   node-labels: node-labels, scale: scale, diff-colors: diff-colors,
   new-style: new-style, path-style: path-style,
   remove-style: remove-style, rotate-style: rotate-style,
+  visited-style: visited-style, current-style: current-style,
+  queued-style: queued-style, active-edge-style: active-edge-style,
 )
 
 #let heap-style(
@@ -240,14 +321,17 @@
   node-stroke: auto, node-fill: auto, edge-stroke: auto,
   edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
   edge-wave-amplitude: auto, edge-wave-step: auto,
-  node-text: auto, label-text: auto, scale: auto, diff-colors: auto,
+  node-text: auto, value-text: auto, label-text: auto, operation-text: auto,
+  edge-label-text: auto, scale: auto, diff-colors: auto,
   new-style: auto, path-style: auto, remove-style: auto,
 ) = _style(
   node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
   edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
   edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
-  node-text: node-text, label-text: label-text, scale: scale, diff-colors: diff-colors,
+  node-text: node-text, value-text: value-text, label-text: label-text,
+  operation-text: operation-text, edge-label-text: edge-label-text,
+  scale: scale, diff-colors: diff-colors,
   new-style: new-style, path-style: path-style, remove-style: remove-style,
 )
 
@@ -255,64 +339,83 @@
   node-radius: auto, node-shape: auto, node-stroke: auto, node-fill: auto,
   edge-stroke: auto, edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
   edge-wave-amplitude: auto, edge-wave-step: auto,
-  node-text: auto, label-text: auto, node-labels: auto, scale: auto,
+  node-text: auto, value-text: auto, label-text: auto, edge-label-text: auto,
+  algorithm-label-text: auto, node-labels: auto, scale: auto,
+  visited-style: auto, current-style: auto, queued-style: auto, active-edge-style: auto,
 ) = _style(
   node-radius: node-radius, node-shape: node-shape,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
   edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
   edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
-  node-text: node-text, label-text: label-text, node-labels: node-labels, scale: scale,
+  node-text: node-text, value-text: value-text, label-text: label-text,
+  edge-label-text: edge-label-text, algorithm-label-text: algorithm-label-text,
+  node-labels: node-labels, scale: scale,
+  visited-style: visited-style, current-style: current-style,
+  queued-style: queued-style, active-edge-style: active-edge-style,
 )
 
 #let list-style(
-  box-w: auto, box-h: auto, box-gap: auto, box-stroke: auto, box-fill: auto,
+  box-w: auto, box-h: auto, box-shape: auto, box-gap: auto, box-stroke: auto, box-fill: auto,
   ptr-fill: auto, prev-ptr-fill: auto, next-ptr-fill: auto,
-  node-text: auto, label-text: auto, scale: auto, diff-colors: auto,
-  new-style: auto, remove-style: auto,
+  node-text: auto, value-text: auto, label-text: auto, pointer-text: auto,
+  operation-text: auto, scale: auto, diff-colors: auto,
+  new-style: auto, path-style: auto, remove-style: auto,
 ) = _style(
-  box-w: box-w, box-h: box-h, box-gap: box-gap,
+  box-w: box-w, box-h: box-h, box-shape: box-shape, box-gap: box-gap,
   box-stroke: box-stroke, box-fill: box-fill,
   ptr-fill: ptr-fill, prev-ptr-fill: prev-ptr-fill, next-ptr-fill: next-ptr-fill,
-  node-text: node-text, label-text: label-text, scale: scale, diff-colors: diff-colors,
-  new-style: new-style, remove-style: remove-style,
+  node-text: node-text, value-text: value-text, label-text: label-text,
+  pointer-text: pointer-text, operation-text: operation-text,
+  scale: scale, diff-colors: diff-colors,
+  new-style: new-style, path-style: path-style, remove-style: remove-style,
 )
 
 #let stack-style(
-  box-w: auto, box-h: auto, box-gap: auto, box-stroke: auto, box-fill: auto,
-  node-text: auto, label-text: auto, scale: auto, diff-colors: auto,
+  box-w: auto, box-h: auto, box-shape: auto, box-gap: auto, box-stroke: auto, box-fill: auto,
+  node-text: auto, value-text: auto, label-text: auto, pointer-text: auto,
+  operation-text: auto, scale: auto, diff-colors: auto,
   new-style: auto, remove-style: auto,
 ) = _style(
-  box-w: box-w, box-h: box-h, box-gap: box-gap,
+  box-w: box-w, box-h: box-h, box-shape: box-shape, box-gap: box-gap,
   box-stroke: box-stroke, box-fill: box-fill,
-  node-text: node-text, label-text: label-text, scale: scale, diff-colors: diff-colors,
+  node-text: node-text, value-text: value-text, label-text: label-text,
+  pointer-text: pointer-text, operation-text: operation-text,
+  scale: scale, diff-colors: diff-colors,
   new-style: new-style, remove-style: remove-style,
 )
 
 #let queue-style(
-  box-w: auto, box-h: auto, box-gap: auto, box-stroke: auto, box-fill: auto,
-  node-text: auto, label-text: auto, scale: auto, diff-colors: auto,
+  box-w: auto, box-h: auto, box-shape: auto, box-gap: auto, box-stroke: auto, box-fill: auto,
+  node-text: auto, value-text: auto, label-text: auto, pointer-text: auto,
+  operation-text: auto, scale: auto, diff-colors: auto,
   new-style: auto, remove-style: auto,
 ) = stack-style(
-  box-w: box-w, box-h: box-h, box-gap: box-gap,
+  box-w: box-w, box-h: box-h, box-shape: box-shape, box-gap: box-gap,
   box-stroke: box-stroke, box-fill: box-fill,
-  node-text: node-text, label-text: label-text, scale: scale, diff-colors: diff-colors,
+  node-text: node-text, value-text: value-text, label-text: label-text,
+  pointer-text: pointer-text, operation-text: operation-text,
+  scale: scale, diff-colors: diff-colors,
   new-style: new-style, remove-style: remove-style,
 )
 
 #let array-style(
-  box-w: auto, box-h: auto, box-stroke: auto, box-fill: auto,
-  node-text: auto, label-text: auto, indices: auto, scale: auto,
+  box-w: auto, box-h: auto, box-shape: auto, box-stroke: auto, box-fill: auto,
+  node-text: auto, value-text: auto, label-text: auto, index-text: auto,
+  pointer-text: auto, algorithm-label-text: auto, indices: auto, scale: auto,
 ) = _style(
-  box-w: box-w, box-h: box-h, box-stroke: box-stroke, box-fill: box-fill,
-  node-text: node-text, label-text: label-text, indices: indices, scale: scale,
+  box-w: box-w, box-h: box-h, box-shape: box-shape, box-stroke: box-stroke, box-fill: box-fill,
+  node-text: node-text, value-text: value-text, label-text: label-text,
+  index-text: index-text, pointer-text: pointer-text,
+  algorithm-label-text: algorithm-label-text, indices: indices, scale: scale,
 )
 
 #let matrix-style(
-  box-w: auto, box-h: auto, box-stroke: auto, box-fill: auto,
-  node-text: auto, label-text: auto, scale: auto,
+  box-w: auto, box-h: auto, box-shape: auto, box-stroke: auto, box-fill: auto,
+  node-text: auto, value-text: auto, label-text: auto, index-text: auto, scale: auto,
 ) = _style(
-  box-w: box-w, box-h: box-h, box-stroke: box-stroke, box-fill: box-fill,
-  node-text: node-text, label-text: label-text, scale: scale,
+  box-w: box-w, box-h: box-h, box-shape: box-shape, box-stroke: box-stroke, box-fill: box-fill,
+  node-text: node-text, value-text: value-text, label-text: label-text,
+  index-text: index-text, scale: scale,
 )
 
 // Merge a per-call override dict over the defaults.
@@ -333,6 +436,11 @@
   } else {
     res.label-text = label-defaults
   }
+
+  res.value-text = res.node-text + theme.value-text + style.at("value-text", default: (:))
+  for key in ("index-text", "pointer-text", "operation-text", "edge-label-text", "algorithm-label-text") {
+    res.insert(key, res.label-text + theme.at(key) + style.at(key, default: (:)))
+  }
   
   if "color" in res.node-text {
     res.node-text.fill = res.node-text.color
@@ -342,6 +450,14 @@
   if "color" in res.label-text {
     res.label-text.fill = res.label-text.color
     let _ = res.label-text.remove("color")
+  }
+  for key in ("value-text", "index-text", "pointer-text", "operation-text", "edge-label-text", "algorithm-label-text") {
+    let item = res.at(key)
+    if "color" in item {
+      item.fill = item.color
+      let _ = item.remove("color")
+      res.insert(key, item)
+    }
   }
   
   res
@@ -448,6 +564,9 @@
   path: rgb("#FFE9A8"),
   remove: rgb("#FFCDD2"),
   rotate: rgb("#BBDEFB"),
+  visited: rgb("#C8E6C9"),
+  current: rgb("#BBDEFB"),
+  queued: rgb("#FFE9A8"),
 )
 
 // Resolves `th`'s `<kind>-style` value (a color, or a dict of `fill:`,
@@ -458,7 +577,7 @@
   let value = th.at(kind + "-style")
   let d = if type(value) == color { (fill: value) } else { value }
   let normal-fill = if base-fill == auto { th.node-fill } else { base-fill }
-  let text-style = th.node-text + d.at("text", default: (:))
+  let text-style = th.value-text + d.at("text", default: (:))
   if "color" in text-style {
     text-style.fill = text-style.color
     let _ = text-style.remove("color")

@@ -59,7 +59,8 @@
 #let pkg-scope = (
   bst: bst, avl: avl, min-heap: min-heap, max-heap: max-heap,
   linked-list: linked-list, doubly-linked-list: doubly-linked-list, stack: stack, queue: queue,
-  array-view: array-view, matrix: matrix, graph: graph,
+  array-view: array-view, matrix: matrix, graph: graph, hash-table: hash-table,
+  bfs: bfs, dfs: dfs, dijkstra: dijkstra,
   merge-sort: merge-sort, merge-operation: merge-operation, partition-step: partition-step, quick-sort: quick-sort, bubble-sort: bubble-sort,
   insertion-sort: insertion-sort, selection-sort: selection-sort, sort-sequence: sort-sequence,
   tree: tree, node: node, subtree: subtree,
@@ -72,7 +73,8 @@
   text-style: text-style, label-style: label-style,
   node-mark-style: node-mark-style, cell-mark-style: cell-mark-style,
   node-label-style: node-label-style, indices-style: indices-style,
-  sequence: sequence, op-arrow: op-arrow, std: std,
+  sequence: sequence, operation-sequence: operation-sequence, op-arrow: op-arrow,
+  theme-preset: theme-preset, themes: themes, std: std,
 )
 
 #let example(body, side: true) = block(
@@ -189,7 +191,7 @@
   [#c("style.remove-style")], [`color` / `dictionary`], [#c("rgb(\"#FFCDD2\")")], [Node/cell removed by an operation.],
   [#c("style.rotate-style")], [`color` / `dictionary`], [#c("rgb(\"#BBDEFB\")")], [AVL rotation nodes and visible subtree roots.],
   [#c("style.*-style.fill")], [`color`], [mark default], [Fill for the marked node/cell.],
-  [#c("style.*-style.shape")], [`str`], [#c("style.node-shape")], [Marked tree/heap node shape: #c("\"circle\""), #c("\"square\""), #c("\"diamond\""), or #c("\"hexagon\"").],
+  [#c("style.*-style.shape")], [`str`], [#c("style.node-shape")], [Marked tree/heap node shape: #c("\"circle\""), #c("\"square\""), #c("\"rounded\""), #c("\"capsule\""), #c("\"diamond\""), or #c("\"hexagon\"").],
   [#c("style.*-style.stroke")], [`stroke`], [normal stroke], [Marked node/cell outline.],
   [#c("style.*-style.node-radius")], [`float`], [#c("style.node-radius")], [Marked tree/heap node radius.],
   [#c("style.*-style.text")], [`dictionary`], [#c("style.node-text")], [Marked node/cell text overrides. Accepts #c("size"), #c("color"), #c("font"), and #c("weight").],
@@ -197,8 +199,8 @@
 
 #let tree-style-reference(extra-subtree: false) = {
   subargtable([Nested keys for #c("style")],
-    [#c("style.node-radius")], [`float`], [`0.34`], [Circle radius, or half the square/diamond/hexagon size, in canvas units.],
-    [#c("style.node-shape")], [`str`], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"diamond\""), or #c("\"hexagon\"").],
+    [#c("style.node-radius")], [`float`], [`0.34`], [Circle radius, or base size for other node shapes, in canvas units.],
+    [#c("style.node-shape")], [`str`], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"rounded\""), #c("\"capsule\""), #c("\"diamond\""), or #c("\"hexagon\"").],
     [#c("style.x-gap")], [`float`], [`1.05`], [Horizontal spacing between in-order columns.],
     [#c("style.y-gap")], [`float`], [`1.2`], [Vertical spacing between depths.],
     [#c("style.node-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Node outline.],
@@ -209,7 +211,10 @@
     [#c("style.edge-wave-amplitude")], [`float`], [`0.07`], [Wave height in canvas units.],
     [#c("style.edge-wave-step")], [`float`], [`0.14`], [Approximate wavelength in canvas units.],
     [#c("style.node-text")], [`dictionary`], [#c("(size: 9pt)")], [Node text dictionary. See nested keys below.],
+    [#c("style.value-text")], [`dictionary`], [inherits #c("node-text")], [Value text overrides.],
     [#c("style.label-text")], [`dictionary`], [#c("(fill: rgb(\"#555555\"))")], [Annotation text dictionary. See nested keys below.],
+    [#c("style.edge-label-text")], [`dictionary`], [inherits #c("label-text")], [Edge-label typography.],
+    [#c("style.operation-text")], [`dictionary`], [#c("(size: 8pt)")], [Operation-arrow caption typography.],
     [#c("style.scale")], [`float`], [`1.0`], [Uniform scale on #c(".diagram"), #c(".before"), and #c(".after").],
     [#c("style.diff-colors")], [`bool`], [`true`], [#c("false") keeps operation marks but uses normal fills.],
   )
@@ -230,6 +235,7 @@
   subargtable([Nested keys for #c("style")],
     [#c("style.box-w")], [`float`], [`0.95`], [Cell width.],
     [#c("style.box-h")], [`float`], [`0.7`], [Cell height.],
+    [#c("style.box-shape")], [`str`], [`"square"`], [#c("\"square\""), #c("\"rounded\""), or #c("\"capsule\"").],
     [#c("style.box-gap")], [`float`], [#if kind == "stack" { c("0") } else { c("0.55") }], [Gap between cells or list nodes.],
     [#c("style.box-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Cell outline.],
     [#c("style.box-fill")], [`color`], [`white`], [Default cell fill.],
@@ -237,7 +243,10 @@
     [#c("style.prev-ptr-fill")], [`color`], [#c("rgb(\"#D7ECC9\")")], [Previous-pointer cell fill for #c("doubly-linked-list(pointer: true)").],
     [#c("style.next-ptr-fill")], [`color`], [#c("rgb(\"#D7ECC9\")")], [Next-pointer cell fill for #c("doubly-linked-list(pointer: true)").],
     [#c("style.node-text")], [`dictionary`], [#c("(size: 9pt)")], [Cell text dictionary. See nested keys below.],
+    [#c("style.value-text")], [`dictionary`], [inherits #c("node-text")], [Value text overrides.],
     [#c("style.label-text")], [`dictionary`], [#c("(fill: rgb(\"#555555\"))")], [Head, address, front, and rear label text dictionary. See nested keys below.],
+    [#c("style.pointer-text")], [`dictionary`], [inherits #c("label-text")], [Pointer, head, address, front, and rear typography.],
+    [#c("style.operation-text")], [`dictionary`], [#c("(size: 8pt)")], [Operation-arrow caption typography.],
     [#c("style.scale")], [`float`], [`1.0`], [Uniform scale on #c(".diagram"), #c(".before"), and #c(".after").],
     [#c("style.diff-colors")], [`bool`], [`true`], [#c("false") keeps operation marks but uses normal fills.],
   )
@@ -248,8 +257,8 @@
 
 #let graph-style-reference() = {
   subargtable([Nested keys for #c("style")],
-    [#c("style.node-radius")], [`float`], [`0.34`], [Circle radius, or half the square/diamond/hexagon size, in canvas units.],
-    [#c("style.node-shape")], [`str`], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"diamond\""), or #c("\"hexagon\"").],
+    [#c("style.node-radius")], [`float`], [`0.34`], [Circle radius or base size for other node shapes.],
+    [#c("style.node-shape")], [`str`], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"rounded\""), #c("\"capsule\""), #c("\"diamond\""), or #c("\"hexagon\"").],
     [#c("style.node-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Node outline.],
     [#c("style.node-fill")], [`color`], [`white`], [Default node fill.],
     [#c("style.edge-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Default edge stroke.],
@@ -259,7 +268,14 @@
     [#c("style.edge-wave-amplitude")], [`float`], [`0.07`], [Wave height in canvas units.],
     [#c("style.edge-wave-step")], [`float`], [`0.14`], [Approximate wavelength in canvas units.],
     [#c("style.node-text")], [`dictionary`], [#c("(size: 9pt)")], [Node text dictionary. See nested keys below.],
+    [#c("style.value-text")], [`dictionary`], [inherits #c("node-text")], [Node-value typography.],
     [#c("style.label-text")], [`dictionary`], [#c("(fill: rgb(\"#555555\"))")], [Edge label text dictionary. See nested keys below.],
+    [#c("style.edge-label-text")], [`dictionary`], [inherits #c("label-text")], [Edge-label typography.],
+    [#c("style.algorithm-label-text")], [`dictionary`], [#c("(size: 8pt)")], [BFS/DFS/Dijkstra trace captions.],
+    [#c("style.visited-style")], [`dictionary`], [green], [Visited-node fill/stroke/text/shape overrides.],
+    [#c("style.current-style")], [`dictionary`], [blue], [Current-node overrides.],
+    [#c("style.queued-style")], [`dictionary`], [yellow/orange], [Queued or stacked node overrides.],
+    [#c("style.active-edge-style")], [`dictionary`], [blue #c("2pt") stroke], [Currently inspected edge overrides.],
     [#c("style.scale")], [`float`], [`1.0`], [Uniform scale on the rendered graph.],
   )
   text-style-reference("style.node-text", label: [Nested keys for #c("style.node-text")])
@@ -299,7 +315,7 @@
     [#c("node-customizations[].options")], [`dictionary`], [required], [Per-node drawing options.],
     [#c("node-customizations[].options.fill")], [`color`], [normal fill], [Node fill.],
     [#c("node-customizations[].options.stroke")], [`stroke`], [normal stroke], [Node outline.],
-    [#c("node-customizations[].options.shape")], [`str`], [#c("style.node-shape")], [Trees/graphs only: #c("\"circle\""), #c("\"square\""), #c("\"diamond\""), or #c("\"hexagon\"").],
+    [#c("node-customizations[].options.shape")], [`str`], [#c("style.node-shape")], [Trees/graphs only: #c("\"circle\""), #c("\"square\""), #c("\"rounded\""), #c("\"capsule\""), #c("\"diamond\""), or #c("\"hexagon\"").],
     [#c("node-customizations[].options.node-radius")], [`float`], [#c("style.node-radius")], [Trees/graphs only. Shape size.],
     [#c("node-customizations[].options.text")], [`dictionary`], [#c("style.node-text")], [Text style merged into the node text.],
   )
@@ -723,8 +739,11 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 
 #methodtable(
   [#c(".diagram")], [n/a], [The rendered list.],
-  [#c(".insert")], [#c("(obj.insert)(v)")], [Append #c("v") at the tail. Returns a step.],
+  [#c(".prepend")], [#c("(obj.prepend)(v)")], [Insert #c("v") at the head. Returns a step.],
+  [#c(".insert")], [#c("(obj.insert)(v, index: none)")], [Append #c("v") by default, or insert at an index from #c("0") through the current length.],
   [#c(".delete")], [#c("(obj.delete)(v)")], [Remove the first node equal to #c("v"). Returns a step.],
+  [#c(".delete-at")], [#c("(obj.delete-at)(index)")], [Remove the node at #c("index"). Returns a step.],
+  [#c(".search")], [#c("(obj.search)(v)")], [Highlight the traversed prefix. The step also exposes #c(".found") and #c(".index").],
 )
 
 #demo[
@@ -796,8 +815,11 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 
 #methodtable(
   [#c(".diagram")], [n/a], [The rendered list.],
-  [#c(".insert")], [#c("(obj.insert)(v)")], [Append #c("v") at the tail. Returns a step.],
+  [#c(".prepend")], [#c("(obj.prepend)(v)")], [Insert #c("v") at the head. Returns a step.],
+  [#c(".insert")], [#c("(obj.insert)(v, index: none)")], [Append by default, or insert #c("v") at an index.],
   [#c(".delete")], [#c("(obj.delete)(v)")], [Remove the first node equal to #c("v"). Returns a step.],
+  [#c(".delete-at")], [#c("(obj.delete-at)(index)")], [Remove the node at #c("index"). Returns a step.],
+  [#c(".search")], [#c("(obj.search)(v)")], [Highlight the traversed prefix and expose #c(".found")/#c(".index").],
 )
 
 #demo[
@@ -1054,6 +1076,45 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
       ((1, 2), (fill: rgb("#D3F9D8"), stroke: 1pt + rgb("#2B8A3E"))),
     ),
   ).diagram
+  ```, side: false)
+]
+
+== #raw("hash-table()")
+
+#demo[
+  #c("hash-table") supports separate chaining and linear probing while using
+  the same cell/list styling and chainable operation steps as the other
+  structures. Each chaining bucket points to its head entry or #c("none") with
+  an arrow. Chain ends use the same compact #c("∅") terminator as linked lists.
+  Chained entries default to a wider #c("style.box-w") of #c("1.5")
+  so key/value pairs fit; an explicit #c("style.box-w") overrides it.
+
+  ```typ
+  #hash-table(..entries, size: 7, collision: "chaining", hash: auto, style: (:))
+  ```
+]
+
+#argtable(
+  [#c("..entries")], [`content` / `tuple`], [`()`], [Keys, or #c("(key, value)") pairs.],
+  [#c("size")], [`int`], [`7`], [Positive bucket/slot count.],
+  [#c("collision")], [`str`], [`"chaining"`], [#c("\"chaining\"")/#c("\"chain\"") or #c("\"linear\"").],
+  [#c("hash")], [`auto` / `function`], [`auto`], [Custom #c("key => int") function. The default hashes integers and the UTF-8 bytes of other values.],
+  [#c("style")], [`dictionary`], [`(:)`], [Uses the existing box, value/index text, pointer text, scale, and mark-style keys.],
+)
+
+#methodtable(
+  [#c(".diagram")], [n/a], [Rendered buckets or probe table.],
+  [#c(".insert")], [#c("(obj.insert)(key, value: none)")], [Insert or update a key. Returns a step.],
+  [#c(".delete")], [#c("(obj.delete)(key)")], [Delete a key; linear probing leaves a tombstone.],
+  [#c(".search")], [#c("(obj.search)(key)")], [Highlight traversed chain nodes or probe slots; exposes #c(".found").],
+)
+
+#demo[
+  #example(```typ
+  #std.stack(dir: ltr, spacing: 1.5em,
+    hash-table(("Ada", 1), ("Grace", 2), size: 4).diagram,
+    hash-table(1, 6, 11, size: 5, collision: "linear").diagram,
+  )
   ```, side: false)
 ]
 
@@ -1574,6 +1635,60 @@ radius growing with the node count. Connected nodes don't cluster closer
 together yet, and #c("graph") has no operations: no add-node, add-edge, or a
 transition to match trees and heaps. See @limitations.]
 
+== Graph algorithm traces
+
+#demo[
+  #c("bfs"), #c("dfs"), and #c("dijkstra") render algorithm steps directly
+  on the graph. Green nodes are visited, blue is current, yellow/orange nodes
+  are queued or stacked, and the blue edge is the neighbor currently being
+  inspected. When #c("dijkstra") reaches a target, its final step also
+  highlights every edge in the shortest path. #c("source") is required;
+  #c("target") is optional so a trace can either stop at a goal or traverse
+  every reachable node.
+
+  ```typ
+  #bfs(adjacency, source, target: none, directed: true, goal-test: "discovery", columns: 1, captions: true, ..graph-options)
+  #dfs(adjacency, source, target: none, directed: true, columns: 1, captions: true, ..graph-options)
+  #dijkstra(adjacency, source, target: none, directed: true, columns: 1, captions: true, ..graph-options)
+  ```
+]
+
+#argtable(
+  [#c("adjacency")], [`dictionary`], [(required)], [Same graph adjacency dictionary accepted by #c("graph").],
+  [#c("source")], [`str`], [(required)], [Starting node identity.],
+  [#c("target")], [`none` / `str`], [`none`], [Optional early-stop node.],
+  [#c("goal-test")], [`"discovery"` / `"expansion"`], [`"discovery"`], [BFS only. Stop when the target is first enqueued, or wait until it is dequeued.],
+  [#c("directed")], [`bool`], [`true`], [Whether adjacency pairs are directed.],
+  [#c("columns")], [`int`], [`1`], [Trace grid columns.],
+  [#c("row-gap")], [`length`], [`0.8em`], [Gap between trace cells.],
+  [#c("captions")], [`bool`], [`true`], [Show generated step captions.],
+  [#c("labels") / #c("positions") / #c("layout") / #c("radius")], [same as #c("graph")], [same], [Node display and placement options.],
+  [#c("edge-customizations") / #c("node-customizations") / #c("node-labels")], [same as #c("graph")], [same], [Base customizations merged with algorithm states.],
+  [#c("style")], [`dictionary`], [`(:)`], [Graph style plus #c("visited-style"), #c("current-style"), #c("queued-style"), #c("active-edge-style"), and #c("algorithm-label-text").],
+)
+
+#note[For a targeted unweighted BFS, the default #c("goal-test: \"discovery\"")
+stops as soon as an unvisited target is found while expanding a node: that first
+discovery already gives a shortest path. Choose #c("goal-test: \"expansion\"")
+to keep the traditional dequeue-and-test trace, which may show work on other
+queued nodes before the target is removed.]
+
+#note[#c("dijkstra") treats an unlabeled edge as weight #c("1"). Weighted
+entries must use non-negative numeric values such as #c("(\"B\", 4)"). It
+draws a distinct purple #c("d = ...") label beside every node on every step;
+the default label gap is #c("0.5") canvas units. #c("style.node-labels.gap")
+or per-node #c("node-labels") options can override it.]
+
+#demo[
+  #example(```typ
+  #bfs(
+    ("S": ("A", "B"), "A": ("T",), "B": ("T",), "T": ()),
+    "S", target: "T", columns: 3,
+    style: graph-style(scale: 0.65),
+  ).diagram
+  ```, side: false)
+]
+
 // ═════════════════════════════════════════════════════════════════════════════
 = Hand-composed trees
 // ═════════════════════════════════════════════════════════════════════════════
@@ -2026,6 +2141,7 @@ the resulting object, and it doesn't accumulate across a chain of
     [#c("gap")], [`length`], [`1em`], [Horizontal gap between columns.],
     [#c("row-gap")], [`length`], [`1em`], [Vertical gap between rows.],
     [#c("mode")], [`str`], [`"all"`], [#c("\"all\"")/#c("\"diagram\"") renders #c(".diagram"); compact modes #c("\"before\""), #c("\"after\""), and #c("\"result\"") render selected states with labeled arrows between operations.],
+    [#c("style")], [`dictionary`], [`(:)`], [Uses #c("style.operation-text") for compact-mode arrow captions.],
   )
 
   #example(```typ
@@ -2039,15 +2155,40 @@ the resulting object, and it doesn't accumulate across a chain of
   ```, side: false)
 ]
 
+#demo[
+  #c("operation-sequence") computes the chain as well as laying it out. Each
+  operation closure receives the current live object and returns one ordinary
+  step. The result exposes #c(".steps"), the final live #c(".result"), and
+  #c(".diagram").
+
+  #argtable(
+    [#c("initial")], [live object], [(required)], [Starting tree, heap, list, stack, queue, or hash table.],
+    [#c("..operations")], [`function`], [(required)], [Closures of the form #c("obj => (obj.operation)(..args)").],
+    [#c("columns") / #c("gap") / #c("row-gap") / #c("mode")], [same as #c("sequence")], [#c("mode: \"after\"")], [Layout settings passed to #c("sequence").],
+    [#c("style")], [`dictionary`], [`(:)`], [Typography for operation-arrow captions.],
+  )
+
+  #example(```typ
+  #operation-sequence(
+    linked-list(2, 4),
+    list => (list.prepend)(1),
+    list => (list.insert)(3, index: 2),
+    list => (list.search)(4),
+    columns: 1,
+  ).diagram
+  ```, side: false)
+]
+
 == Custom arrows with #raw("op-arrow()")
 
 #demo[
   To compose the arrow yourself instead of using #c(".diagram"), combine the
-  step's #c(".before")/#c(".after") with #c("op-arrow(label, symbol:)").
+  step's #c(".before")/#c(".after") with #c("op-arrow(label, symbol:, style:)").
 
   #argtable(
     [#c("label")], [`content`], [(required)], [Text shown above the arrow.],
     [#c("symbol")], [`content`], [#c("$arrow.r$")], [The arrow glyph itself.],
+    [#c("style")], [`dictionary`], [`(:)`], [Uses #c("style.operation-text") for the caption.],
   )
 
   #example(```typ
@@ -2081,6 +2222,42 @@ the resulting object, and it doesn't accumulate across a chain of
   )).diagram
   ```)
 ]
+
+== Named themes and typography roles
+
+#demo[
+  #c("theme-preset(name)") returns a sparse style dictionary. Available names
+  are #c("\"default\""), #c("\"dark\""), #c("\"print\""),
+  #c("\"colorblind\""), and #c("\"chalkboard\""). Add a structure-specific
+  style dictionary to override part of a preset.
+
+  #example(```typ
+  #bst(
+    4, 2, 6,
+    style: theme-preset("colorblind") + tree-style(
+      node-shape: "rounded",
+      value-text: text-style(weight: "bold"),
+    ),
+  ).diagram
+  ```, side: false)
+]
+
+#argtable(
+  [#c("value-text")], [`dictionary`], [inherits #c("node-text")], [Values inside nodes and cells.],
+  [#c("index-text")], [`dictionary`], [inherits #c("label-text")], [Array indices and matrix row/column labels.],
+  [#c("pointer-text")], [`dictionary`], [inherits #c("label-text")], [Pointers and linear-structure annotations.],
+  [#c("operation-text")], [`dictionary`], [#c("(size: 8pt)")], [Transition and sequence arrow captions.],
+  [#c("edge-label-text")], [`dictionary`], [inherits #c("label-text")], [Tree and graph edge labels.],
+  [#c("algorithm-label-text")], [`dictionary`], [#c("(size: 8pt)")], [Sorting and graph-algorithm captions.],
+)
+
+Each typography role accepts #c("size"), #c("color")/#c("fill"), #c("font"),
+#c("weight"), and #c("rotation"), the same nested keys produced by
+#c("text-style(...)").
+
+#note[#c("node-text") and #c("label-text") remain the broad compatibility
+defaults. The specialized text dictionaries inherit from them, so an existing
+style keeps applying until a more specific role overrides it.]
 
 #note[To set a document-wide default instead of repeating #c("style:") at
 every call, rebind the builder once:
@@ -2200,7 +2377,8 @@ dictionaries such as #c("style.node-text"), #c("style.label-text"), and
 (node #c("shape")/#c("stroke")/#c("node-radius")), #c("min-heap")/#c("max-heap")
 (same, since they reuse the tree renderer), and #c("stack")/#c("queue")/
 #c("linked-list")/#c("doubly-linked-list") (cell #c("fill")/#c("stroke");
-cells have no #c("shape") or #c("node-radius") to override).]
+cell marks keep the surrounding #c("box-shape") and do not use
+#c("node-radius")).]
 
 // ═════════════════════════════════════════════════════════════════════════════
 = Worked example: Last Stone Weight
@@ -2281,9 +2459,11 @@ One stone remains, weight *1*, matching
   closer together isn't built yet.
 - #c("graph") has no operations yet: no add-node, add-edge, or a transition
   to match trees and heaps.
-- #c("sequence") wraps already-created operation steps, but it does not yet
-  compute an operation chain from a declarative list by itself.
-- Hash tables sit outside this release's scope.
+- Graph algorithm traces show frontier state on the graph itself; they do not
+  draw a separate queue, stack, or priority queue panel.
+- The default hash function is intended for teaching examples, not
+  cryptographic or adversarial input. Pass #c("hash: key => int") when bucket
+  placement must follow a course-specific function.
 
 // ═════════════════════════════════════════════════════════════════════════════
 = Quick reference
@@ -2300,13 +2480,26 @@ One stone remains, weight *1*, matching
   [#c("avl(..keys, style:, edge-customizations:, node-customizations:, node-labels:)")], [AVL tree, rebalanced on every insertion and deletion; same ops as #c("bst")],
   [#c("min-heap(..keys, style:)")], [Array-backed complete binary tree, smallest key at the root; ops #c("insert"), #c("extract")],
   [#c("max-heap(..keys, style:)")], [Array-backed complete binary tree, largest key at the root; ops #c("insert"), #c("extract")],
-  [#c("linked-list(..vals, style:, pointer:, addresses:, head:)")], [Linked list; #c("pointer") shows #c("data | next") cells; ops #c("insert"), #c("delete")],
-  [#c("doubly-linked-list(..vals, style:, pointer:, addresses:, head:)")], [Doubly linked list; #c("pointer") shows #c("prev | data | next") cells; ops #c("insert"), #c("delete")],
+  [#c("linked-list(..vals, style:, pointer:, addresses:, head:)")], [Linked list; ops #c("prepend"), #c("insert"), #c("delete"), #c("delete-at"), and #c("search")],
+  [#c("doubly-linked-list(..vals, style:, pointer:, addresses:, head:)")], [Doubly linked list; same positional and value operations as #c("linked-list")],
   [#c("stack(..vals, style:, top-label:)")], [Stack, first argument is the top; ops #c("push"), #c("pop")],
   [#c("queue(..vals, style:, enqueue:, dequeue:, front-label:, rear-label:)")], [Queue, first argument is the front; ops #c("enqueue"), #c("dequeue")],
   [#c("array-view(..vals, style:, cell-customizations:, pointers:)")], [Static array cells with optional #c("style.indices"), per-cell overrides, and labelled #c("pointers") arrows above cells],
   [#c("matrix(rows, style:, cell-customizations:, row-labels:, column-labels:)")], [Static matrix/grid cells with optional row/column labels and per-cell overrides],
   [#c("graph(adjacency, directed:, labels:, positions:, layout:, radius:, edge-customizations:, node-customizations:, node-labels:, style:)")], [Graph from an adjacency dict; circular or manual layout, no ops yet],
+  [#c("hash-table(..entries, size:, collision:, hash:, style:)")], [Separate-chaining or linear-probing table; ops #c("insert"), #c("delete"), and #c("search")],
+)
+
+== Graph algorithms
+
+#table(
+  columns: (52%, 48%), inset: 6.5pt,
+  align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
+  fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
+  [*Call*], [*Result*],
+  [#c("bfs(adjacency, source, target:, ..graph-options)")], [Breadth-first trace; result has #c("order"), #c("found"), and #c("path")],
+  [#c("dfs(adjacency, source, target:, ..graph-options)")], [Depth-first trace with the same result fields],
+  [#c("dijkstra(adjacency, source, target:, ..graph-options)")], [Non-negative shortest-path trace; result also has #c("distances") and #c("previous")],
 )
 
 == Sorting algorithms
@@ -2351,8 +2544,9 @@ One stone remains, weight *1*, matching
   [#c("tree-search(key, step-label:)")], [Operation: highlight the path to #c("key")],
   [#c("heap-insert(key, step-label:)")], [Operation: insert #c("key"), marks the inserted value and the sift-up path],
   [#c("heap-extract")], [Operation: remove the root, marks it and the sift-down path (no key)],
-  [#c("sequence(..steps, columns:, gap:, row-gap:, mode:)")], [Wrap operation steps or diagrams into a grid; #c("mode") chooses full steps, before/after panels, or plain results],
-  [#c("op-arrow(label, symbol:)")], [Reusable labeled arrow for custom operation layouts],
+  [#c("sequence(..steps, columns:, gap:, row-gap:, mode:, style:)")], [Wrap operation steps or diagrams into a grid; #c("mode") chooses full steps, before/after panels, or plain results],
+  [#c("operation-sequence(initial, ..operations, columns:, mode:)")], [Apply operation closures in order and return #c(".steps"), final #c(".result"), and #c(".diagram")],
+  [#c("op-arrow(label, symbol:, style:)")], [Reusable labeled arrow for custom operation layouts],
 )
 
 == Styling keys
@@ -2363,7 +2557,7 @@ One stone remains, weight *1*, matching
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Key*], [*Default*], [*Effect*],
   [#c("node-radius")], [`0.34`], [Circle radius / half shape size.],
-  [#c("node-shape")], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"diamond\""), or #c("\"hexagon\"").],
+  [#c("node-shape")], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"rounded\""), #c("\"capsule\""), #c("\"diamond\""), or #c("\"hexagon\"").],
   [#c("x-gap")], [`1.05`], [Horizontal spacing between columns.],
   [#c("y-gap")], [`1.2`], [Vertical spacing between depths.],
   [#c("node-stroke")], [`0.6pt + #333`], [Node outline.],
@@ -2378,6 +2572,7 @@ One stone remains, weight *1*, matching
   [#c("tri-h")], [`1.4`], [Subtree triangle height.],
   [#c("box-w")], [`0.95`], [Linear-structure cell width.],
   [#c("box-h")], [`0.7`], [Linear-structure cell height.],
+  [#c("box-shape")], [`"square"`], [#c("\"square\""), #c("\"rounded\""), or #c("\"capsule\"") cells.],
   [#c("box-gap")], [`0.55`], [Gap between cells/rows.],
   [#c("box-stroke")], [`0.6pt + #333`], [Cell outline.],
   [#c("box-fill")], [`white`], [Default cell fill.],
@@ -2386,12 +2581,20 @@ One stone remains, weight *1*, matching
   [#c("next-ptr-fill")], [`#D7ECC9`], [Doubly linked list next-pointer fill.],
   [#c("node-text")], [`(size: 9pt)`], [Node/cell text styling.],
   [#c("label-text")], [`(fill: #555)`], [Annotation/edge text styling.],
+  [#c("value-text")], [`(:)`], [Specialized node/cell value typography.],
+  [#c("index-text")], [`(size: 7.5pt)`], [Index and row/column typography.],
+  [#c("pointer-text")], [`(:)`], [Pointer/linear annotation typography.],
+  [#c("operation-text")], [`(size: 8pt)`], [Operation caption typography.],
+  [#c("edge-label-text")], [`(:)`], [Edge-label typography.],
+  [#c("algorithm-label-text")], [`(size: 8pt)`], [Algorithm trace caption typography.],
   [#c("scale")], [`1.0`], [Uniform scale on the whole rendered diagram.],
   [#c("diff-colors")], [`true`], [Set #c("false") to keep mark shapes/strokes but use normal fills.],
   [#c("new-style")], [`#C8E6C9`], [Added node/cell; color or #c("(fill:, shape:, stroke:, node-radius:, text:)").],
   [#c("path-style")], [`#FFE9A8`], [Traversal / sift path; color or dict, as above.],
   [#c("remove-style")], [`#FFCDD2`], [Removed node/cell; color or dict, as above.],
   [#c("rotate-style")], [`#BBDEFB`], [AVL rotation nodes and visible subtree roots; color or dict, as above.],
+  [#c("visited-style") / #c("current-style") / #c("queued-style")], [green / blue / yellow], [Graph-algorithm node states.],
+  [#c("active-edge-style")], [blue #c("2pt")], [Graph-algorithm inspected edge.],
 )
 
 == Styling helpers
@@ -2409,6 +2612,7 @@ One stone remains, weight *1*, matching
   [#c("queue-style(..queue keys)")], [Sparse queue style dictionary],
   [#c("array-style(..array keys)")], [Sparse array style dictionary],
   [#c("matrix-style(..matrix keys)")], [Sparse matrix style dictionary],
+  [#c("theme-preset(name)")], [Named #c("default")/#c("dark")/#c("print")/#c("colorblind")/#c("chalkboard") style dictionary],
   [#c("text-style(size:, color:, fill:, font:, weight:, rotation:)")], [Node/cell or mark text dictionary],
   [#c("label-style(size:, color:, fill:, font:, weight:, rotation:)")], [Annotation/edge text dictionary],
   [#c("node-mark-style(fill:, shape:, stroke:, node-radius:, text:)")], [Tree/heap diff-highlight dictionary],

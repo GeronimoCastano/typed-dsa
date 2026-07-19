@@ -364,11 +364,15 @@
 }
 
 #let _boundary-radius(shape, r, ux, uy) = {
-  if shape == "square" {
+  if shape in ("square", "rounded") {
     return r / calc.max(calc.abs(ux), calc.abs(uy))
   }
   if shape == "diamond" {
     return r / (calc.abs(ux) + calc.abs(uy))
+  }
+  if shape == "capsule" {
+    let a = 0.4 * r
+    return a * calc.abs(ux) + calc.sqrt(r * r - a * a * uy * uy)
   }
   r
 }
@@ -439,7 +443,7 @@
 }
 
 #let _tree-label-style(th, custom) = {
-  let style = th.label-text
+  let style = th.edge-label-text
   let body = none
   if custom != none and "label" in custom {
     let lbl = custom.label
@@ -525,7 +529,7 @@
   let text-style = label.style
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  content(pt, text(..text-style, label.body), angle: rotation)
+  content(pt, text(..text-style)[#label.body], angle: rotation)
 }
 
 #let _draw-tree-edge-label(p, q, r1, r2, th, custom) = {
@@ -562,7 +566,7 @@
     rotation = calc.atan2(dx, dy)
     if dx < 0 { rotation += 180deg }
   }
-  content((base.at(0) + ox * shift, base.at(1) + oy * shift), text(..text-style, lbl.body), angle: rotation)
+  content((base.at(0) + ox * shift, base.at(1) + oy * shift), text(..text-style)[#lbl.body], angle: rotation)
 }
 
 #let _draw-edges(n, th, edge-customizations, node-customizations) = {
@@ -592,7 +596,7 @@
   let r = _shape-radius(th, mark: mark, custom: custom)
   let stroke = if custom != none and "stroke" in custom { custom.stroke } else if mark != none { mark.stroke } else { th.node-stroke }
   let f = if custom != none and "fill" in custom { custom.fill } else if mark != none { mark.fill } else { fill }
-  let text-style = if mark != none { mark.text } else { th.node-text }
+  let text-style = if mark != none { mark.text } else { th.value-text }
   if custom != none and "text" in custom { text-style = text-style + custom.text }
   text-style = _text-style(text-style)
   let rotation = text-style.at("rotation", default: 0deg)
@@ -600,6 +604,10 @@
   let polygon = pts => line(..pts, close: true, fill: f, stroke: stroke)
   if shape == "square" {
     rect((p.at(0) - r, p.at(1) - r), (p.at(0) + r, p.at(1) + r), fill: f, stroke: stroke)
+  } else if shape == "rounded" {
+    rect((p.at(0) - r, p.at(1) - r), (p.at(0) + r, p.at(1) + r), radius: 25%, fill: f, stroke: stroke)
+  } else if shape == "capsule" {
+    rect((p.at(0) - 1.4 * r, p.at(1) - r), (p.at(0) + 1.4 * r, p.at(1) + r), radius: 50%, fill: f, stroke: stroke)
   } else if shape == "diamond" {
     polygon(((p.at(0), p.at(1) + r), (p.at(0) + r, p.at(1)), (p.at(0), p.at(1) - r), (p.at(0) - r, p.at(1))))
   } else if shape == "hexagon" {
@@ -626,7 +634,7 @@
   let tint = n.fill
   let stroke = if tint == none { th.node-stroke } else { 1pt + tint }
   let ink = if tint == none { black } else { tint }
-  let text-style = th.node-text + (fill: ink)
+  let text-style = th.value-text + (fill: ink)
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
   line(p, (p.at(0) - hw, p.at(1) - hh), (p.at(0) + hw, p.at(1) - hh), close: true, stroke: stroke)
@@ -779,20 +787,21 @@
 
 // ── Composable operation views ───────────────────────────────────────────────
 
-#let op-arrow(label, symbol: $arrow.r$) = align(horizon)[
+#let op-arrow(label, symbol: $arrow.r$, style: (:)) = align(horizon)[
+  #let th = resolve(style)
   #set align(center)
   #if label != none [
-    #text(size: 8pt, label) \
+    #text(..th.operation-text, label) \
   ]
   #text(size: 1.3em, symbol)
 ]
 
 // Before → arrow → after row shared by `transition` and operation steps.
-#let trans-view(before, label, after) = stack(
+#let trans-view(before, label, after, style: (:)) = stack(
   dir: ltr,
   spacing: 1.2em,
   align(horizon, before),
-  op-arrow(label),
+  op-arrow(label, style: style),
   align(horizon, after),
 )
 
@@ -801,28 +810,28 @@
 // rotated). `mids` holds the in-between panels as already-rendered content;
 // `labels` holds one more entry than `mids` — the arrow leading into each
 // mid panel, then the arrow leading into `after`.
-#let trans-view-n(before, mids, labels, after) = {
+#let trans-view-n(before, mids, labels, after, style: (:)) = {
   let parts = (align(horizon, before),)
   for (i, m) in mids.enumerate() {
-    parts.push(op-arrow(labels.at(i)))
+    parts.push(op-arrow(labels.at(i), style: style))
     parts.push(align(horizon, m))
   }
-  parts.push(op-arrow(labels.last()))
+  parts.push(op-arrow(labels.last(), style: style))
   parts.push(align(horizon, after))
   stack(dir: ltr, spacing: 1.2em, ..parts)
 }
 
 // Renders an operation's step diagram, expanding to extra panels when the op
 // returns non-empty `mids`.
-#let _op-diagram(before, mb, after, ma, label, mids, th, edge-customizations, node-customizations, node-labels) = {
+#let _op-diagram(before, mb, after, ma, label, mids, th, style, edge-customizations, node-customizations, node-labels) = {
   let b = _render(before, marks: mb, th: th, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
   let a = _render(after, marks: ma, th: th, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
   if mids.len() == 0 {
-    (before: b, after: a, diagram: trans-view(b, label, a))
+    (before: b, after: a, diagram: trans-view(b, label, a, style: style))
   } else {
     let rendered = mids.map(m => _render(m.tree, marks: m.marks, th: th, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels))
     let labels = mids.map(m => m.label) + (label,)
-    (before: b, after: a, diagram: trans-view-n(b, rendered, labels, a))
+    (before: b, after: a, diagram: trans-view-n(b, rendered, labels, a, style: style))
   }
 }
 
@@ -837,7 +846,7 @@
 #let _tree-obj(variant, root, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
   let apply = op => {
     let (after, mb, ma, label, mids) = op(variant, root)
-    let v = _op-diagram(root, mb, after, ma, label, mids, resolve(style), edge-customizations, node-customizations, node-labels)
+    let v = _op-diagram(root, mb, after, ma, label, mids, resolve(style), style, edge-customizations, node-customizations, node-labels)
     (
       label: label,
       before: v.before,
@@ -862,5 +871,5 @@
 #let transition(variant, keys, op, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
   let before = _build(variant, keys)
   let (after, mb, ma, label, mids) = op(variant, before)
-  _op-diagram(before, mb, after, ma, label, mids, resolve(style), edge-customizations, node-customizations, node-labels).diagram
+  _op-diagram(before, mb, after, ma, label, mids, resolve(style), style, edge-customizations, node-customizations, node-labels).diagram
 }

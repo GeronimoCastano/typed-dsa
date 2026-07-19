@@ -15,18 +15,21 @@
 #import cetz.draw: line, rect, content
 
 #let _ann(pos, body, th) = {
-  let text-style = th.label-text
+  let text-style = th.pointer-text
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
   content(pos, text(..text-style)[#body], angle: rotation)
 }
 
 #let _node-content(pos, body, th) = {
-  let text-style = th.node-text
+  let text-style = th.value-text
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
   content(pos, text(..text-style)[#body], angle: rotation)
 }
+
+// Shared terminator for linked structures and chained hash buckets.
+#let _null = $nothing$
 
 // A cell with its lower-left corner at `(x, y)`. `w` and `fill` default to
 // the theme's box width and fill; `mark`, when set, overrides fill/stroke via
@@ -37,14 +40,25 @@
   let m = if mark != none { resolve-mark-style(th, mark, base-fill: base-fill) } else { none }
   let f = if m != none { m.fill } else { base-fill }
   let s = if m != none { m.stroke } else { th.box-stroke }
-  let text-style = if m != none { m.text } else { th.node-text }
+  let text-style = if m != none { m.text } else { th.value-text }
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  rect((x, y), (x + ww, y + th.box-h), stroke: s, fill: f)
+  let radius = if th.box-shape == "rounded" { 20% } else if th.box-shape == "capsule" { 50% } else { 0% }
+  rect((x, y), (x + ww, y + th.box-h), radius: radius, stroke: s, fill: f)
   content((x + ww / 2, y + th.box-h / 2), text(..text-style)[#body], angle: rotation)
 }
 
 #let _mark(marks, i) = marks.at(str(i), default: none)
+
+#let _insert-at(vs, index, value) = vs.slice(0, index) + (value,) + vs.slice(index)
+#let _delete-at(vs, index) = vs.slice(0, index) + vs.slice(index + 1)
+#let _addresses-insert(addresses, index) = if addresses == none { none } else { _insert-at(addresses, calc.min(index, addresses.len()), none) }
+#let _addresses-delete(addresses, index) = if addresses == none or index >= addresses.len() { addresses } else { _delete-at(addresses, index) }
+#let _path-marks(length) = {
+  let marks = (:)
+  for i in range(length) { marks.insert(str(i), "path") }
+  marks
+}
 
 #let _head-arrow(th, x-right) = {
   let mid = th.box-h / 2
@@ -53,11 +67,11 @@
 }
 
 // Assemble an operation step from the rendered states and the next object.
-#let _step(label, before, after, result) = (
+#let _step(label, before, after, result, style: (:)) = (
   label: label,
   before: before,
   after: after,
-  diagram: trans-view(before, label, after),
+  diagram: trans-view(before, label, after, style: style),
   result: result,
 )
 
@@ -75,7 +89,7 @@
         stroke: th.box-stroke,
       )
     }
-    _node-content((vs.len() * step + th.box-w / 2, th.box-h / 2), $nothing$, th)
+    _ann((vs.len() * step + 0.18, th.box-h / 2), _null, th)
     if head and vs.len() > 0 { _head-arrow(th, -0.05) }
   })
 }
@@ -107,24 +121,56 @@
   if pointer { _linked-pointer(vs, th, addresses, head, marks) } else { _linked-simple(vs, th, head, marks) }
 )
 
-// `insert` appends at the tail; `delete` removes the first matching value.
+// `insert` appends by default or inserts at `index`; `delete` removes the first
+// matching value. `prepend`, `delete-at`, and `search` cover the other common
+// teaching operations without changing the original call shapes.
 #let _linked-obj(vs, style, pointer, addresses, head) = {
   let th = resolve(style)
   let draw(vals, marks) = _linked-render(vals, th, pointer, addresses, head, marks)
   (
     diagram: draw(vs, (:)),
-    insert: (v, step-label: none) => _step(
-      if step-label == none { [insert #v] } else { step-label },
+    insert: (v, index: none, step-label: none) => {
+      let i = if index == none { vs.len() } else { index }
+      assert(type(i) == int and i >= 0 and i <= vs.len(), message: "linked-list insert index must be between 0 and the list length")
+      let after = _insert-at(vs, i, v)
+      let next-addresses = _addresses-insert(addresses, i)
+      _step(
+      if step-label == none { if index == none { [insert #v] } else { [insert #v at #i] } } else { step-label },
       draw(vs, (:)),
-      draw(vs + (v,), (str(vs.len()): "new")),
-      _linked-obj(vs + (v,), style, pointer, addresses, head),
-    ),
+      _linked-render(after, th, pointer, next-addresses, head, (str(i): "new")),
+      _linked-obj(after, style, pointer, next-addresses, head),
+      style: style,
+    )
+    },
+    prepend: (v, step-label: none) => {
+      let after = (v,) + vs
+      let next-addresses = _addresses-insert(addresses, 0)
+      _step(if step-label == none { [prepend #v] } else { step-label }, draw(vs, (:)),
+        _linked-render(after, th, pointer, next-addresses, head, ("0": "new")),
+        _linked-obj(after, style, pointer, next-addresses, head), style: style)
+    },
     delete: (v, step-label: none) => {
       let i = vs.position(x => x == v)
       let rest = if i == none { vs } else { vs.slice(0, i) + vs.slice(i + 1) }
       let mb = if i == none { (:) } else { (str(i): "remove") }
-      _step(if step-label == none { [delete #v] } else { step-label }, draw(vs, mb), draw(rest, (:)),
-        _linked-obj(rest, style, pointer, addresses, head))
+      let next-addresses = if i == none { addresses } else { _addresses-delete(addresses, i) }
+      _step(if step-label == none { [delete #v] } else { step-label }, draw(vs, mb),
+        _linked-render(rest, th, pointer, next-addresses, head, (:)),
+        _linked-obj(rest, style, pointer, next-addresses, head), style: style)
+    },
+    delete-at: (index, step-label: none) => {
+      assert(type(index) == int and index >= 0 and index < vs.len(), message: "linked-list delete-at index must identify an existing node")
+      let after = _delete-at(vs, index)
+      let next-addresses = _addresses-delete(addresses, index)
+      _step(if step-label == none { [delete index #index] } else { step-label }, draw(vs, (str(index): "remove")),
+        _linked-render(after, th, pointer, next-addresses, head, (:)),
+        _linked-obj(after, style, pointer, next-addresses, head), style: style)
+    },
+    search: (v, step-label: none) => {
+      let i = vs.position(x => x == v)
+      let count = if i == none { vs.len() } else { i + 1 }
+      _step(if step-label == none { [search #v] } else { step-label }, draw(vs, (:)), draw(vs, _path-marks(count)),
+        _linked-obj(vs, style, pointer, addresses, head), style: style) + (found: i != none, index: i)
     },
   )
 }
@@ -155,10 +201,10 @@
     if vs.len() > 0 {
       let x = (vs.len() - 1) * step
       line((x + th.box-w, th.box-h * 0.68), (x + step, th.box-h * 0.68), mark: (end: ">"), stroke: th.box-stroke)
-      _node-content((x + step + th.box-w / 2, th.box-h / 2), $nothing$, th)
+      _ann((x + step + 0.18, th.box-h / 2), _null, th)
       if head { _head-arrow(th, -0.05) }
     } else {
-      _node-content((th.box-w / 2, th.box-h / 2), $nothing$, th)
+      _ann((th.box-w / 2, th.box-h / 2), _null, th)
     }
   })
 }
@@ -194,18 +240,48 @@
   let draw(vals, marks) = _doubly-render(vals, th, pointer, addresses, head, marks)
   (
     diagram: draw(vs, (:)),
-    insert: (v, step-label: none) => _step(
-      if step-label == none { [insert #v] } else { step-label },
+    insert: (v, index: none, step-label: none) => {
+      let i = if index == none { vs.len() } else { index }
+      assert(type(i) == int and i >= 0 and i <= vs.len(), message: "doubly-linked-list insert index must be between 0 and the list length")
+      let after = _insert-at(vs, i, v)
+      let next-addresses = _addresses-insert(addresses, i)
+      _step(
+      if step-label == none { if index == none { [insert #v] } else { [insert #v at #i] } } else { step-label },
       draw(vs, (:)),
-      draw(vs + (v,), (str(vs.len()): "new")),
-      _doubly-obj(vs + (v,), style, pointer, addresses, head),
-    ),
+      _doubly-render(after, th, pointer, next-addresses, head, (str(i): "new")),
+      _doubly-obj(after, style, pointer, next-addresses, head),
+      style: style,
+    )
+    },
+    prepend: (v, step-label: none) => {
+      let after = (v,) + vs
+      let next-addresses = _addresses-insert(addresses, 0)
+      _step(if step-label == none { [prepend #v] } else { step-label }, draw(vs, (:)),
+        _doubly-render(after, th, pointer, next-addresses, head, ("0": "new")),
+        _doubly-obj(after, style, pointer, next-addresses, head), style: style)
+    },
     delete: (v, step-label: none) => {
       let i = vs.position(x => x == v)
       let rest = if i == none { vs } else { vs.slice(0, i) + vs.slice(i + 1) }
       let mb = if i == none { (:) } else { (str(i): "remove") }
-      _step(if step-label == none { [delete #v] } else { step-label }, draw(vs, mb), draw(rest, (:)),
-        _doubly-obj(rest, style, pointer, addresses, head))
+      let next-addresses = if i == none { addresses } else { _addresses-delete(addresses, i) }
+      _step(if step-label == none { [delete #v] } else { step-label }, draw(vs, mb),
+        _doubly-render(rest, th, pointer, next-addresses, head, (:)),
+        _doubly-obj(rest, style, pointer, next-addresses, head), style: style)
+    },
+    delete-at: (index, step-label: none) => {
+      assert(type(index) == int and index >= 0 and index < vs.len(), message: "doubly-linked-list delete-at index must identify an existing node")
+      let after = _delete-at(vs, index)
+      let next-addresses = _addresses-delete(addresses, index)
+      _step(if step-label == none { [delete index #index] } else { step-label }, draw(vs, (str(index): "remove")),
+        _doubly-render(after, th, pointer, next-addresses, head, (:)),
+        _doubly-obj(after, style, pointer, next-addresses, head), style: style)
+    },
+    search: (v, step-label: none) => {
+      let i = vs.position(x => x == v)
+      let count = if i == none { vs.len() } else { i + 1 }
+      _step(if step-label == none { [search #v] } else { step-label }, draw(vs, (:)), draw(vs, _path-marks(count)),
+        _doubly-obj(vs, style, pointer, addresses, head), style: style) + (found: i != none, index: i)
     },
   )
 }
@@ -235,12 +311,14 @@
       _stack-render(vs, th, (:), top-label),
       _stack-render((v,) + vs, th, ("0": "new"), top-label),
       _stack-obj((v,) + vs, style, top-label),
+      style: style,
     ),
     pop: (step-label: none) => _step(
       if step-label == none { [pop] } else { step-label },
       _stack-render(vs, th, ("0": "remove"), top-label),
       _stack-render(vs.slice(1), th, (:), top-label),
       _stack-obj(vs.slice(1), style, top-label),
+      style: style,
     ),
   )
 }
@@ -293,12 +371,14 @@
       draw(vs, (:)),
       draw(vs + (v,), (str(vs.len()): "new")),
       _queue-obj(vs + (v,), style, enq, deq, front-label, rear-label),
+      style: style,
     ),
     dequeue: (step-label: none) => _step(
       if step-label == none { [dequeue] } else { step-label },
       draw(vs, ("0": "remove")),
       draw(vs.slice(1), (:)),
       _queue-obj(vs.slice(1), style, enq, deq, front-label, rear-label),
+      style: style,
     ),
   )
 }

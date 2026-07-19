@@ -22,6 +22,12 @@
   style
 }
 
+#let _algorithm-caption(style, body, small: false) = {
+  let spec = resolve(style).algorithm-label-text
+  if small { spec.size = spec.at("size", default: 8pt) * 0.875 }
+  text(..spec)[#body]
+}
+
 // Accepts either a plain array of values or an `array-view(...)` object and
 // returns the values together with the style to carry through every step.
 #let _array-input(arr) = {
@@ -49,7 +55,7 @@
 #let _panel(label, vals, marks, style, show-indices, pointers: (), reserve: false, labels: true) = {
   block(width: 100%, breakable: false)[
     #align(center)[
-      #if labels [#text(size: 8pt)[#label] #v(0.25em)]
+      #if labels [#_algorithm-caption(style, label) #v(0.25em)]
       #array-view(..vals, style: _array-style(style, show-indices), cell-customizations: marks, pointers: pointers, reserve-pointers: reserve).diagram
     ]
   ]
@@ -138,12 +144,12 @@
 }
 
 #let _merge-operation-panel(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, cursors: (:), reserve: false, labels: true) = align(center)[
-  #if labels [#text(size: 8pt)[#label] #v(0.25em)]
+  #if labels [#_algorithm-caption(style, label) #v(0.25em)]
   #grid(
     columns: 3, column-gutter: 0.8em,
-    align(center)[#if labels [#text(size: 7pt)[left] #v(0.15em)] #array-view(..left, style: _array-style(style, show-indices), cell-customizations: left-marks, pointers: cursors.at("left", default: ()), reserve-pointers: reserve).diagram],
-    align(center)[#if labels [#text(size: 7pt)[right] #v(0.15em)] #array-view(..right, style: _array-style(style, show-indices), cell-customizations: right-marks, pointers: cursors.at("right", default: ()), reserve-pointers: reserve).diagram],
-    align(center)[#if labels [#text(size: 7pt)[result] #v(0.15em)] #array-view(..output, style: _array-style(style, show-indices), cell-customizations: output-marks, pointers: cursors.at("output", default: ()), reserve-pointers: reserve).diagram],
+    align(center)[#if labels [#_algorithm-caption(style, [left], small: true) #v(0.15em)] #array-view(..left, style: _array-style(style, show-indices), cell-customizations: left-marks, pointers: cursors.at("left", default: ()), reserve-pointers: reserve).diagram],
+    align(center)[#if labels [#_algorithm-caption(style, [right], small: true) #v(0.15em)] #array-view(..right, style: _array-style(style, show-indices), cell-customizations: right-marks, pointers: cursors.at("right", default: ()), reserve-pointers: reserve).diagram],
+    align(center)[#if labels [#_algorithm-caption(style, [result], small: true) #v(0.15em)] #array-view(..output, style: _array-style(style, show-indices), cell-customizations: output-marks, pointers: cursors.at("output", default: ()), reserve-pointers: reserve).diagram],
   )
 ]
 
@@ -176,7 +182,7 @@
 }
 
 #let _partition-panel(label, arr, left, right, pivot, marks, style, show-indices, pointers: (), reserve: false, labels: true) = align(center)[
-  #if labels [#text(size: 8pt)[#label] #v(0.15em) #text(size: 7pt)[pivot: #arr.at(pivot) at #pivot; i: #left; j: #right] #v(0.2em)]
+  #if labels [#_algorithm-caption(style, label) #v(0.15em) #_algorithm-caption(style, [pivot: #arr.at(pivot) at #pivot; i: #left; j: #right], small: true) #v(0.2em)]
   #array-view(..arr, style: _array-style(style, show-indices), cell-customizations: marks, pointers: pointers, reserve-pointers: reserve).diagram
 ]
 
@@ -368,9 +374,9 @@
   for (i, value) in vals.enumerate() {
     let cell-x = x + i * th.box-w
     rect((cell-x, y), (cell-x + th.box-w, y + th.box-h), fill: fill, stroke: stroke)
-    _sort-text((cell-x + th.box-w / 2, y + th.box-h / 2), value, th.node-text)
+    _sort-text((cell-x + th.box-w / 2, y + th.box-h / 2), value, th.value-text)
     if show-indices {
-      _sort-text((cell-x + th.box-w / 2, y - 0.28), i, th.label-text)
+      _sort-text((cell-x + th.box-w / 2, y - 0.28), i, th.index-text)
     }
   }
 }
@@ -382,7 +388,7 @@
     (x - 0.42, middle), (x - 0.18, middle - 0.25), (x - 0.18, bottom + 0.18), (x, bottom),
     stroke: th.box-stroke,
   )
-  if label != none { _sort-text((x - 1.05, middle), label, th.label-text + (weight: "bold")) }
+  if label != none { _sort-text((x - 1.05, middle), label, th.algorithm-label-text + (weight: "bold")) }
 }
 
 #let _phase-indicator(label, levels, style) = {
@@ -550,7 +556,7 @@
   }
   steps.push(_step([sorted], result, _range-mark(0, result.len(), _done), style, true, labels: labels))
   let diagram = align(center)[
-    #if labels [#text(size: 8pt)[original array] #v(0.25em)]
+    #if labels [#_algorithm-caption(style, [original array]) #v(0.25em)]
     #_divide-tree(values, style, true, labels: labels)
     #v(1em)
     #_merge-tree-diagram(values, order, style, true, labels: labels)
@@ -588,7 +594,7 @@
   arr.at(i) = arr.at(hi)
   arr.at(hi) = tmp
   let partition-diagram = align(center)[
-    #if labels [#text(size: 8pt)[partition around pivot #pivot-value] #v(0.25em)]
+    #if labels [#_algorithm-caption(style, [partition around pivot #pivot-value]) #v(0.25em)]
     #_array-row((arr.slice(lo, i), (pivot-value,), arr.slice(i + 1, hi + 1)), style, show-indices)
   ]
   steps.push(_step([partition pivot #pivot-value], arr, _mark((i,), _active), style, show-indices, diagram: partition-diagram, labels: labels))
@@ -680,12 +686,12 @@
   generated.push(_step([sorted], result, _range-mark(0, result.len(), _done), style, true, labels: labels))
   let (_, levels) = _quick-levels(values, order, pivot)
   let diagram = align(center)[
-    #if labels [#text(size: 8pt)[original array] #v(0.25em)]
+    #if labels [#_algorithm-caption(style, [original array]) #v(0.25em)]
     #array-view(..values, style: _array-style(style, true)).diagram
     #v(0.8em)
     #grid(columns: (auto, auto), column-gutter: 0.8em, _phase-indicator(if labels { [Partition] } else { none }, levels, style), _tree-rows(levels, style, true))
     #v(0.8em)
-    #if labels [#text(size: 8pt)[sorted array] #v(0.25em)]
+    #if labels [#_algorithm-caption(style, [sorted array]) #v(0.25em)]
     #array-view(..result, style: _array-style(style, true), cell-customizations: _range-mark(0, result.len(), _done)).diagram
   ]
   _finish(generated, result, 1, 1em, 0.8em, diagram: diagram)

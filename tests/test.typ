@@ -970,3 +970,178 @@
   assert.eq(quick.result, (1, 2, 3))
   std.stack(dir: ttb, spacing: 1em, merge.diagram, quick.diagram)
 })
+
+#section("Linked-list prepend, indexed insert/delete, and search", {
+  let l0 = linked-list(2, 4, 6, pointer: true, head: true)
+  let s1 = (l0.prepend)(1)
+  let s2 = ((s1.result).insert)(3, index: 2)
+  let s3 = ((s2.result).delete-at)(3)
+  let found = ((s3.result).search)(3)
+  assert(found.found)
+  assert.eq(found.index, 2)
+  std.stack(dir: ttb, spacing: 0.8em, l0.diagram, s1.after, s2.after, s3.after, found.after)
+})
+
+#section("Doubly-linked-list positional operations preserve chaining", {
+  let trace = operation-sequence(
+    doubly-linked-list(2, 4, pointer: true, head: true),
+    list => (list.prepend)(1),
+    list => (list.insert)(3, index: 2),
+    list => (list.delete)(4),
+    columns: 1,
+  )
+  assert.eq(trace.steps.len(), 3)
+  trace.diagram
+})
+
+#section("Hash table with separate chaining", {
+  let table = hash-table(("Ada", 10), ("Linus", 20), ("Grace", 30), size: 4, collision: "chaining")
+  let inserted = (table.insert)("Ken", value: 40)
+  let found = ((inserted.result).search)("Grace")
+  assert(found.found)
+  std.stack(dir: ttb, spacing: 1em, table.diagram, inserted.diagram, found.after)
+})
+
+#section("Hash table with linear probing and tombstone deletion", {
+  let table = hash-table(1, 6, 11, size: 5, collision: "linear")
+  let deleted = (table.delete)(6)
+  let inserted = ((deleted.result).insert)(16)
+  let found = ((inserted.result).search)(11)
+  assert(deleted.found)
+  assert(found.found)
+  std.stack(dir: ttb, spacing: 1em, deleted.diagram, inserted.diagram, found.after)
+})
+
+#section("Named themes, rounded nodes, capsules, and typography roles", std.stack(
+  dir: ltr,
+  spacing: 1.5em,
+  bst(4, 2, 6, style: theme-preset("colorblind") + tree-style(
+    node-shape: "rounded",
+    value-text: text-style(weight: "bold"),
+  )).diagram,
+  graph(
+    ("A": (("B", [edge]),), "B": ()),
+    style: theme-preset("chalkboard") + graph-style(
+      node-shape: "capsule",
+      edge-label-text: text-style(weight: "bold"),
+    ),
+  ).diagram,
+  array-view(
+    1, 2, 3,
+    style: array-style(
+      box-shape: "capsule",
+      indices: indices-style(enabled: true, labels: auto),
+      index-text: text-style(color: rgb("#7048E8"), weight: "bold"),
+    ),
+  ).diagram,
+))
+
+#section("BFS graph trace uses queued, current, visited, and active-edge states", {
+  let adjacency = (
+    "S": ("A", "B"),
+    "A": ("C",),
+    "B": ("C", "D"),
+    "C": ("T",),
+    "D": ("T",),
+    "T": (),
+  )
+  let trace = bfs(adjacency, "S", target: "T", columns: 2)
+  assert(trace.result.found)
+  assert.eq(trace.result.path, ("S", "A", "C", "T"))
+  trace.diagram
+})
+
+#section("DFS graph trace stops at an optional target", {
+  let adjacency = (
+    "S": ("A", "B"),
+    "A": ("C",),
+    "B": ("D",),
+    "C": ("T",),
+    "D": ("T",),
+    "T": (),
+  )
+  let trace = dfs(adjacency, "S", target: "T", columns: 2)
+  assert(trace.result.found)
+  assert.eq(trace.result.path, ("S", "A", "C", "T"))
+  trace.diagram
+})
+
+#section("Dijkstra trace labels every node with its current distance", {
+  let adjacency = (
+    "S": (("A", 4), ("B", 1)),
+    "A": (("C", 1),),
+    "B": (("A", 2), ("C", 5)),
+    "C": (("T", 3),),
+    "T": (),
+  )
+  let trace = dijkstra(
+    adjacency,
+    "S",
+    target: "T",
+    radius: 1.9,
+    columns: 2,
+    node-labels: (
+      "S": (position: "top"),
+      "A": (position: "right"),
+      "B": (position: "bottom"),
+      "C": (position: "bottom"),
+      "T": (position: "left"),
+    ),
+    style: graph-style(scale: 0.8),
+  )
+  assert(trace.result.found)
+  assert.eq(trace.result.distances.at("T"), 7)
+  assert.eq(trace.result.path, ("S", "B", "A", "C", "T"))
+  trace.diagram
+})
+
+#section("BFS can stop when a target is discovered or expanded", {
+  let adjacency = (
+    "S": ("A", "B"),
+    "A": ("C",),
+    "B": ("D",),
+    "C": ("T",),
+    "D": (),
+    "T": (),
+  )
+  let discovery = bfs(adjacency, "S", target: "T", goal-test: "discovery", columns: 2)
+  let expansion = bfs(adjacency, "S", target: "T", goal-test: "expansion", columns: 2)
+  let immediate = bfs(adjacency, "S", target: "S")
+  assert.eq(discovery.result.order, ("S", "A", "B", "C"))
+  assert.eq(expansion.result.order, ("S", "A", "B", "C", "D", "T"))
+  assert.eq(discovery.result.path, ("S", "A", "C", "T"))
+  assert.eq(immediate.result.order, ("S",))
+  assert.eq(immediate.result.path, ("S",))
+  std.stack(dir: ttb, spacing: 1em, [Discovery goal test], discovery.diagram, [Expansion goal test], expansion.diagram)
+})
+
+#pagebreak()
+#section("Linked-list and chained hash-table null terminators match", std.stack(
+  dir: ttb,
+  spacing: 0.8em,
+  linked-list([Grace: 2], style: list-style(box-w: 1.5)).diagram,
+  hash-table(("Grace", 2), size: 1, collision: "chaining", hash: key => 0).diagram,
+))
+
+#section("Empty hash buckets keep their null terminators beside the head arrows", {
+  let table = hash-table(("Grace", 2), ("Ada", 1), size: 4, collision: "chaining", hash: key => if key == "Grace" { 0 } else { 2 })
+  table.diagram
+})
+
+#section("Dijkstra highlights the shortest-path edges in its target state", {
+  let trace = dijkstra(
+    (
+      "S": (("A", 4), ("B", 1)),
+      "A": (("C", 1),),
+      "B": (("A", 2), ("C", 5)),
+      "C": (("T", 3),),
+      "T": (),
+    ),
+    "S",
+    target: "T",
+    columns: 1,
+  )
+  let final = trace.steps.last()
+  assert.eq(final.path, ("S", "B", "A", "C", "T"))
+  final.diagram
+})

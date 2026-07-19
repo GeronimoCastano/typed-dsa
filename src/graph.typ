@@ -128,11 +128,15 @@
 }
 
 #let _boundary-radius(shape, r, ux, uy) = {
-  if shape == "square" {
+  if shape in ("square", "rounded") {
     return r / calc.max(calc.abs(ux), calc.abs(uy))
   }
   if shape == "diamond" {
     return r / (calc.abs(ux) + calc.abs(uy))
+  }
+  if shape == "capsule" {
+    let a = 0.4 * r
+    return a * calc.abs(ux) + calc.sqrt(r * r - a * a * uy * uy)
   }
   r
 }
@@ -146,7 +150,8 @@
     pos.insert(nodes.at(0), (0.0, 0.0))
     return pos
   }
-  let min-chord = 2 * th.node-radius + 1.05
+  let node-width = if th.node-shape == "capsule" { 2.8 * th.node-radius } else { 2 * th.node-radius }
+  let min-chord = node-width + 1.05
   let r = if radius == auto { calc.max(min-chord / (2 * calc.sin(180deg / n)), th.node-radius * 2) } else { radius }
   for (i, name) in nodes.enumerate() {
     let theta = 90deg - 360deg * i / n
@@ -277,7 +282,7 @@
     }
   }
 
-  let size = th.label-text.at("size", default: 9pt)
+  let size = th.edge-label-text.at("size", default: 9pt)
   // Gap is 10% of size. But since text is centered, we also need to shift by 50% of size 
   // so the text's bounding box clears the line. Total shift = 60% of size.
   // Convert pt to CetZ coordinate units (1 unit = 1cm = 28.346pt).
@@ -324,7 +329,7 @@
   if label == none { return }
   let pt = _edge-label-point(p, q, r, custom, th)
   
-  let label-style = th.label-text
+  let label-style = th.edge-label-text
   let rotation = label-style.at("rotation", default: 0deg)
   
   if custom != none and "label" in custom {
@@ -356,7 +361,7 @@
     rotation = angle
   }
   
-  content(pt, text(..label-style, label), angle: rotation)
+  content(pt, text(..label-style)[#label], angle: rotation)
 }
 
 #let _label-vector(pos) = {
@@ -424,7 +429,7 @@
   let text-style = label.style
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  content(pt, text(..text-style, label.body), angle: rotation)
+  content(pt, text(..text-style)[#label.body], angle: rotation)
 }
 
 #let _draw-node(label, p, th, custom) = {
@@ -432,7 +437,7 @@
   let shape = _node-shape(th, custom)
   let fill = if custom != none and "fill" in custom { custom.fill } else { th.node-fill }
   let stroke = if custom != none and "stroke" in custom { custom.stroke } else { th.node-stroke }
-  let text-style = th.node-text
+  let text-style = th.value-text
   if custom != none and "text" in custom { text-style = text-style + custom.text }
   text-style = _text-style(text-style)
   let rotation = text-style.at("rotation", default: 0deg)
@@ -440,6 +445,10 @@
   let polygon = pts => line(..pts, close: true, fill: fill, stroke: stroke)
   if shape == "square" {
     rect((p.at(0) - r, p.at(1) - r), (p.at(0) + r, p.at(1) + r), fill: fill, stroke: stroke)
+  } else if shape == "rounded" {
+    rect((p.at(0) - r, p.at(1) - r), (p.at(0) + r, p.at(1) + r), radius: 25%, fill: fill, stroke: stroke)
+  } else if shape == "capsule" {
+    rect((p.at(0) - 1.4 * r, p.at(1) - r), (p.at(0) + 1.4 * r, p.at(1) + r), radius: 50%, fill: fill, stroke: stroke)
   } else if shape == "diamond" {
     polygon(((p.at(0), p.at(1) + r), (p.at(0) + r, p.at(1)), (p.at(0), p.at(1) - r), (p.at(0) - r, p.at(1))))
   } else if shape == "hexagon" {
@@ -521,3 +530,310 @@
 ) = (
   diagram: _render(adjacency, directed, labels, positions, layout, radius, edge-customizations, node-customizations, node-labels, resolve(style)),
 )
+
+// ── Algorithm traces ────────────────────────────────────────────────────────
+
+#let _neighbors(adjacency, node, directed) = {
+  let result = ()
+  if node in adjacency {
+    for entry in adjacency.at(node) {
+      result.push((node: _edge-to(entry), weight: _edge-label(entry)))
+    }
+  }
+  if not directed {
+    for from in adjacency.keys() {
+      for entry in adjacency.at(from) {
+        if _edge-to(entry) == node and result.position(item => item.node == from) == none {
+          result.push((node: from, weight: _edge-label(entry)))
+        }
+      }
+    }
+  }
+  result
+}
+
+#let _state-node-customizations(base, nodes, visited, current, queued, th) = {
+  let result = ()
+  for node in nodes {
+    let custom = _node-custom(base, node)
+    if custom == none { custom = (:) }
+    let state = if node == current { th.current-style }
+      else if node in queued { th.queued-style }
+      else if node in visited { th.visited-style }
+      else { none }
+    if state != none { custom += state }
+    if custom.len() > 0 { result.push((node, custom)) }
+  }
+  result
+}
+
+#let _same-edge(a, b, from, to, directed) = if directed {
+  a == from and b == to
+} else {
+  (a == from and b == to) or (a == to and b == from)
+}
+
+#let _path-edges(path) = {
+  let result = ()
+  for index in range(path.len() - 1) {
+    result.push((path.at(index), path.at(index + 1)))
+  }
+  result
+}
+
+#let _state-edge-customizations(base, active, path, directed, th) = {
+  let highlights = if active == none { _path-edges(path) } else { (active,) + _path-edges(path) }
+  if highlights.len() == 0 { return base }
+  let result = ()
+  for (from, to) in highlights {
+    let existing = _edge-custom(base, from, to, directed)
+    result.push((from, to, (if existing == none { (:) } else { existing }) + th.active-edge-style))
+  }
+  for (a, b, custom) in base {
+    if highlights.all(edge => not _same-edge(a, b, edge.at(0), edge.at(1), directed)) {
+      result.push((a, b, custom))
+    }
+  }
+  result
+}
+
+#let _distance-node-labels(nodes, distances, supplied, th) = {
+  let result = ()
+  for node in nodes {
+    let raw = _lookup-key(supplied, node)
+    let value = if distances.at(node) == none { $infinity$ } else { distances.at(node) }
+    let body = [d = #value]
+    let custom = (color: rgb("#7048E8"), weight: "bold")
+    let defaults = th.at("node-labels", default: (:))
+    if "gap" not in defaults { custom.gap = 0.5 }
+    if type(raw) == dictionary { custom += raw }
+    custom.content = body
+    result.push((node, custom))
+  }
+  result
+}
+
+#let _algorithm-step(
+  label, adjacency, directed, labels, positions, layout, radius,
+  edge-customizations, node-customizations, node-labels, style,
+  visited, current, queued, active,
+  captions, distances: none, path: (),
+) = {
+  let th = resolve(style)
+  let nodes = _nodes(adjacency)
+  let state-nodes = _state-node-customizations(node-customizations, nodes, visited, current, queued, th)
+  let state-edges = _state-edge-customizations(edge-customizations, active, path, directed, th)
+  let state-labels = if distances == none { node-labels } else { _distance-node-labels(nodes, distances, node-labels, th) }
+  let picture = _render(adjacency, directed, labels, positions, layout, radius, state-edges, state-nodes, state-labels, th)
+  (
+    label: label,
+    current: current,
+    visited: visited,
+    queued: queued,
+    active-edge: active,
+    path: path,
+    diagram: align(center)[
+      #if captions [#text(..th.algorithm-label-text)[#label] #v(0.25em)]
+      #picture
+    ],
+  ) + if distances == none { (:) } else { (distances: distances,) }
+}
+
+#let _trace-result(steps, result, columns, row-gap) = (
+  steps: steps,
+  result: result,
+  diagram: grid(columns: columns, column-gutter: row-gap, row-gutter: row-gap, ..steps.map(step => step.diagram)),
+)
+
+#let _path(previous, source, target, found) = {
+  if target == none or not found { return () }
+  let path = (target,)
+  let current = target
+  while current != source {
+    current = previous.at(current, default: none)
+    if current == none { return () }
+    path.push(current)
+  }
+  path.rev()
+}
+
+#let _validate-traversal(adjacency, source, target) = {
+  let nodes = _nodes(adjacency)
+  assert(source in nodes, message: "graph traversal source must be a node in the graph")
+  if target != none { assert(target in nodes, message: "graph traversal target must be a node in the graph") }
+  nodes
+}
+
+#let bfs(
+  adjacency, source, target: none, directed: true, labels: (:), positions: (:),
+  layout: "auto", radius: auto, edge-customizations: (), node-customizations: (),
+  node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
+  goal-test: "discovery",
+) = {
+  assert(goal-test in ("discovery", "expansion"), message: "bfs goal-test must be \"discovery\" or \"expansion\"")
+  let nodes = _validate-traversal(adjacency, source, target)
+  let queue = (source,)
+  let seen = (:)
+  seen.insert(source, true)
+  let visited = ()
+  let order = ()
+  let previous = (:)
+  let steps = ()
+  let make(label, state-visited, state-queued, current: none, active: none) = _algorithm-step(
+    label, adjacency, directed, labels, positions, layout, radius,
+    edge-customizations, node-customizations, node-labels, style,
+    state-visited, current, state-queued, active, captions,
+  )
+  steps.push(make([queue #source], visited, queue))
+  if target == source {
+    order.push(source)
+    visited.push(source)
+    steps.push(make([reached #target], visited, ()))
+    return _trace-result(steps, (order: order, found: true, path: (source,)), columns, row-gap)
+  }
+  while queue.len() > 0 {
+    let current = queue.first()
+    queue = queue.slice(1)
+    steps.push(make([visit #current], visited, queue, current: current))
+    order.push(current)
+    if goal-test == "expansion" and target != none and current == target {
+      visited.push(current)
+      steps.push(make([reached #target], visited, queue))
+      break
+    }
+    let target-discovered = false
+    for neighbor in _neighbors(adjacency, current, directed) {
+      let next = neighbor.node
+      let discovered = next not in seen
+      if discovered {
+        seen.insert(next, true)
+        previous.insert(next, current)
+        queue.push(next)
+      }
+      steps.push(make([inspect #current → #next], visited, queue, current: current, active: (current, next)))
+      if goal-test == "discovery" and target != none and discovered and next == target {
+        visited.push(current)
+        steps.push(make([reached #target], visited, queue, current: target))
+        target-discovered = true
+        break
+      }
+    }
+    if target-discovered { break }
+    visited.push(current)
+    steps.push(make([finish #current], visited, queue))
+  }
+  let found = if target == none { none } else { target in seen }
+  _trace-result(steps, (order: order, found: found, path: _path(previous, source, target, found == true)), columns, row-gap)
+}
+
+#let dfs(
+  adjacency, source, target: none, directed: true, labels: (:), positions: (:),
+  layout: "auto", radius: auto, edge-customizations: (), node-customizations: (),
+  node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
+) = {
+  let nodes = _validate-traversal(adjacency, source, target)
+  let stack = (source,)
+  let seen = (:)
+  seen.insert(source, true)
+  let visited = ()
+  let order = ()
+  let previous = (:)
+  let steps = ()
+  let make(label, state-visited, state-queued, current: none, active: none) = _algorithm-step(
+    label, adjacency, directed, labels, positions, layout, radius,
+    edge-customizations, node-customizations, node-labels, style,
+    state-visited, current, state-queued, active, captions,
+  )
+  steps.push(make([stack #source], visited, stack))
+  while stack.len() > 0 {
+    let current = stack.last()
+    stack = stack.slice(0, stack.len() - 1)
+    steps.push(make([visit #current], visited, stack, current: current))
+    order.push(current)
+    if target != none and current == target {
+      visited.push(current)
+      steps.push(make([reached #target], visited, stack))
+      break
+    }
+    let discovered = ()
+    for neighbor in _neighbors(adjacency, current, directed) {
+      let next = neighbor.node
+      if next not in seen {
+        seen.insert(next, true)
+        previous.insert(next, current)
+        discovered.push(next)
+      }
+      steps.push(make([inspect #current → #next], visited, stack + discovered, current: current, active: (current, next)))
+    }
+    stack += discovered.rev()
+    visited.push(current)
+    steps.push(make([finish #current], visited, stack))
+  }
+  let found = if target == none { none } else { target in seen }
+  _trace-result(steps, (order: order, found: found, path: _path(previous, source, target, found == true)), columns, row-gap)
+}
+
+#let dijkstra(
+  adjacency, source, target: none, directed: true, labels: (:), positions: (:),
+  layout: "auto", radius: auto, edge-customizations: (), node-customizations: (),
+  node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
+) = {
+  let nodes = _validate-traversal(adjacency, source, target)
+  let distances = (:)
+  for node in nodes { distances.insert(node, if node == source { 0 } else { none }) }
+  let previous = (:)
+  let visited = ()
+  let order = ()
+  let steps = ()
+  let frontier(state-distances, state-visited, current: none) = nodes.filter(node => state-distances.at(node) != none and node not in state-visited and node != current)
+  let make(label, state-visited, state-distances, current: none, active: none, path: ()) = _algorithm-step(
+    label, adjacency, directed, labels, positions, layout, radius,
+    edge-customizations, node-customizations, node-labels, style,
+    state-visited, current, frontier(state-distances, state-visited, current: current), active, captions, distances: state-distances, path: path,
+  )
+  steps.push(make([distance(#source) = 0], visited, distances))
+  while true {
+    let current = none
+    for node in nodes {
+      if node not in visited and distances.at(node) != none and (current == none or distances.at(node) < distances.at(current)) {
+        current = node
+      }
+    }
+    if current == none { break }
+    steps.push(make([settle #current], visited, distances, current: current))
+    order.push(current)
+    if target != none and current == target {
+      visited.push(current)
+      steps.push(make(
+        [shortest path to #target found],
+        visited,
+        distances,
+        path: _path(previous, source, target, true),
+      ))
+      break
+    }
+    for neighbor in _neighbors(adjacency, current, directed) {
+      let next = neighbor.node
+      let weight = if neighbor.weight == none { 1 } else { neighbor.weight }
+      assert(type(weight) in (int, float) and weight >= 0, message: "dijkstra edge weights must be non-negative numbers")
+      if next not in visited {
+        let candidate = distances.at(current) + weight
+        if distances.at(next) == none or candidate < distances.at(next) {
+          distances.insert(next, candidate)
+          previous.insert(next, current)
+        }
+      }
+      steps.push(make([relax #current → #next], visited, distances, current: current, active: (current, next)))
+    }
+    visited.push(current)
+    steps.push(make([finish #current], visited, distances))
+  }
+  let found = if target == none { none } else { distances.at(target) != none }
+  _trace-result(steps, (
+    distances: distances,
+    previous: previous,
+    order: order,
+    found: found,
+    path: _path(previous, source, target, found == true),
+  ), columns, row-gap)
+}

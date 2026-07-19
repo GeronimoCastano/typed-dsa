@@ -45,17 +45,18 @@
   let f = if custom != none and "fill" in custom { custom.fill } else { base-fill }
   let s = if custom != none and "stroke" in custom { custom.stroke } else { th.box-stroke }
   let stripe-fill = if custom != none { custom.at("stripe-fill", default: none) } else { none }
-  let text-style = th.node-text
+  let text-style = th.value-text
   if custom != none and "text" in custom { text-style = text-style + custom.text }
   text-style = _text-style(text-style)
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  rect((x, y), (x + ww, y + hh), fill: f, stroke: if stripe-fill == none { s } else { none })
+  let radius = if th.box-shape == "rounded" { 20% } else if th.box-shape == "capsule" { 50% } else { 0% }
+  rect((x, y), (x + ww, y + hh), radius: radius, fill: f, stroke: if stripe-fill == none { s } else { none })
   if stripe-fill != none {
     for offset in (0, 0.2, 0.4, 0.6, 0.8) {
       rect((x + ww * offset, y), (x + ww * (offset + 0.1), y + hh), fill: stripe-fill, stroke: none)
     }
-    rect((x, y), (x + ww, y + hh), fill: none, stroke: s)
+    rect((x, y), (x + ww, y + hh), radius: radius, fill: none, stroke: s)
   }
   content((x + ww / 2, y + hh / 2), text(..text-style)[#body], angle: rotation)
 }
@@ -68,7 +69,7 @@
     if not enabled { return none }
     let labels = spec.at("labels", default: auto)
     let offset = spec.at("offset", default: (0, -0.28))
-    let text-style = th.label-text
+    let text-style = th.index-text
     for key in ("size", "font", "weight", "style") {
       if key in spec { text-style.insert(key, spec.at(key)) }
     }
@@ -103,7 +104,7 @@
         stroke: (paint: p.color, thickness: 1pt),
         mark: (end: ">", fill: p.color),
       )
-      let text-style = th.label-text + (fill: p.color) + p.at("text", default: (:))
+      let text-style = th.pointer-text + (fill: p.color) + p.at("text", default: (:))
       _text-content((cx, th.box-h + 0.72), p.label, text-style)
     }
   }
@@ -151,12 +152,12 @@
         _cell(c * th.box-w, -r * th.box-h, body, th, custom: _custom-at(cell-customizations, (r, c)))
       }
       if row-labels != none and r < row-labels.len() {
-        _text-content((-0.42, -r * th.box-h + th.box-h / 2), row-labels.at(r), th.label-text)
+        _text-content((-0.42, -r * th.box-h + th.box-h / 2), row-labels.at(r), th.index-text)
       }
     }
     if column-labels != none {
       for c in range(calc.min(column-labels.len(), ccount)) {
-        _text-content((c * th.box-w + th.box-w / 2, th.box-h + 0.32), column-labels.at(c), th.label-text)
+        _text-content((c * th.box-w + th.box-w / 2, th.box-h + 0.32), column-labels.at(c), th.index-text)
       }
     }
   }))
@@ -166,10 +167,11 @@
   diagram: _matrix-render(rows, resolve(style), cell-customizations, row-labels, column-labels),
 )
 
-#let _sequence-arrow(label) = align(horizon)[
+#let _sequence-arrow(label, style) = align(horizon)[
+  #let th = resolve(style)
   #set align(center)
   #if label != none [
-    #text(size: 8pt, label) \
+    #text(..th.operation-text, label) \
   ]
   #text(size: 1.3em, $arrow.r$)
 ]
@@ -190,7 +192,7 @@
   step
 }
 
-#let sequence(columns: 1, gap: 1em, row-gap: 1em, mode: "all", ..steps) = {
+#let sequence(columns: 1, gap: 1em, row-gap: 1em, mode: "all", style: (:), ..steps) = {
   assert(mode in ("all", "diagram", "before", "after", "result"), message: "sequence mode must be \"all\", \"before\", \"after\", or \"result\"")
   let cells = ()
   for step in steps.pos() {
@@ -199,11 +201,31 @@
       if cells.len() == 0 and "before" in step {
         cells.push(step.before)
       }
-      cells.push(_sequence-arrow(step.at("label", default: none)))
+      cells.push(_sequence-arrow(step.at("label", default: none), style))
       cells.push(_sequence-panel(step, mode))
     } else {
       cells.push(_sequence-panel(step, mode))
     }
   }
   grid(columns: columns, column-gutter: gap, row-gutter: row-gap, ..cells)
+}
+
+// Applies operation closures to one live object and packages the resulting
+// steps. Each closure receives the current object and returns an ordinary
+// operation step, so this works across trees, heaps, lists, stacks, queues,
+// and hash tables without a second operation-description language.
+#let operation-sequence(initial, columns: 1, gap: 1em, row-gap: 1em, mode: "after", style: (:), ..operations) = {
+  let current = initial
+  let steps = ()
+  for operation in operations.pos() {
+    let step = operation(current)
+    assert(type(step) == dictionary and "result" in step, message: "operation-sequence closures must return an operation step")
+    steps.push(step)
+    current = step.result
+  }
+  (
+    steps: steps,
+    result: current,
+    diagram: sequence(initial, ..steps, columns: columns, gap: gap, row-gap: row-gap, mode: mode, style: style),
+  )
 }

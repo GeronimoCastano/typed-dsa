@@ -16,7 +16,7 @@ For the complete argument reference, including all nested `style:` and
 [documentation PDF](https://github.com/GeronimoCastano/typed-dsa/blob/33bc098f8d8918f46f748b0ceb5a417f8a7a4da7/docs/documentation.pdf).
 
 Use it for lecture notes, problem sets, and explanations where the shape of a
-tree, heap, list, queue, stack, array, matrix, or graph matters more than
+tree, heap, list, queue, stack, hash table, array, matrix, or graph matters more than
 hand-positioning every node.
 
 ## Static Structures
@@ -53,7 +53,8 @@ the heap array.
 
 `linked-list` and `doubly-linked-list` can draw simple node chains or pointer
 cells. `stack` treats the first value as the top; `queue` treats the first
-value as the front.
+value as the front. List objects support `prepend`, append or indexed
+`insert`, value `delete`, `delete-at`, and `search`.
 
 ```typst
 #linked-list(3, 1, 4, 1, 5, head: true).diagram
@@ -96,6 +97,19 @@ as Dijkstra distances, ranks, or visit order.
 
 ![Automatically and manually laid out graphs](assets/readme/graphs.png)
 
+Graph algorithms return full traces directly on the graph. Visited nodes are
+green, the current node is blue, queued/stacked nodes are yellow, and the edge
+being inspected is highlighted. `dijkstra` also labels every node with its
+current distance as `d = ...`; when it reaches a target, the final state
+highlights the shortest-path edges. A target is optional; omit it to traverse
+every reachable node.
+
+```typ
+#bfs(adjacency, "S", target: "T").diagram
+#dfs(adjacency, "S", target: "T").diagram
+#dijkstra(weighted-adjacency, "S", target: "T").diagram
+```
+
 ### Arrays And Matrices
 
 `array-view` and `matrix` draw compact grid-style cells. Use
@@ -113,6 +127,17 @@ individual cells.
   ((0, 1, 0), (1, 0, 1), (0, 1, 0)),
   cell-customizations: (((1, 2), (fill: rgb("#E7F5FF"), stroke: 1pt + rgb("#1971C2"))),),
 ).diagram
+```
+
+### Hash Tables
+
+`hash-table` accepts keys or `(key, value)` pairs and supports separate
+chaining or linear probing. Its `insert`, `delete`, and `search` methods return
+the same before/after operation steps as the other live structures.
+
+```typ
+#hash-table(("Ada", 1), ("Grace", 2), size: 5).diagram
+#hash-table(1, 6, 11, size: 5, collision: "linear").diagram
 ```
 
 ### Sorting Algorithms
@@ -167,6 +192,19 @@ natural operations too.
 Use `sequence(..., columns:)` to wrap multiple operation steps into rows
 instead of building one very long horizontal trace.
 
+Use `operation-sequence(initial, ..operations)` when you want the package to
+apply and chain the operations too:
+
+```typ
+#operation-sequence(
+  linked-list(2, 4),
+  list => (list.prepend)(1),
+  list => (list.insert)(3, index: 2),
+  list => (list.search)(4),
+  columns: 1,
+).diagram
+```
+
 ![BST and AVL operation transitions](assets/readme/transitions.png)
 
 ## Styling
@@ -180,6 +218,9 @@ Common tree and graph keys include
 `node-shape`, `node-radius`, `node-fill`, `node-stroke`, `edge-stroke`,
 `edge-arrow`, and `edge-pattern`. Linear structures use box keys such as
 `box-fill`, `box-stroke`, `ptr-fill`, `prev-ptr-fill`, and `next-ptr-fill`.
+Nodes accept `"rounded"` and `"capsule"` shapes; cells accept them through
+`box-shape`. `theme-preset` provides `default`, `dark`, `print`, `colorblind`,
+and `chalkboard` presets.
 
 ```typst
 #bst(50, 30, 70, 20, 40, style: tree-style(
@@ -197,6 +238,11 @@ and `rotate-style` can be colors or dictionaries with `fill`, `shape`,
 for tree/heap marks, while `cell-mark-style(...)` exposes only the options
 supported by linear cells. Set `diff-colors: false` to keep
 operation marks while drawing their fills like ordinary nodes.
+
+Typography can be targeted by role with `value-text`, `index-text`,
+`pointer-text`, `operation-text`, `edge-label-text`, and
+`algorithm-label-text`; all inherit from the existing `node-text` or
+`label-text` defaults.
 
 ![Per-call styling and hand-composed trees](assets/readme/styling.png)
 

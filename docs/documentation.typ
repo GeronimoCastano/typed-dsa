@@ -1355,6 +1355,7 @@ markers together, plus customized bubble-sort marker strokes.
     positions: (:),
     layout: "auto",
     radius: auto,
+    gap: auto,
     edge-customizations: (),
     node-customizations: (),
     node-labels: (:),
@@ -1374,8 +1375,9 @@ markers together, plus customized bubble-sort marker strokes.
   [#c("directed")], [`bool`], [`true`], [Draw an arrowhead on every declared pair. #c("false") drops arrowheads and collapses a reciprocal pair into the one edge it represents.],
   [#c("labels")], [`dictionary`], [`(:)`], [Node label to drawn content: math, styled text, an image, anything. A label left out keeps the plain key as its own content.],
   [#c("positions")], [`dictionary`], [`(:)`], [Node label to absolute #c("(x, y)") or #c("(rel:, offset:)") placement.],
-  [#c("layout")], [`str`], [`"auto"`], [#c("\"auto\"") starts from the circular layout and applies #c("positions"). #c("\"manual\"") requires every node in #c("positions").],
+  [#c("layout")], [`str`], [`"auto"`], [#c("\"auto\"") starts from the circular layout and applies #c("positions"). #c("\"linear\"") starts from a row layout. #c("\"manual\"") requires every node in #c("positions").],
   [#c("radius")], [`auto` / `float`], [`auto`], [Circle radius for #c("layout: \"auto\""). Passing a radius with #c("layout: \"manual\"") is an error.],
+  [#c("gap")], [`auto` / `float`], [`auto`], [Spacing between nodes for #c("layout: \"linear\""), in canvas units. #c("auto") is #c("1.5"). Has no effect on #c("\"auto\"") or #c("\"manual\"") layout.],
   [#c("edge-customizations")], [`array`], [`()`], [#c("(from, to, options)") tuples restyling one edge. See below.],
   [#c("node-customizations")], [`array`], [`()`], [#c("(node, options)") tuples restyling one node by graph identity.],
   [#c("node-labels")], [`array` / `dictionary`], [`(:)`], [Labels drawn outside individual graph nodes.],
@@ -1499,6 +1501,20 @@ markers together, plus customized bubble-sort marker strokes.
   #c("radius") only applies to #c("layout: \"auto\""). In manual layout, every
   node already has an explicit position, so combining #c("radius") with
   #c("layout: \"manual\"") raises an error.
+]
+
+#demo[
+  #c("layout: \"linear\"") places nodes left to right in a single row,
+  useful for topological orderings. #c("gap:") sets the spacing between
+  nodes; it only applies to this layout.
+
+  #example(```typ
+  #graph(
+    ("A": ("B",), "B": ("C",), "C": ("D",), "D": ()),
+    layout: "linear",
+    gap: 2.5,
+  ).diagram
+  ```, side: false)
 ]
 
 #demo[
@@ -1662,7 +1678,7 @@ transition to match trees and heaps. See @limitations.]
   [#c("columns")], [`int`], [`1`], [Trace grid columns.],
   [#c("row-gap")], [`length`], [`0.8em`], [Gap between trace cells.],
   [#c("captions")], [`bool`], [`true`], [Show generated step captions.],
-  [#c("labels") / #c("positions") / #c("layout") / #c("radius")], [same as #c("graph")], [same], [Node display and placement options.],
+  [#c("labels") / #c("positions") / #c("layout") / #c("radius") / #c("gap")], [same as #c("graph")], [same], [Node display and placement options.],
   [#c("edge-customizations") / #c("node-customizations") / #c("node-labels")], [same as #c("graph")], [same], [Base customizations merged with algorithm states.],
   [#c("style")], [`dictionary`], [`(:)`], [Graph style plus #c("visited-style"), #c("current-style"), #c("queued-style"), #c("active-edge-style"), and #c("algorithm-label-text").],
 )
@@ -2486,7 +2502,7 @@ One stone remains, weight *1*, matching
   [#c("queue(..vals, style:, enqueue:, dequeue:, front-label:, rear-label:)")], [Queue, first argument is the front; ops #c("enqueue"), #c("dequeue")],
   [#c("array-view(..vals, style:, cell-customizations:, pointers:)")], [Static array cells with optional #c("style.indices"), per-cell overrides, and labelled #c("pointers") arrows above cells],
   [#c("matrix(rows, style:, cell-customizations:, row-labels:, column-labels:)")], [Static matrix/grid cells with optional row/column labels and per-cell overrides],
-  [#c("graph(adjacency, directed:, labels:, positions:, layout:, radius:, edge-customizations:, node-customizations:, node-labels:, style:)")], [Graph from an adjacency dict; circular or manual layout, no ops yet],
+  [#c("graph(adjacency, directed:, labels:, positions:, layout:, radius:, gap:, edge-customizations:, node-customizations:, node-labels:, style:)")], [Graph from an adjacency dict; circular, linear, or manual layout, no ops yet],
   [#c("hash-table(..entries, size:, collision:, hash:, style:)")], [Separate-chaining or linear-probing table; ops #c("insert"), #c("delete"), and #c("search")],
 )
 

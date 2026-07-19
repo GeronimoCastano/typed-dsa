@@ -68,10 +68,12 @@ value as the front. List objects support `prepend`, append or indexed
 ### Graphs
 
 `graph` draws from an adjacency dictionary. Automatic layout places nodes on a
-circle; `layout: "manual"` lets you define every position yourself. An edge
-entry can be just a neighbor label, or `(neighbor, label)` when you want an
-edge label such as a weight. Use `node-labels:` for outside annotations such
-as Dijkstra distances, ranks, or visit order.
+circle; `layout: "linear"` lines them up in a row (handy for topological
+orderings), with spacing set by `gap:`; `layout: "manual"` lets you define
+every position yourself. An edge entry can be just a neighbor label, or
+`(neighbor, label)` when you want an edge label such as a weight. Use
+`node-labels:` for outside annotations such as Dijkstra distances, ranks, or
+visit order.
 
 ```typst
 #graph(("v1": ("v2", "v3"), "v2": ("v3",), "v3": ())).diagram
@@ -81,6 +83,12 @@ as Dijkstra distances, ranks, or visit order.
 #graph(
   ("S": (("A", [7]), ("B", [2])), "A": (), "B": ()),
   node-labels: (("S", [$0$]), ("A", [$7$]), ("B", [$2$])),
+).diagram
+
+#graph(
+  ("v1": ("v2",), "v2": ("v3",), "v3": ("v4",), "v4": ()),
+  layout: "linear",
+  gap: 2,
 ).diagram
 
 #graph(

@@ -639,14 +639,14 @@
   label, adjacency, directed, labels, positions, layout, radius,
   edge-customizations, node-customizations, node-labels, style,
   visited, current, queued, active,
-  captions, distances: none, path: (),
+  captions, distances: none, path: (), gap: auto,
 ) = {
   let th = resolve(style)
   let nodes = _nodes(adjacency)
   let state-nodes = _state-node-customizations(node-customizations, nodes, visited, current, queued, th)
   let state-edges = _state-edge-customizations(edge-customizations, active, path, directed, th)
   let state-labels = if distances == none { node-labels } else { _distance-node-labels(nodes, distances, node-labels, th) }
-  let picture = _render(adjacency, directed, labels, positions, layout, radius, state-edges, state-nodes, state-labels, th)
+  let picture = _render(adjacency, directed, labels, positions, layout, radius, gap, state-edges, state-nodes, state-labels, th)
   (
     label: label,
     current: current,
@@ -688,7 +688,7 @@
 
 #let bfs(
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
-  layout: "auto", radius: auto, edge-customizations: (), node-customizations: (),
+  layout: "auto", radius: auto, gap: auto, edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
   goal-test: "discovery",
 ) = {
@@ -704,7 +704,7 @@
   let make(label, state-visited, state-queued, current: none, active: none) = _algorithm-step(
     label, adjacency, directed, labels, positions, layout, radius,
     edge-customizations, node-customizations, node-labels, style,
-    state-visited, current, state-queued, active, captions,
+    state-visited, current, state-queued, active, captions, gap: gap,
   )
   steps.push(make([queue #source], visited, queue))
   if target == source {
@@ -750,7 +750,7 @@
 
 #let dfs(
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
-  layout: "auto", radius: auto, edge-customizations: (), node-customizations: (),
+  layout: "auto", radius: auto, gap: auto, edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
 ) = {
   let nodes = _validate-traversal(adjacency, source, target)
@@ -764,7 +764,7 @@
   let make(label, state-visited, state-queued, current: none, active: none) = _algorithm-step(
     label, adjacency, directed, labels, positions, layout, radius,
     edge-customizations, node-customizations, node-labels, style,
-    state-visited, current, state-queued, active, captions,
+    state-visited, current, state-queued, active, captions, gap: gap,
   )
   steps.push(make([stack #source], visited, stack))
   while stack.len() > 0 {
@@ -797,7 +797,7 @@
 
 #let dijkstra(
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
-  layout: "auto", radius: auto, edge-customizations: (), node-customizations: (),
+  layout: "auto", radius: auto, gap: auto, edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
 ) = {
   let nodes = _validate-traversal(adjacency, source, target)
@@ -811,7 +811,7 @@
   let make(label, state-visited, state-distances, current: none, active: none, path: ()) = _algorithm-step(
     label, adjacency, directed, labels, positions, layout, radius,
     edge-customizations, node-customizations, node-labels, style,
-    state-visited, current, frontier(state-distances, state-visited, current: current), active, captions, distances: state-distances, path: path,
+    state-visited, current, frontier(state-distances, state-visited, current: current), active, captions, distances: state-distances, path: path, gap: gap,
   )
   steps.push(make([distance(#source) = 0], visited, distances))
   while true {

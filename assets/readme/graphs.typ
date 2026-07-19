@@ -4,12 +4,16 @@
 #set text(font: "New Computer Modern", size: 11pt)
 
 #table(
-  columns: (auto, auto),
+  columns: (auto, auto, auto),
   column-gutter: 2em,
   align: center + horizon,
   stroke: none,
-  [*Automatic circle layout*], [*Manual layout*],
+  [*Automatic circle layout*], [*Linear layout*], [*Manual layout*],
   graph(("v1": ("v2", "v3"), "v2": ("v3",), "v3": ())).diagram,
+  graph(
+    ("v1": ("v2",), "v2": ("v3",), "v3": ("v4",), "v4": ()),
+    layout: "linear",
+  ).diagram,
   graph(
     ("v1": ("v2", "v3"), "v2": ("v4",), "v3": ("v4",), "v4": ()),
     layout: "manual",

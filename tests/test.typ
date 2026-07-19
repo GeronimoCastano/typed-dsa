@@ -1160,3 +1160,16 @@
   assert.eq(final.path, ("S", "B", "A", "C", "T"))
   final.diagram
 })
+
+#section("BFS trace on a linear layout with custom gap", {
+  let trace = bfs(
+    ("A": ("B",), "B": ("C",), "C": ("D",), "D": ()),
+    "A",
+    target: "D",
+    layout: "linear",
+    gap: 2.2,
+    columns: 2,
+  )
+  assert.eq(trace.result.path, ("A", "B", "C", "D"))
+  trace.diagram
+})

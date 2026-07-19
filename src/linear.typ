@@ -391,3 +391,170 @@
   rear-label: [Rear],
   ..vals,
 ) = _queue-obj(vals.pos(), style, enqueue, dequeue, front-label, rear-label)
+
+// `marks` is an array of `(level, index, kind)` triples, so one physical
+// node can carry the same highlight kind across every level it appears at.
+#let _skip-list-mark-at(marks, level, i) = {
+  for m in marks {
+    if m.at(0) == level and m.at(1) == i { return m.at(2) }
+  }
+  none
+}
+
+#let _skip-list-row(vs, marks, th, level-filter, level, level-spacing) = {
+  let step = th.box-w + th.box-gap
+  let level-offset = level-spacing * level
+
+  for (i, v) in vs.enumerate() {
+    if not level-filter.at(i) {
+      continue
+    }
+    _cell(i * step, level-offset, v, th, mark: _skip-list-mark-at(marks, level, i))
+
+    // line to item directly below
+    if level != 0 {
+      line(
+        (i * step + th.box-w / 2, level-offset),
+        (i * step + th.box-w / 2, th.box-h + (level-offset - level-spacing)),
+        mark: (end: ">"),
+        stroke: th.box-stroke,
+      )
+    }
+
+    // line to next node (left to right)
+    let next-visible-i = level-filter.enumerate().position(n => n.at(0) > i and n.at(1))
+    if next-visible-i == none {
+      next-visible-i = vs.len() // nothing element
+    }
+    line(
+      (i * step + th.box-w, th.box-h / 2 + level-offset),
+      (next-visible-i * step, th.box-h / 2 + level-offset),
+      mark: (end: ">"),
+      stroke: th.box-stroke,
+    )
+  }
+  _node-content((vs.len() * step + th.box-w / 2, th.box-h / 2 + level-offset), $nothing$, th)
+}
+
+#let _simple-skip-list(vs, marks, th, level-filters, level-spacing) = {
+  scaled(th, cetz.canvas({
+    for (level, level-filter) in level-filters.enumerate() {
+      _skip-list-row(vs, marks, th, level-filter, int(level), level-spacing)
+    }
+  }))
+}
+
+// Which node indices are present at each level, level 0 first. A node is
+// present at every level up to its own assigned height.
+#let _skip-list-level-filters(nodes) = {
+  let top = calc.max(0, ..nodes.map(n => n.level))
+  range(top + 1).map(level => nodes.map(n => n.level >= level))
+}
+
+// A cheap, deterministic stand-in for a coin flip: Typst has no RNG, and
+// diagrams need to stay reproducible across recompiles, so the same value
+// always hashes the same way regardless of how many other nodes exist.
+#let _skip-list-hash(value, salt) = {
+  let h = 0
+  for b in bytes(str(value) + "#" + str(salt)) {
+    h = calc.rem(h * 31 + b, 1000000007)
+  }
+  h
+}
+
+// Default `decision-fn`: promotes `value` to `level` about half the time.
+// It depends only on the value and the level being tested, never on the
+// value's position or how many other nodes exist, so a node's height stays
+// fixed once assigned — inserting or deleting elsewhere never reshuffles it.
+#let default-decision-fn(level, value) = calc.rem(_skip-list-hash(value, level), 2) == 0
+
+// The height for one node: keeps promoting while `decision-fn` says yes,
+// capped at `max-level`.
+#let _skip-list-node-level(value, decision-fn, max-level) = {
+  let level = 0
+  while level < max-level and decision-fn(level + 1, value) {
+    level += 1
+  }
+  level
+}
+
+// Returns the list of `(level, column-index, "path")` marks tracing the
+// search path down to `key`.
+#let _skip-list-search-marks(vs, level-filters, key) = {
+  assert(key in vs, message: "search key is not part of skip list")
+  let key-index = vs.position(k => k == key)
+
+  let marks = ()
+
+  let current-column = 0
+  for (current-level, level-filter) in level-filters.enumerate().rev() {
+    let next-entry-indices = level-filter.enumerate().filter(l => l.at(0) >= current-column and l.at(1)).map(l => l.at(0))
+    let next-entry-index = next-entry-indices.remove(0)
+
+    while next-entry-index != none and next-entry-index <= key-index {
+      marks.push((current-level, next-entry-index, "path"))
+      current-column = next-entry-index
+
+      if key-index == next-entry-index or next-entry-indices.len() == 0 {
+          break
+      }
+      next-entry-index = next-entry-indices.remove(0)
+    }
+  }
+
+  marks
+}
+
+// Skip-list state is an array of `(value:, level:)` nodes, sorted by
+// value. Keeping each node's assigned level explicit (rather than
+// re-deriving it from array position on every render) is what lets insert
+// and delete touch only the node that actually changed.
+#let _skip-list-obj(nodes, style, decision-fn, level-spacing, max-level) = {
+  let th = resolve(style)
+  let draw(ns, marks) = _simple-skip-list(ns.map(n => n.value), marks, th, _skip-list-level-filters(ns), level-spacing)
+
+  (
+    diagram: draw(nodes, ()),
+    search: (key, step-label: none) => _step(
+      if step-label == none { [search #key] } else { step-label },
+      draw(nodes, ()),
+      draw(nodes, _skip-list-search-marks(nodes.map(n => n.value), _skip-list-level-filters(nodes), key)),
+      _skip-list-obj(nodes, style, decision-fn, level-spacing, max-level),
+      style: style,
+    ),
+    // `level: auto` assigns the new value's height with `decision-fn`;
+    // pass an explicit level to force a specific tower height instead.
+    insert: (value, level: auto, step-label: none) => {
+      let assigned = if level == auto { _skip-list-node-level(value, decision-fn, max-level) } else { level }
+      let i = 0
+      while i < nodes.len() and nodes.at(i).value < value { i += 1 }
+      let new-nodes = nodes.slice(0, i) + ((value: value, level: assigned),) + nodes.slice(i)
+      let marks = range(assigned + 1).map(l => (l, i, "new"))
+      _step(
+        if step-label == none { [insert #value] } else { step-label },
+        draw(nodes, ()),
+        draw(new-nodes, marks),
+        _skip-list-obj(new-nodes, style, decision-fn, level-spacing, max-level),
+        style: style,
+      )
+    },
+    delete: (value, step-label: none) => {
+      let i = nodes.position(n => n.value == value)
+      assert(i != none, message: "delete key is not part of skip list")
+      let marks = range(nodes.at(i).level + 1).map(l => (l, i, "remove"))
+      let rest = nodes.slice(0, i) + nodes.slice(i + 1)
+      _step(
+        if step-label == none { [delete #value] } else { step-label },
+        draw(nodes, marks),
+        draw(rest, ()),
+        _skip-list-obj(rest, style, decision-fn, level-spacing, max-level),
+        style: style,
+      )
+    },
+  )
+}
+
+#let skip-list(style: (:), decision-fn: default-decision-fn, level-spacing: 1.4, max-level: 4, ..vals) = {
+  let nodes = vals.pos().map(v => (value: v, level: _skip-list-node-level(v, decision-fn, max-level)))
+  _skip-list-obj(nodes, style, decision-fn, level-spacing, max-level)
+}

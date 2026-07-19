@@ -975,3 +975,15 @@
   assert.eq(quick.result, (1, 2, 3))
   std.stack(dir: ttb, spacing: 1em, merge.diagram, quick.diagram)
 })
+
+#section("Skip list object: insert (new, green) and delete (red), chained via .result", {
+  let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
+  let inserted = (l.insert)(7)
+  let deleted = ((inserted.result).delete)(2)
+  std.stack(spacing: 1em, inserted.diagram, deleted.diagram)
+})
+
+#section("Skip list insert keeps every other node's level fixed: only the inserted node (green) gets new towers", {
+  let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
+  (l.insert)(0, level: 3).diagram
+})

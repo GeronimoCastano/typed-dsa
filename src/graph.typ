@@ -9,7 +9,8 @@
 // `labels:` swaps what's drawn inside a node for arbitrary content, keeping
 // the adjacency keys as the plain-string identity used for edges,
 // `positions:`, and `edge-customizations:`. `layout: "auto"` starts from the
-// circular layout, then applies `positions:`. `layout: "manual"` starts from
+// circular layout, then applies `positions:`. `layout: "linear"` starts from
+// a linear layout, then applies `positions`. `layout: "manual"` starts from
 // `positions:` only and requires every node to be placed.
 // `edge-customizations:` restyles individual edges, including dash, wave,
 // arrowheads, and bend.
@@ -160,6 +161,16 @@
   pos
 }
 
+// Evenly spaced linear layout, from left to right.
+#let _linear-layout(nodes, gap) = {
+  let n = nodes.len()
+  let pos = (:)
+  for (i, name) in nodes.enumerate() {
+    pos.insert(name, (gap * i, 0.0))
+  }
+  pos
+}
+
 #let _position-point(spec, pos) = {
   if "rel" in spec {
     if spec.rel not in pos { return none }
@@ -173,15 +184,12 @@
 // Resolves `positions:`. In auto mode, omitted nodes keep their automatic
 // circular spot. In manual mode, every node must be positioned, with at least
 // one absolute `(x, y)` entry acting as the anchor for relative entries.
-#let _resolve-positions(base, positions, nodes, layout) = {
-  assert(layout == "auto" or layout == "manual", message: "graph layout must be \"auto\" or \"manual\"")
-  let manual = layout == "manual"
+#let _resolve-positions(pos, positions, nodes, manual) = {
   if manual {
     for name in nodes {
       assert(name in positions, message: "graph layout \"manual\" needs a position for " + name)
     }
   }
-  let pos = if manual { (:) } else { base }
   for _ in range(nodes.len()) {
     for name in nodes {
       if name in positions {
@@ -467,10 +475,21 @@
   content(p, text(..text-style, label), angle: rotation)
 }
 
-#let _render(adjacency, directed, labels, positions, layout, radius, edge-customizations, node-customizations, node-labels, th) = {
+#let _render(adjacency, directed, labels, positions, layout, radius, gap, edge-customizations, node-customizations, node-labels, th) = {
+  assert(layout == "auto" or layout == "linear" or layout == "manual", message: "graph layout must be \"auto\", \"linear\" or \"manual\"")
+
   assert(layout == "auto" or radius == auto, message: "graph radius only works with layout \"auto\"")
+  assert(layout == "linear" or gap == auto, message: "gap only works with layout \"linear\"")
+
   let nodes = _nodes(adjacency)
-  let pos = _resolve-positions(_circle-layout(nodes, th, radius), positions, nodes, layout)
+  let layout = if layout == "auto" {
+    _circle-layout(nodes, th, radius)
+  } else if layout == "linear" {
+    _linear-layout(nodes, if gap == auto { 1.5 } else { gap })
+  } else {
+    (:)
+  }
+  let pos = _resolve-positions(layout, positions, nodes, layout == "manual")
   let edges = _edges(adjacency, directed)
   
   for (u, v, opts) in edge-customizations {
@@ -508,9 +527,11 @@
 // undirected graph, where a reciprocal pair collapses to one plain edge.
 // `labels` swaps a node's drawn content, keyed by its adjacency label, any
 // content: math, an image, styled text. `layout` is `"auto"` for the circular
-// layout plus optional per-node positions, or `"manual"` to require every
-// node in `positions`. `radius` controls the automatic circle only.
-// `positions` accepts absolute `(x, y)` anchors or
+// layout or "linear" for the row layout, plus optional per-node positions,
+// or `"manual"` to require every node in `positions`. `gap` controls the spacing
+// between nodes in the linear layout, it has no effect on other layouts. `radius`
+// controls the
+// automatic circle only. `positions` accepts absolute `(x, y)` anchors or
 // `(rel: other-label, offset: (dx, dy))` relative placements.
 // `edge-customizations` is an array of `(from, to, options)` tuples restyling
 // one edge. Options: `stroke:`, `color:`, `pattern:`, `arrow:`,
@@ -523,12 +544,13 @@
   positions: (:),
   layout: "auto",
   radius: auto,
+  gap: auto,
   edge-customizations: (),
   node-customizations: (),
   node-labels: (:),
   style: (:),
 ) = (
-  diagram: _render(adjacency, directed, labels, positions, layout, radius, edge-customizations, node-customizations, node-labels, resolve(style)),
+  diagram: _render(adjacency, directed, labels, positions, layout, radius, gap, edge-customizations, node-customizations, node-labels, resolve(style)),
 )
 
 // ── Algorithm traces ────────────────────────────────────────────────────────

@@ -450,6 +450,21 @@
 )
 
 #section(
+  "layout: linear: all nodes placed in a row with a large gap",
+  graph(
+    ("v1": ("v2",), "v2": ("v3", "v4"), "v3": ("v4",), "v4": ()),
+    edge-customizations: (
+      ("v1", "v2", (bend: true)),
+      ("v2", "v3", (bend: true)),
+      ("v2", "v4", (bend: true, angle: -15deg)),
+      ("v3", "v4", (bend: true)),
+    ),
+    layout: "linear",
+    gap: 3
+  ).diagram
+)
+
+#section(
   "layout: manual: every node placed from an explicit anchor",
   graph(
     ("v1": ("v2", "v3"), "v2": ("v4",), "v3": ("v4",), "v4": ()),

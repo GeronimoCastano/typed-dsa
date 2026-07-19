@@ -65,6 +65,23 @@ value as the front. List objects support `prepend`, append or indexed
 
 ![Linked lists, stack, and queue](assets/readme/linear.png)
 
+### Skip Lists
+
+`skip-list` draws a sorted list with express-lane levels above it. Pass
+values already in ascending order. A node's height is assigned once — by
+`decision-fn`, deterministically from the value since Typst has no RNG — and
+never changes just because something else is inserted or deleted elsewhere.
+Objects support `search`, `insert` (`level: auto` or an explicit height), and
+`delete`.
+
+```typst
+#let l = skip-list(1, 2, 3, 4, 5, 6)
+#(l.search)(4).diagram
+#(l.insert)(7).diagram
+```
+
+![Skip list search and insert](assets/readme/skiplist.png)
+
 ### Graphs
 
 `graph` draws from an adjacency dictionary. Automatic layout places nodes on a

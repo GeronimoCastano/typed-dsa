@@ -59,6 +59,7 @@
 #let pkg-scope = (
   bst: bst, avl: avl, min-heap: min-heap, max-heap: max-heap,
   linked-list: linked-list, doubly-linked-list: doubly-linked-list, stack: stack, queue: queue,
+  skip-list: skip-list, default-decision-fn: default-decision-fn,
   array-view: array-view, matrix: matrix, graph: graph, hash-table: hash-table,
   bfs: bfs, dfs: dfs, dijkstra: dijkstra,
   merge-sort: merge-sort, merge-operation: merge-operation, partition-step: partition-step, quick-sort: quick-sort, bubble-sort: bubble-sort,
@@ -1004,6 +1005,74 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
     ),
   )
   #std.stack(spacing: 1em, q.diagram, (q.enqueue)(7).diagram)
+  ```, side: false)
+]
+
+== #raw("skip-list()")
+
+#demo[
+  Full signature:
+
+  ```typ
+  #skip-list(
+    ..vals,
+    style: (:),
+    decision-fn: default-decision-fn,
+    level-spacing: 1.4,
+    max-level: 4,
+  )
+  ```
+
+  #c("..vals") must already be in ascending order; #c("skip-list") does not
+  sort them for you. Levels above the base row are express lanes: a node's
+  height is decided once, when it is built or inserted, and never changes
+  afterward, so later inserts/deletes elsewhere never reshuffle it.
+]
+
+#argtable(
+  [#c("..vals")], [`int` / `float` / `str`], [(required)], [Values in the list, already in ascending order. #c("insert") compares values to place the new one, so a sortable type is required — unlike other linear structures, arbitrary #c("content") isn't supported here.],
+  [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
+  [#c("decision-fn")], [`function`], [#c("default-decision-fn")], [#c("(level, value) => bool"), called with #c("level") starting at #c("1") and increasing; a node keeps climbing while this returns #c("true"). Typst has no RNG, so the default hashes #c("value") deterministically instead of flipping a coin — same value, same height, every recompile.],
+  [#c("level-spacing")], [`float`], [`1.4`], [Vertical distance between level rows, in canvas units.],
+  [#c("max-level")], [`int`], [`4`], [Upper bound on the height #c("decision-fn") can assign automatically. #c("insert(..., level:)") can still exceed it when set explicitly.],
+)
+
+#linear-style-reference("skip-list")
+
+#methodtable(
+  [#c(".diagram")], [n/a], [The rendered skip list.],
+  [#c(".search")], [#c("(obj.search)(key)")], [Highlight the top-down search path to #c("key"). Returns a step.],
+  [#c(".insert")], [#c("(obj.insert)(value, level: auto)")], [Insert #c("value") in sorted position. #c("level: auto") assigns height with #c("decision-fn"); an explicit level forces a specific tower height instead. Returns a step.],
+  [#c(".delete")], [#c("(obj.delete)(value)")], [Remove #c("value") from every level it spans at once. Returns a step.],
+)
+
+#demo[
+  #example(```typ
+  #let l = skip-list(1, 2, 3, 4, 5, 6)
+  #(l.search)(4).diagram
+  ```, side: false)
+]
+
+#demo[
+  Insert only marks the node that was actually added (green); every other
+  node's height stays exactly as it was, since #c("decision-fn") depends on
+  the value alone, never on how many other values exist or where they sit.
+
+  #example(```typ
+  #let l = skip-list(1, 2, 3, 4, 5, 6)
+  #(l.insert)(7).diagram
+  ```, side: false)
+]
+
+#demo[
+  Delete highlights the target (red) across every level it appears at, then
+  removes it from all of them in the same step — a node is one physical
+  tower, not several independent copies, so leaving it linked at only some
+  levels would corrupt the structure.
+
+  #example(```typ
+  #let l = skip-list(1, 2, 3, 4, 5, 6)
+  #(l.delete)(2).diagram
   ```, side: false)
 ]
 
@@ -2500,6 +2569,7 @@ One stone remains, weight *1*, matching
   [#c("doubly-linked-list(..vals, style:, pointer:, addresses:, head:)")], [Doubly linked list; same positional and value operations as #c("linked-list")],
   [#c("stack(..vals, style:, top-label:)")], [Stack, first argument is the top; ops #c("push"), #c("pop")],
   [#c("queue(..vals, style:, enqueue:, dequeue:, front-label:, rear-label:)")], [Queue, first argument is the front; ops #c("enqueue"), #c("dequeue")],
+  [#c("skip-list(..vals, style:, decision-fn:, level-spacing:, max-level:)")], [Sorted skip list with express-lane levels; ops #c("search"), #c("insert"), #c("delete")],
   [#c("array-view(..vals, style:, cell-customizations:, pointers:)")], [Static array cells with optional #c("style.indices"), per-cell overrides, and labelled #c("pointers") arrows above cells],
   [#c("matrix(rows, style:, cell-customizations:, row-labels:, column-labels:)")], [Static matrix/grid cells with optional row/column labels and per-cell overrides],
   [#c("graph(adjacency, directed:, labels:, positions:, layout:, radius:, gap:, edge-customizations:, node-customizations:, node-labels:, style:)")], [Graph from an adjacency dict; circular, linear, or manual layout, no ops yet],

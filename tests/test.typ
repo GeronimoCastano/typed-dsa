@@ -1190,3 +1190,18 @@
   let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
   (l.insert)(0, level: 3).diagram
 })
+
+#section("Skip list head node spans every level (regression: search must be able to use the express lane, never scan the base list start to finish)", {
+  let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
+  (l.search)(3).diagram
+})
+
+#section("Skip list head transfers on insert: a new smallest value (green) becomes the new head and spans every level; the old head shrinks back to its own real height", {
+  let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
+  (l.insert)(0).diagram
+})
+
+#section("Skip list deleting the head (red) removes it from every level it spans, not just its own hash-assigned height", {
+  let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
+  (l.delete)(1).diagram
+})

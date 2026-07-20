@@ -1029,6 +1029,19 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   afterward, so later inserts/deletes elsewhere never reshuffle it.
 ]
 
+#demo[
+  The smallest value is always drawn spanning every level, exactly like the
+  sentinel head node in a standard skip list — it's what search starts
+  from at the top level, so it must always have a way in. Its own
+  #c("decision-fn")-assigned height still exists underneath; it only takes
+  over once #c("insert") gives it a smaller value to make way for.
+
+  #example(```typ
+  #let l = skip-list(1, 2, 3, 4, 5, 6)
+  #(l.insert)(0).diagram
+  ```, side: false)
+]
+
 #argtable(
   [#c("..vals")], [`int` / `float` / `str`], [(required)], [Values in the list, already in ascending order. #c("insert") compares values to place the new one, so a sortable type is required — unlike other linear structures, arbitrary #c("content") isn't supported here.],
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],

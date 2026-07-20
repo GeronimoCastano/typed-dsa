@@ -1182,7 +1182,7 @@
 #section("Skip list object: insert (new, green) and delete (red), chained via .result", {
   let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
   let inserted = (l.insert)(7)
-  let deleted = ((inserted.result).delete)(2)
+  let deleted = ((inserted.result).delete)(1)
   std.stack(spacing: 1em, inserted.diagram, deleted.diagram)
 })
 
@@ -1204,4 +1204,15 @@
 #section("Skip list deleting the head (red) removes it from every level it spans, not just its own hash-assigned height", {
   let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
   (l.delete)(1).diagram
+})
+
+#section("Skip list search follows the predecessor path for a missing key and reports found: false", {
+  let l = skip-list(1, 3, 5, 7, style: (scale: 0.8))
+  let miss = (l.search)(4)
+  let empty-miss = (skip-list().search)(1)
+  assert(not miss.found)
+  assert.eq(miss.index, none)
+  assert(not empty-miss.found)
+  assert.eq(empty-miss.index, none)
+  miss.diagram
 })

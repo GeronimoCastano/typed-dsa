@@ -1023,10 +1023,12 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   )
   ```
 
-  #c("..vals") must already be in ascending order; #c("skip-list") does not
-  sort them for you. Levels above the base row are express lanes: a node's
-  height is decided once, when it is built or inserted, and never changes
-  afterward, so later inserts/deletes elsewhere never reshuffle it.
+  #c("..vals") must be strictly ascending, with no duplicate values;
+  #c("skip-list") validates this but does not sort them for you. Values must
+  be all numbers (integers and floats may be mixed) or all strings. Levels
+  above the base row are express lanes: a node's height is decided once, when
+  it is built or inserted, and never changes afterward, so later
+  inserts/deletes elsewhere never reshuffle it.
 ]
 
 #demo[
@@ -1043,26 +1045,39 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 ]
 
 #argtable(
-  [#c("..vals")], [`int` / `float` / `str`], [(required)], [Values in the list, already in ascending order. #c("insert") compares values to place the new one, so a sortable type is required — unlike other linear structures, arbitrary #c("content") isn't supported here.],
+  [#c("..vals")], [`int` / `float` / `str`], [(required)], [Values in strictly ascending order, without duplicates. All values must be numbers (integers and floats may be mixed) or all strings. #c("insert") compares values to place them, so arbitrary #c("content") isn't supported here.],
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
   [#c("decision-fn")], [`function`], [#c("default-decision-fn")], [#c("(level, value) => bool"), called with #c("level") starting at #c("1") and increasing; a node keeps climbing while this returns #c("true"). Typst has no RNG, so the default hashes #c("value") deterministically instead of flipping a coin — same value, same height, every recompile.],
-  [#c("level-spacing")], [`float`], [`1.4`], [Vertical distance between level rows, in canvas units.],
-  [#c("max-level")], [`int`], [`4`], [Upper bound on the height #c("decision-fn") can assign automatically. #c("insert(..., level:)") can still exceed it when set explicitly.],
+  [#c("level-spacing")], [`int` / `float`], [`1.4`], [Positive vertical distance between level rows, in canvas units.],
+  [#c("max-level")], [`int`], [`4`], [Non-negative upper bound on the height #c("decision-fn") can assign automatically. #c("insert(..., level:)") can still exceed it when set explicitly.],
 )
 
 #linear-style-reference("skip-list")
 
 #methodtable(
   [#c(".diagram")], [n/a], [The rendered skip list.],
-  [#c(".search")], [#c("(obj.search)(key)")], [Highlight the top-down search path to #c("key"). Returns a step.],
-  [#c(".insert")], [#c("(obj.insert)(value, level: auto)")], [Insert #c("value") in sorted position. #c("level: auto") assigns height with #c("decision-fn"); an explicit level forces a specific tower height instead. Returns a step.],
-  [#c(".delete")], [#c("(obj.delete)(value)")], [Remove #c("value") from every level it spans at once. Returns a step.],
+  [#c(".search")], [#c("(obj.search)(key)")], [Highlight the top-down search path to #c("key"), or its predecessor when absent. Returns a step with #c("found") and #c("index") (#c("false") / #c("none") for a miss).],
+  [#c(".insert")], [#c("(obj.insert)(value, level: auto)")], [Insert a new #c("value") in sorted position. The value must be compatible with the existing values and not already present. #c("level: auto") assigns height with #c("decision-fn"); an explicit non-negative integer forces a specific tower height instead. Returns a step.],
+  [#c(".delete")], [#c("(obj.delete)(value)")], [Remove #c("value") from every level it spans at once. The value must be present. Returns a step.],
 )
 
 #demo[
   #example(```typ
   #let l = skip-list(1, 2, 3, 4, 5, 6)
   #(l.search)(4).diagram
+  ```, side: false)
+]
+
+#demo[
+  A search miss is still a valid operation: it follows the express lanes to
+  the predecessor where the key would be inserted. The returned step exposes
+  #c("found") and #c("index") so the miss can be handled programmatically.
+
+  #example(```typ
+  #let miss = (skip-list(1, 3, 5).search)(4)
+  #assert(not miss.found)
+  #assert.eq(miss.index, none)
+  #miss.diagram
   ```, side: false)
 ]
 

@@ -174,9 +174,11 @@ chaining or linear probing. Its `insert`, `delete`, and `search` methods return
 the same before/after operation steps as the other live structures.
 
 ```typ
-#hash-table(("Ada", 1), ("Grace", 2), size: 5).diagram
+#hash-table(1, 6, 11, size: 5, collision: "chaining").diagram
 #hash-table(1, 6, 11, size: 5, collision: "linear").diagram
 ```
+
+![Separate-chaining and linear-probing hash tables](assets/readme/hash-tables.png)
 
 ### Sorting Algorithms
 

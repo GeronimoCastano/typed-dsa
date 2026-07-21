@@ -100,10 +100,25 @@ git commit -m "typed-dsa:$VERSION"
 git push -u origin "$BRANCH"
 ```
 
-5. Open a PR to `typst/packages:main` titled `typed-dsa:<VERSION>`.
+5. Open a PR to `typst/packages:main`.
 
-For the initial submission, use the full new-package checklist body that the PR
-template provides. For later updates, use the compact form:
+PR title format:
+
+```text
+typed-dsa:<VERSION>
+```
+
+Example:
+
+```text
+typed-dsa:0.4.0
+```
+
+For package updates, use only the compact update PR body. Do not include a
+validation section, a checks section, generated artifact notes, or the full
+new-package checklist.
+
+PR body format:
 
 ```markdown
 I am submitting
@@ -114,10 +129,26 @@ I am submitting
 Changes:
 
 - <meaningful user-visible change>
+- <meaningful user-visible change>
 ```
 
-Only list meaningful user-visible changes. Do not mention routine regenerated
-artifacts (README images) unless that is the point of the release.
+Example update PR body:
+
+```markdown
+I am submitting
+
+- [ ] a new package
+- [x] an update for a package
+
+Changes:
+
+- Add breadth-first search trace diagrams for graph teaching material.
+- Add a rendered BFS showcase to the README.
+```
+
+Reserve the full Typst package submission checklist for the initial package
+submission only. Only list meaningful user-visible changes. Do not mention
+routine regenerated artifacts unless they are the point of the release.
 
 ## Package Bundle Contents
 

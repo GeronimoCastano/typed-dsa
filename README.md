@@ -130,10 +130,23 @@ highlights the shortest-path edges. A target is optional; omit it to traverse
 every reachable node.
 
 ```typ
-#bfs(adjacency, "S", target: "T").diagram
+#bfs(
+  (
+    "S": ("A", "B"),
+    "A": ("T",),
+    "B": ("T",),
+    "T": (),
+  ),
+  "S",
+  target: "T",
+  columns: 3,
+  style: graph-style(scale: 0.65),
+).diagram
 #dfs(adjacency, "S", target: "T").diagram
 #dijkstra(weighted-adjacency, "S", target: "T").diagram
 ```
+
+![Breadth-first search trace from S to T](assets/readme/bfs.png)
 
 ### Arrays And Matrices
 

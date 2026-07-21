@@ -11,3 +11,4 @@ src/*.pdf
 # Local agent instructions
 AGENTS.md
 CLAUDE.md
+PACKAGING.md

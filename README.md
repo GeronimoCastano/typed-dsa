@@ -8,7 +8,7 @@ consistent styling. It is built on top of
 [CeTZ](https://typst.app/universe/package/cetz).
 
 ```typst
-#import "@preview/typed-dsa:0.3.0": *
+#import "@preview/typed-dsa:0.3.1": *
 ```
 
 For the complete argument reference, including all nested `style:` and

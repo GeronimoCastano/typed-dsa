@@ -1216,3 +1216,64 @@
   assert.eq(empty-miss.index, none)
   miss.diagram
 })
+
+// ── Localization (language:, messages:, step-label:) ─────────────────────────
+
+#section("Localization: German tree insert, delete, and AVL rotation captions", {
+  let de = bst(50, 30, 70, 20, 40, language: "de")
+  std.stack(spacing: 1em,
+    (de.insert)(45).diagram,
+    (de.delete)(30).diagram,
+    (avl(20, 10, 30, 40, language: "de").insert)(50, rebalance: (enabled: true, all-steps: true)).diagram,
+  )
+})
+
+#section("Localization: Spanish list, queue front/rear, hash-table, and stack top default", {
+  std.stack(spacing: 1em,
+    (linked-list(1, 2, 3, head: true, language: "es").insert)(4).diagram,
+    queue(1, 2, 3, enqueue: 9, dequeue: 1, language: "es").diagram,
+    (hash-table("ann", "bob", "cat", language: "es").insert)("dan").diagram,
+    stack(3, 2, 1, language: "es").diagram,
+  )
+})
+
+#section("Localization: German BFS trace and Spanish Dijkstra trace", {
+  let g = ("A": ("B", "C"), "B": ("D",), "C": ("D",), "D": ())
+  let w = ("A": (("B", 2), ("C", 5)), "B": (("D", 1),), "C": (("D", 1),), "D": ())
+  std.stack(spacing: 1em,
+    bfs(g, "A", language: "de", columns: 5).diagram,
+    dijkstra(w, "A", target: "D", language: "es", columns: 5).diagram,
+  )
+})
+
+#section("Localization: German bubble sort and Spanish quick sort traces", {
+  std.stack(spacing: 1em,
+    bubble-sort((4, 2, 3), language: "de").diagram,
+    quick-sort((4, 2, 3, 1), language: "es").diagram,
+  )
+})
+
+#section("Localization: partial messages: override layered over Spanish (custom insert wording)", {
+  let mine = messages(tree: (insert: k => [meter #k], delete: k => [quitar #k]))
+  let t = bst(8, 4, 12, language: "es", messages: mine)
+  std.stack(spacing: 1em, (t.insert)(6).diagram, (t.delete)(4).diagram)
+})
+
+#section("Localization: step-label: has final precedence over language and messages:", {
+  (bst(8, 4, 12, language: "de", messages: messages(tree: (insert: k => [x]))).insert)(6, step-label: [custom wording]).diagram
+})
+
+#section("Localization: language and overrides persist through chained .result", {
+  let t = bst(8, 4, 12, language: "de", messages: messages(tree: (delete: k => [weg mit #k])))
+  let step1 = (t.insert)(6)
+  let step2 = ((step1.result).delete)(4)
+  std.stack(spacing: 1em, step1.diagram, step2.diagram)
+})
+
+#section("Localization: assertions reject an unsupported language code and an unknown message key", {
+  assert.eq(type(bst), function)
+  // Both of these would fail to compile if uncommented, by design:
+  //   bst(1, language: "fr")
+  //   bst(1, messages: messages(tree: (nope: k => [x])))
+  [Invalid language and unknown message keys fail with a clear assertion message.]
+})

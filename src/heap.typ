@@ -7,6 +7,7 @@
 
 #import "style.typ": resolve
 #import "tree.typ": _node, _render, _marks, trans-view
+#import "messages.typ": default-catalog, resolve-catalog, msg
 
 #let _array-to-tree(arr, i) = {
   if i >= arr.len() { return none }
@@ -84,18 +85,20 @@
 // time (see `tree.typ`'s `mark-style`).
 #let _index-marks(path, kind) = _marks(path, kind)
 
-#let heap-insert(key, step-label: none) = (variant, arr) => {
+#let heap-insert(key, step-label: none, language: "en", messages: (:), catalog: none) = (variant, arr) => {
+  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
   let a = arr + (key,)
   let (after, path) = _sift-up(a, variant)
   let inserted = path.last()
   let ma = _index-marks(path, "path") + _index-marks((inserted,), "new")
-  (after, (:), ma, if step-label == none { "insert " + str(key) } else { step-label })
+  (after, (:), ma, if step-label == none { msg(cat, "heap.insert", key) } else { step-label })
 }
 
 // Removes and returns the root: the smallest key for a min-heap, largest for
 // a max-heap.
-#let _heap-extract-op(step-label: none) = (variant, arr) => {
-  let label = if step-label == none { "extract" } else { step-label }
+#let _heap-extract-op(step-label: none, language: "en", messages: (:), catalog: none) = (variant, arr) => {
+  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
+  let label = if step-label == none { msg(cat, "heap.extract") } else { step-label }
   let mb = _index-marks((0,), "remove")
   if arr.len() <= 1 { return ((), mb, (:), label) }
   let a = arr
@@ -109,7 +112,7 @@
 
 // ── Public object ────────────────────────────────────────────────────────────
 
-#let _heap-obj(variant, arr, style: (:)) = {
+#let _heap-obj(variant, arr, style: (:), catalog: default-catalog) = {
   let draw(a, marks) = _render(_array-to-tree(a, 0), marks: marks, th: resolve(style))
   let apply(op) = {
     let (after, mb, ma, label) = op(variant, arr)
@@ -118,18 +121,18 @@
       before: draw(arr, mb),
       after: draw(after, ma),
       diagram: trans-view(draw(arr, mb), label, draw(after, ma), style: style),
-      result: _heap-obj(variant, after, style: style),
+      result: _heap-obj(variant, after, style: style, catalog: catalog),
     )
   }
   (
     diagram: draw(arr, (:)),
-    insert: (key, step-label: none) => apply(heap-insert(key, step-label: step-label)),
-    extract: (step-label: none) => apply(_heap-extract-op(step-label: step-label)),
+    insert: (key, step-label: none) => apply(heap-insert(key, step-label: step-label, catalog: catalog)),
+    extract: (step-label: none) => apply(_heap-extract-op(step-label: step-label, catalog: catalog)),
   )
 }
 
-#let min-heap(style: (:), ..keys) = _heap-obj("min", _build("min", keys.pos()), style: style)
-#let max-heap(style: (:), ..keys) = _heap-obj("max", _build("max", keys.pos()), style: style)
+#let min-heap(style: (:), language: "en", messages: (:), ..keys) = _heap-obj("min", _build("min", keys.pos()), style: style, catalog: resolve-catalog(language: language, messages: messages))
+#let max-heap(style: (:), language: "en", messages: (:), ..keys) = _heap-obj("max", _build("max", keys.pos()), style: style, catalog: resolve-catalog(language: language, messages: messages))
 
 // ── Transition ───────────────────────────────────────────────────────────────
 

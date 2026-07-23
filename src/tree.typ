@@ -9,6 +9,7 @@
 
 #import "@preview/cetz:0.5.2"
 #import "style.typ": theme, resolve, scaled, resolve-mark-style, edge-mark, edge-stroke, edge-wave, wavy-parts
+#import "messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, circle, rect, content, bezier-through
 
 // ── Model: generated BST/AVL ─────────────────────────────────────────────────
@@ -724,7 +725,7 @@
   keys
 }
 
-#let _rot-label(event) = "rotate " + event.dir + " at " + str(event.pivot)
+#let _rot-label(cat, event) = msg(cat, "tree.rotate-" + event.dir, event.pivot)
 
 // `rebalance: (enabled: false, all-steps: false)` — `enabled: true` adds a
 // panel for the tree right after the plain BST placement, before any
@@ -737,8 +738,9 @@
 //
 // ponytail: `enabled`, not `show` — `show` is a reserved word in Typst
 // (show rules), so it can't be a bare dict key.
-#let tree-insert(key, rebalance: (:), step-label: none) = (variant, root) => {
-  let default-label = "insert " + str(key)
+#let tree-insert(key, rebalance: (:), step-label: none, language: "en", messages: (:), catalog: none) = (variant, root) => {
+  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
+  let default-label = msg(cat, "tree.insert", key)
   let final-step-label = if step-label == none { default-label } else { step-label }
   if variant == "avl" {
     let cfg = (enabled: false, all-steps: false) + rebalance
@@ -750,7 +752,7 @@
       mids.push((tree: broken, marks: new-mark, label: default-label))
       if cfg.all-steps and rot.len() == 2 and mid-snapshot != none {
         let inner-mark = new-mark + _marks(_event-keys(rot.at(0)), "rotate")
-        mids.push((tree: mid-snapshot, marks: inner-mark, label: _rot-label(rot.at(0))))
+        mids.push((tree: mid-snapshot, marks: inner-mark, label: _rot-label(cat, rot.at(0))))
       }
     }
     let ma = if cfg.enabled and cfg.all-steps and rot.len() == 2 and mid-snapshot != none {
@@ -759,9 +761,9 @@
       _marks((key,), "new") + _marks(_rotated-keys(rot), "rotate")
     }
     let final-label = if mids.len() == 2 {
-      _rot-label(rot.at(1))
+      _rot-label(cat, rot.at(1))
     } else {
-      rot.map(_rot-label).join(", ")
+      rot.map(e => _rot-label(cat, e)).join([, ])
     }
     (after, (:), ma, if step-label != none { step-label } else if rot.len() > 0 { final-label } else { default-label }, mids)
   } else {
@@ -770,8 +772,9 @@
   }
 }
 
-#let tree-delete(key, step-label: none) = (variant, root) => {
-  let label = if step-label == none { "delete " + str(key) } else { step-label }
+#let tree-delete(key, step-label: none, language: "en", messages: (:), catalog: none) = (variant, root) => {
+  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
+  let label = if step-label == none { msg(cat, "tree.delete", key) } else { step-label }
   let mb = _marks(_search-path(root, key), "path") + _marks((key,), "remove")
   if variant == "avl" {
     let (after, rot) = _avl-delete(root, key)
@@ -780,9 +783,10 @@
   (_bst-delete(root, key), mb, (:), label, ())
 }
 
-#let tree-search(key, step-label: none) = (variant, root) => {
+#let tree-search(key, step-label: none, language: "en", messages: (:), catalog: none) = (variant, root) => {
+  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
   let m = _marks(_search-path(root, key), "path")
-  (root, (:), m, if step-label == none { "search " + str(key) } else { step-label }, ())
+  (root, (:), m, if step-label == none { msg(cat, "tree.search", key) } else { step-label }, ())
 }
 
 // ── Composable operation views ───────────────────────────────────────────────
@@ -843,7 +847,7 @@
 //
 // ponytail: dictionary-backed object, not a custom type. Switch if Typst gains
 // user-defined types with method dispatch.
-#let _tree-obj(variant, root, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
+#let _tree-obj(variant, root, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), catalog: default-catalog) = {
   let apply = op => {
     let (after, mb, ma, label, mids) = op(variant, root)
     let v = _op-diagram(root, mb, after, ma, label, mids, resolve(style), style, edge-customizations, node-customizations, node-labels)
@@ -852,19 +856,19 @@
       before: v.before,
       after: v.after,
       diagram: v.diagram,
-      result: _tree-obj(variant, after, style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels),
+      result: _tree-obj(variant, after, style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: catalog),
     )
   }
   (
     diagram: _render(root, th: resolve(style), edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels),
-    insert: (key, rebalance: (:), step-label: none) => apply(tree-insert(key, rebalance: rebalance, step-label: step-label)),
-    delete: (key, step-label: none) => apply(tree-delete(key, step-label: step-label)),
-    search: (key, step-label: none) => apply(tree-search(key, step-label: step-label)),
+    insert: (key, rebalance: (:), step-label: none) => apply(tree-insert(key, rebalance: rebalance, step-label: step-label, catalog: catalog)),
+    delete: (key, step-label: none) => apply(tree-delete(key, step-label: step-label, catalog: catalog)),
+    search: (key, step-label: none) => apply(tree-search(key, step-label: step-label, catalog: catalog)),
   )
 }
 
-#let bst(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), ..keys) = _tree-obj("bst", _build("bst", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
-#let avl(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), ..keys) = _tree-obj("avl", _build("avl", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
+#let bst(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _tree-obj("bst", _build("bst", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
+#let avl(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _tree-obj("avl", _build("avl", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
 
 // ── Transition ───────────────────────────────────────────────────────────────
 

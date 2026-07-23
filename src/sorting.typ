@@ -3,6 +3,7 @@
 #import "grid.typ": array-view
 #import "@preview/cetz:0.5.2"
 #import "style.typ": array-style, indices-style, cell-mark-style, resolve, scaled
+#import "messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, rect, content
 
 #let _active = cell-mark-style(fill: rgb("#FFF3BF"), stroke: 1pt + rgb("#F08C00"))
@@ -143,22 +144,22 @@
   true
 }
 
-#let _merge-operation-panel(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, cursors: (:), reserve: false, labels: true) = align(center)[
+#let _merge-operation-panel(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, cursors: (:), reserve: false, labels: true, cat: default-catalog) = align(center)[
   #if labels [#_algorithm-caption(style, label) #v(0.25em)]
   #grid(
     columns: 3, column-gutter: 0.8em,
-    align(center)[#if labels [#_algorithm-caption(style, [left], small: true) #v(0.15em)] #array-view(..left, style: _array-style(style, show-indices), cell-customizations: left-marks, pointers: cursors.at("left", default: ()), reserve-pointers: reserve).diagram],
-    align(center)[#if labels [#_algorithm-caption(style, [right], small: true) #v(0.15em)] #array-view(..right, style: _array-style(style, show-indices), cell-customizations: right-marks, pointers: cursors.at("right", default: ()), reserve-pointers: reserve).diagram],
-    align(center)[#if labels [#_algorithm-caption(style, [result], small: true) #v(0.15em)] #array-view(..output, style: _array-style(style, show-indices), cell-customizations: output-marks, pointers: cursors.at("output", default: ()), reserve-pointers: reserve).diagram],
+    align(center)[#if labels [#_algorithm-caption(style, msg(cat, "sort.left"), small: true) #v(0.15em)] #array-view(..left, style: _array-style(style, show-indices), cell-customizations: left-marks, pointers: cursors.at("left", default: ()), reserve-pointers: reserve).diagram],
+    align(center)[#if labels [#_algorithm-caption(style, msg(cat, "sort.right"), small: true) #v(0.15em)] #array-view(..right, style: _array-style(style, show-indices), cell-customizations: right-marks, pointers: cursors.at("right", default: ()), reserve-pointers: reserve).diagram],
+    align(center)[#if labels [#_algorithm-caption(style, msg(cat, "sort.result"), small: true) #v(0.15em)] #array-view(..output, style: _array-style(style, show-indices), cell-customizations: output-marks, pointers: cursors.at("output", default: ()), reserve-pointers: reserve).diagram],
   )
 ]
 
-#let _merge-operation-step(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, cursors: (:), reserve: false, labels: true) = (
+#let _merge-operation-step(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, cursors: (:), reserve: false, labels: true, cat: default-catalog) = (
   label: label,
   left: left.map(value => value),
   right: right.map(value => value),
   values: output.map(value => value),
-  diagram: _merge-operation-panel(label, left, right, output.map(value => value), left-marks, right-marks, output-marks, style, show-indices, cursors: cursors, reserve: reserve, labels: labels),
+  diagram: _merge-operation-panel(label, left, right, output.map(value => value), left-marks, right-marks, output-marks, style, show-indices, cursors: cursors, reserve: reserve, labels: labels, cat: cat),
 )
 
 #let _merge-cursors(i, j, k, left, right, output, pointers, input-style: _active, output-style: _changed) = (
@@ -181,18 +182,18 @@
   marks
 }
 
-#let _partition-panel(label, arr, left, right, pivot, marks, style, show-indices, pointers: (), reserve: false, labels: true) = align(center)[
-  #if labels [#_algorithm-caption(style, label) #v(0.15em) #_algorithm-caption(style, [pivot: #arr.at(pivot) at #pivot; i: #left; j: #right], small: true) #v(0.2em)]
+#let _partition-panel(label, arr, left, right, pivot, marks, style, show-indices, pointers: (), reserve: false, labels: true, cat: default-catalog) = align(center)[
+  #if labels [#_algorithm-caption(style, label) #v(0.15em) #_algorithm-caption(style, msg(cat, "sort.pivot-info", arr.at(pivot), pivot, left, right), small: true) #v(0.2em)]
   #array-view(..arr, style: _array-style(style, show-indices), cell-customizations: marks, pointers: pointers, reserve-pointers: reserve).diagram
 ]
 
-#let _partition-step(label, arr, left, right, pivot, marks, style, show-indices, pointers: (), reserve: false, labels: true) = (
+#let _partition-step(label, arr, left, right, pivot, marks, style, show-indices, pointers: (), reserve: false, labels: true, cat: default-catalog) = (
   label: label,
   values: arr.map(value => value),
   left: left,
   right: right,
   pivot: pivot,
-  diagram: _partition-panel(label, arr.map(value => value), left, right, pivot, marks, style, show-indices, pointers: pointers, reserve: reserve, labels: labels),
+  diagram: _partition-panel(label, arr.map(value => value), left, right, pivot, marks, style, show-indices, pointers: pointers, reserve: reserve, labels: labels, cat: cat),
 )
 
 #let _partition-cursors(i, j, pivot, arr, pointers) = {
@@ -204,9 +205,11 @@
   cursors
 }
 
-#let partition-step(arr, order: "asc", pivot: "middle", pointers: false, labels: true) = {
+#let partition-step(arr, order: "asc", pivot: "middle", pointers: false, labels: true, language: "en", messages: (:)) = {
   assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
   assert(pivot in ("middle", "last"), message: "pivot must be \"middle\" or \"last\"")
+  let cat = resolve-catalog(language: language, messages: messages)
+  let _partition-step = _partition-step.with(cat: cat)
   let pivot-mode = pivot
   let (values, style) = _array-input(arr)
   let show-indices = true
@@ -217,59 +220,59 @@
   let right = arr.len() - 1
   let steps = ()
   if arr.len() == 0 {
-    steps.push(_step([partitioned], arr, (), style, show-indices, labels: labels))
+    steps.push(_step(msg(cat, "sort.partitioned"), arr, (), style, show-indices, labels: labels))
     return (steps: steps, result: arr, left: left, right: right, pivot: none, diagram: grid(columns: 1, row-gutter: 0.8em, ..steps.map(step => step.diagram)))
   }
   if pivot-mode == "last" {
     let pivot = arr.len() - 1
     let pivot-value = arr.at(pivot)
     let i = 0
-    steps.push(_partition-step([start], arr, i, 0, pivot, _partition-marks(i, 0, pivot, arr), style, show-indices, pointers: _partition-cursors(i, 0, pivot, arr, pointers), reserve: pointers, labels: labels))
-    steps.push(_partition-step([select last pivot #pivot-value], arr, i, 0, pivot, _partition-marks(i, 0, pivot, arr), style, show-indices, pointers: _partition-cursors(i, 0, pivot, arr, pointers), reserve: pointers, labels: labels))
+    steps.push(_partition-step(msg(cat, "sort.start"), arr, i, 0, pivot, _partition-marks(i, 0, pivot, arr), style, show-indices, pointers: _partition-cursors(i, 0, pivot, arr, pointers), reserve: pointers, labels: labels))
+    steps.push(_partition-step(msg(cat, "sort.select-last-pivot", pivot-value), arr, i, 0, pivot, _partition-marks(i, 0, pivot, arr), style, show-indices, pointers: _partition-cursors(i, 0, pivot, arr, pointers), reserve: pointers, labels: labels))
     for j in range(0, pivot) {
-      steps.push(_partition-step([compare #arr.at(j) and pivot #pivot-value], arr, i, j, pivot, _partition-marks(i, j, pivot, arr), style, show-indices, pointers: _partition-cursors(i, j, pivot, arr, pointers), reserve: pointers, labels: labels))
+      steps.push(_partition-step(msg(cat, "sort.compare-pivot", arr.at(j), pivot-value), arr, i, j, pivot, _partition-marks(i, j, pivot, arr), style, show-indices, pointers: _partition-cursors(i, j, pivot, arr, pointers), reserve: pointers, labels: labels))
       if _lte(arr.at(j), pivot-value, order) {
         let a = arr.at(i)
         let b = arr.at(j)
         arr.at(i) = b
         arr.at(j) = a
-        steps.push(_partition-step([swap #a and #b], arr, i, j, pivot, _mark((i, j), _changed) + _mark((pivot,), _minimum), style, show-indices, pointers: _partition-cursors(i, j, pivot, arr, pointers), reserve: pointers, labels: labels))
+        steps.push(_partition-step(msg(cat, "sort.swap", a, b), arr, i, j, pivot, _mark((i, j), _changed) + _mark((pivot,), _minimum), style, show-indices, pointers: _partition-cursors(i, j, pivot, arr, pointers), reserve: pointers, labels: labels))
         i += 1
-        steps.push(_partition-step([advance i to #i], arr, i, j, pivot, _partition-marks(i, j, pivot, arr), style, show-indices, pointers: _partition-cursors(i, j, pivot, arr, pointers), reserve: pointers, labels: labels))
+        steps.push(_partition-step(msg(cat, "sort.advance-i", i), arr, i, j, pivot, _partition-marks(i, j, pivot, arr), style, show-indices, pointers: _partition-cursors(i, j, pivot, arr, pointers), reserve: pointers, labels: labels))
       }
     }
     let a = arr.at(i)
     arr.at(i) = arr.at(pivot)
     arr.at(pivot) = a
-    steps.push(_partition-step([place pivot #pivot-value], arr, i, pivot, i, _mark((i, pivot), _changed), style, show-indices, pointers: _partition-cursors(i, pivot, i, arr, pointers), reserve: pointers, labels: labels))
-    steps.push(_partition-step([partitioned], arr, i, pivot, i, _mark((i,), _done), style, show-indices, reserve: pointers, labels: labels))
+    steps.push(_partition-step(msg(cat, "sort.place-pivot", pivot-value), arr, i, pivot, i, _mark((i, pivot), _changed), style, show-indices, pointers: _partition-cursors(i, pivot, i, arr, pointers), reserve: pointers, labels: labels))
+    steps.push(_partition-step(msg(cat, "sort.partitioned"), arr, i, pivot, i, _mark((i,), _done), style, show-indices, reserve: pointers, labels: labels))
     return (steps: steps, result: arr, left: i, right: pivot, pivot: i, diagram: grid(columns: 1, row-gutter: 0.8em, ..steps.map(step => step.diagram)))
   }
-  steps.push(_partition-step([start], arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
-  steps.push(_partition-step([select pivot #pivot-value], arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
+  steps.push(_partition-step(msg(cat, "sort.start"), arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
+  steps.push(_partition-step(msg(cat, "sort.select-pivot", pivot-value), arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
   while left <= right {
     while left <= right and _lt(arr.at(left), pivot-value, order) {
-      steps.push(_partition-step([i #arr.at(left) satisfies the pivot test], arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
+      steps.push(_partition-step(msg(cat, "sort.i-satisfies", arr.at(left)), arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
       left += 1
     }
     while left <= right and _lt(pivot-value, arr.at(right), order) {
-      steps.push(_partition-step([j #arr.at(right) satisfies the pivot test], arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
+      steps.push(_partition-step(msg(cat, "sort.j-satisfies", arr.at(right)), arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
       right -= 1
     }
     if left <= right {
-      steps.push(_partition-step([compare #arr.at(left) and #arr.at(right)], arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
+      steps.push(_partition-step(msg(cat, "sort.compare", arr.at(left), arr.at(right)), arr, left, right, pivot, _partition-marks(left, right, pivot, arr), style, show-indices, labels: labels))
       let a = arr.at(left)
       let b = arr.at(right)
       arr.at(left) = b
       arr.at(right) = a
       if pivot == left { pivot = right }
       else if pivot == right { pivot = left }
-      steps.push(_partition-step([swap #a and #b], arr, left, right, pivot, _mark((left, right), _changed), style, show-indices, labels: labels))
+      steps.push(_partition-step(msg(cat, "sort.swap", a, b), arr, left, right, pivot, _mark((left, right), _changed), style, show-indices, labels: labels))
       left += 1
       right -= 1
     }
   }
-  steps.push(_partition-step([partitioned], arr, left, right, pivot, _range-mark(0, arr.len(), _done), style, show-indices, labels: labels))
+  steps.push(_partition-step(msg(cat, "sort.partitioned"), arr, left, right, pivot, _range-mark(0, arr.len(), _done), style, show-indices, labels: labels))
   (
     steps: steps,
     result: arr,
@@ -280,8 +283,10 @@
   )
 }
 
-#let merge-operation(left, right, order: "asc", pointers: true, labels: true) = {
+#let merge-operation(left, right, order: "asc", pointers: true, labels: true, language: "en", messages: (:)) = {
   assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let cat = resolve-catalog(language: language, messages: messages)
+  let _merge-operation-step = _merge-operation-step.with(cat: cat)
   let (left, left-style) = _array-input(left)
   let (right, right-style) = _array-input(right)
   let style = if left-style != (:) { left-style } else { right-style }
@@ -294,19 +299,19 @@
   let j = 0
   let k = 0
   let steps = (_merge-operation-step(
-    [start merge], left, right, output, (), (), (), style, show-indices,
+    msg(cat, "sort.start-merge"), left, right, output, (), (), (), style, show-indices,
     cursors: _merge-cursors(i, j, k, left, right, output, pointers), reserve: pointers, labels: labels,
   ),)
   while i < left.len() and j < right.len() {
     steps.push(_merge-operation-step(
-      [compare #left.at(i) and #right.at(j)], left, right, output,
+      msg(cat, "sort.compare", left.at(i), right.at(j)), left, right, output,
       _mark((i,), _active), _mark((j,), _active), (), style, show-indices,
       cursors: _merge-cursors(i, j, k, left, right, output, pointers), reserve: pointers, labels: labels,
     ))
     if _lte(left.at(i), right.at(j), order) {
       output.at(k) = left.at(i)
       steps.push(_merge-operation-step(
-        [take #left.at(i)], left, right, output,
+        msg(cat, "sort.take", left.at(i)), left, right, output,
         _mark((i,), _changed), (), _mark((k,), _changed), style, show-indices,
         cursors: _merge-cursors(i, j, k, left, right, output, pointers, input-style: _changed), reserve: pointers, labels: labels,
       ))
@@ -314,7 +319,7 @@
     } else {
       output.at(k) = right.at(j)
       steps.push(_merge-operation-step(
-        [take #right.at(j)], left, right, output,
+        msg(cat, "sort.take", right.at(j)), left, right, output,
         (), _mark((j,), _changed), _mark((k,), _changed), style, show-indices,
         cursors: _merge-cursors(i, j, k, left, right, output, pointers, input-style: _changed), reserve: pointers, labels: labels,
       ))
@@ -325,7 +330,7 @@
   while i < left.len() {
     output.at(k) = left.at(i)
     steps.push(_merge-operation-step(
-      [take remaining #left.at(i)], left, right, output,
+      msg(cat, "sort.take-remaining", left.at(i)), left, right, output,
       _mark((i,), _changed), (), _mark((k,), _changed), style, show-indices,
       cursors: _merge-cursors(i, j, k, left, right, output, pointers, input-style: _changed), reserve: pointers, labels: labels,
     ))
@@ -335,7 +340,7 @@
   while j < right.len() {
     output.at(k) = right.at(j)
     steps.push(_merge-operation-step(
-      [take remaining #right.at(j)], left, right, output,
+      msg(cat, "sort.take-remaining", right.at(j)), left, right, output,
       (), _mark((j,), _changed), _mark((k,), _changed), style, show-indices,
       cursors: _merge-cursors(i, j, k, left, right, output, pointers, input-style: _changed), reserve: pointers, labels: labels,
     ))
@@ -343,7 +348,7 @@
     k += 1
   }
   steps.push(_merge-operation-step(
-    [merged], left, right, output,
+    msg(cat, "sort.merged"), left, right, output,
     (), (), _range-mark(0, output.len(), _done), style, show-indices, reserve: pointers, labels: labels,
   ))
   (
@@ -420,13 +425,13 @@
   _divide-nodes(vals.slice(middle), split, end, depth + 1, max-depth, th, pitch, row-gap, show-indices)
 }
 
-#let _divide-tree(vals, style, show-indices, labels: true) = {
+#let _divide-tree(vals, style, show-indices, labels: true, cat: default-catalog) = {
   let th = resolve(style)
   let depth = _tree-depth(vals)
   let pitch = th.box-w * 1.45
   let row-gap = th.box-h + 0.8
   scaled(th, cetz.canvas({
-    _phase-brace(if labels { [Divide] } else { none }, 0, depth * row-gap + th.box-h, 0, th)
+    _phase-brace(if labels { msg(cat, "sort.divide-phase") } else { none }, 0, depth * row-gap + th.box-h, 0, th)
     _divide-edges(vals, 0, vals.len(), 0, depth, th, pitch, row-gap)
     _divide-nodes(vals, 0, vals.len(), 0, depth, th, pitch, row-gap, show-indices)
   }))
@@ -471,13 +476,13 @@
   _tree-array(model.values, model.start, model.end, (max-height - model.height) * row-gap, th, pitch, show-indices, mark: if final { _done } else { none })
 }
 
-#let _merge-tree-diagram(vals, order, style, show-indices, labels: true) = {
+#let _merge-tree-diagram(vals, order, style, show-indices, labels: true, cat: default-catalog) = {
   let th = resolve(style)
   let pitch = th.box-w * 1.45
   let row-gap = th.box-h + 0.8
   let model = _merge-model(vals, order)
   scaled(th, cetz.canvas({
-    _phase-brace(if labels { [Merge] } else { none }, 0, model.height * row-gap + th.box-h, 0, th)
+    _phase-brace(if labels { msg(cat, "sort.merge-phase") } else { none }, 0, model.height * row-gap + th.box-h, 0, th)
     _merge-edges(model, model.height, th, pitch, row-gap)
     _merge-nodes(model, model.height, th, pitch, row-gap, show-indices, final: true)
   }))
@@ -537,26 +542,29 @@
   (merged, divide, merge)
 }
 
-#let merge-sort(arr, order: "asc", labels: true) = {
+#let merge-sort(arr, order: "asc", labels: true, language: "en", messages: (:)) = {
   assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let cat = resolve-catalog(language: language, messages: messages)
+  let _divide-tree = _divide-tree.with(cat: cat)
+  let _merge-tree-diagram = _merge-tree-diagram.with(cat: cat)
   let (values, style) = _array-input(arr)
   let (result, divide-levels, merge-levels) = _merge-tree(values, order)
   let steps = (
-    (label: [original array], values: values, diagram: _panel([original array], values, (), style, true, labels: labels)),
+    (label: msg(cat, "sort.original"), values: values, diagram: _panel(msg(cat, "sort.original"), values, (), style, true, labels: labels)),
   )
   for depth in range(1, divide-levels.len()) {
     let level = divide-levels.at(depth)
-    steps.push((label: [divide], values: level, diagram: _array-row(level, style, true)))
+    steps.push((label: msg(cat, "sort.divide"), values: level, diagram: _array-row(level, style, true)))
   }
   for depth in range(0, calc.max(merge-levels.len() - 1, 0)) {
     let level = merge-levels.at(depth)
     if level.len() > 0 {
-      steps.push((label: [merge], values: level, diagram: _array-row(level, style, true)))
+      steps.push((label: msg(cat, "sort.merge"), values: level, diagram: _array-row(level, style, true)))
     }
   }
-  steps.push(_step([sorted], result, _range-mark(0, result.len(), _done), style, true, labels: labels))
+  steps.push(_step(msg(cat, "sort.sorted"), result, _range-mark(0, result.len(), _done), style, true, labels: labels))
   let diagram = align(center)[
-    #if labels [#_algorithm-caption(style, [original array]) #v(0.25em)]
+    #if labels [#_algorithm-caption(style, msg(cat, "sort.original")) #v(0.25em)]
     #_divide-tree(values, style, true, labels: labels)
     #v(1em)
     #_merge-tree-diagram(values, order, style, true, labels: labels)
@@ -573,7 +581,7 @@
   else { calc.min(pivot, len - 1) }
 }
 
-#let _partition(arr, lo, hi, order, pivot, steps, style, show-indices, labels: true) = {
+#let _partition(arr, lo, hi, order, pivot, steps, style, show-indices, labels: true, cat: default-catalog) = {
   let p = lo + _pivot-pos(hi - lo + 1, pivot)
   if p != hi {
     let swap = arr.at(p)
@@ -594,10 +602,10 @@
   arr.at(i) = arr.at(hi)
   arr.at(hi) = tmp
   let partition-diagram = align(center)[
-    #if labels [#_algorithm-caption(style, [partition around pivot #pivot-value]) #v(0.25em)]
+    #if labels [#_algorithm-caption(style, msg(cat, "sort.partition-around", pivot-value)) #v(0.25em)]
     #_array-row((arr.slice(lo, i), (pivot-value,), arr.slice(i + 1, hi + 1)), style, show-indices)
   ]
-  steps.push(_step([partition pivot #pivot-value], arr, _mark((i,), _active), style, show-indices, diagram: partition-diagram, labels: labels))
+  steps.push(_step(msg(cat, "sort.partition-pivot", pivot-value), arr, _mark((i,), _active), style, show-indices, diagram: partition-diagram, labels: labels))
   (arr, i, steps)
 }
 
@@ -661,15 +669,17 @@
   (lower-result + (pivot-value,) + upper-result, levels)
 }
 
-#let _quick-sort-range(arr, lo, hi, order, pivot, steps, style, show-indices, labels: true) = {
+#let _quick-sort-range(arr, lo, hi, order, pivot, steps, style, show-indices, labels: true, cat: default-catalog) = {
   if lo >= hi { return (arr, steps) }
-  let (partitioned, p, partition-steps) = _partition(arr, lo, hi, order, pivot, steps, style, show-indices, labels: labels)
-  let (left-sorted, left-steps) = _quick-sort-range(partitioned, lo, p - 1, order, pivot, partition-steps, style, show-indices, labels: labels)
-  _quick-sort-range(left-sorted, p + 1, hi, order, pivot, left-steps, style, show-indices, labels: labels)
+  let (partitioned, p, partition-steps) = _partition(arr, lo, hi, order, pivot, steps, style, show-indices, labels: labels, cat: cat)
+  let (left-sorted, left-steps) = _quick-sort-range(partitioned, lo, p - 1, order, pivot, partition-steps, style, show-indices, labels: labels, cat: cat)
+  _quick-sort-range(left-sorted, p + 1, hi, order, pivot, left-steps, style, show-indices, labels: labels, cat: cat)
 }
 
-#let quick-sort(arr, order: "asc", pivot: "last", labels: true) = {
+#let quick-sort(arr, order: "asc", pivot: "last", labels: true, language: "en", messages: (:)) = {
   assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let cat = resolve-catalog(language: language, messages: messages)
+  let _quick-sort-range = _quick-sort-range.with(cat: cat)
   let (values, style) = _array-input(arr)
   assert(
     pivot in ("first", "last") or type(pivot) == int,
@@ -681,87 +691,90 @@
       message: "pivot index " + str(pivot) + " is out of bounds for an array of length " + str(values.len()),
     )
   }
-  let steps = (_step([start], values, (), style, true, labels: labels),)
+  let steps = (_step(msg(cat, "sort.start"), values, (), style, true, labels: labels),)
   let (result, generated) = _quick-sort-range(values, 0, values.len() - 1, order, pivot, steps, style, true, labels: labels)
-  generated.push(_step([sorted], result, _range-mark(0, result.len(), _done), style, true, labels: labels))
+  generated.push(_step(msg(cat, "sort.sorted"), result, _range-mark(0, result.len(), _done), style, true, labels: labels))
   let (_, levels) = _quick-levels(values, order, pivot)
   let diagram = align(center)[
-    #if labels [#_algorithm-caption(style, [original array]) #v(0.25em)]
+    #if labels [#_algorithm-caption(style, msg(cat, "sort.original")) #v(0.25em)]
     #array-view(..values, style: _array-style(style, true)).diagram
     #v(0.8em)
-    #grid(columns: (auto, auto), column-gutter: 0.8em, _phase-indicator(if labels { [Partition] } else { none }, levels, style), _tree-rows(levels, style, true))
+    #grid(columns: (auto, auto), column-gutter: 0.8em, _phase-indicator(if labels { msg(cat, "sort.partition-phase") } else { none }, levels, style), _tree-rows(levels, style, true))
     #v(0.8em)
-    #if labels [#_algorithm-caption(style, [sorted array]) #v(0.25em)]
+    #if labels [#_algorithm-caption(style, msg(cat, "sort.sorted-array")) #v(0.25em)]
     #array-view(..result, style: _array-style(style, true), cell-customizations: _range-mark(0, result.len(), _done)).diagram
   ]
   _finish(generated, result, 1, 1em, 0.8em, diagram: diagram)
 }
 
-#let bubble-sort(arr, order: "asc", pointers: true, labels: true, compare: none, swap: none) = {
+#let bubble-sort(arr, order: "asc", pointers: true, labels: true, compare: none, swap: none, language: "en", messages: (:)) = {
   assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let cat = resolve-catalog(language: language, messages: messages)
   let (values, style) = _array-input(arr)
   let arr = values.map(value => value)
   let cmp = _role(_active, compare)
   let swp = _role(_changed, swap)
-  let steps = (_step([start], arr, (), style, true, reserve: pointers, labels: labels),)
+  let steps = (_step(msg(cat, "sort.start"), arr, (), style, true, reserve: pointers, labels: labels),)
   for pass in range(arr.len()) {
     let settled = _range-mark(arr.len() - pass, arr.len(), _done)
     for j in range(0, arr.len() - pass - 1) {
-      steps.push(_marked-step([compare #arr.at(j) and #arr.at(j + 1)], arr, ((j, [j]), (j + 1, [j+1])), cmp, style, pointers, settled: settled, labels: labels))
+      steps.push(_marked-step(msg(cat, "sort.compare", arr.at(j), arr.at(j + 1)), arr, ((j, [j]), (j + 1, [j+1])), cmp, style, pointers, settled: settled, labels: labels))
       if _lt(arr.at(j + 1), arr.at(j), order) {
         let a = arr.at(j)
         let b = arr.at(j + 1)
         arr.at(j) = b
         arr.at(j + 1) = a
-        steps.push(_marked-step([swap #a and #b], arr, ((j, [j]), (j + 1, [j+1])), swp, style, pointers, settled: settled, labels: labels))
+        steps.push(_marked-step(msg(cat, "sort.swap", a, b), arr, ((j, [j]), (j + 1, [j+1])), swp, style, pointers, settled: settled, labels: labels))
       }
     }
     if pass < arr.len() - 1 {
-      steps.push(_step([#arr.at(arr.len() - pass - 1) settled], arr, _range-mark(arr.len() - pass - 1, arr.len(), _done), style, true, reserve: pointers, labels: labels))
+      steps.push(_step(msg(cat, "sort.settled", arr.at(arr.len() - pass - 1)), arr, _range-mark(arr.len() - pass - 1, arr.len(), _done), style, true, reserve: pointers, labels: labels))
     }
   }
-  steps.push(_step([sorted], arr, _range-mark(0, arr.len(), _done), style, true, reserve: pointers, labels: labels))
+  steps.push(_step(msg(cat, "sort.sorted"), arr, _range-mark(0, arr.len(), _done), style, true, reserve: pointers, labels: labels))
   _finish(steps, arr, 3, 1em, 1em)
 }
 
-#let insertion-sort(arr, order: "asc", pointers: true, labels: true, compare: none, swap: none) = {
+#let insertion-sort(arr, order: "asc", pointers: true, labels: true, compare: none, swap: none, language: "en", messages: (:)) = {
   assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let cat = resolve-catalog(language: language, messages: messages)
   let (values, style) = _array-input(arr)
   let arr = values.map(value => value)
   let cmp = _role(_active, compare)
   let swp = _role(_changed, swap)
-  let steps = (_step([start], arr, (), style, true, reserve: pointers, labels: labels),)
+  let steps = (_step(msg(cat, "sort.start"), arr, (), style, true, reserve: pointers, labels: labels),)
   for i in range(1, arr.len()) {
     let j = i
     while j > 0 {
-      steps.push(_marked-step([compare #arr.at(j - 1) and #arr.at(j)], arr, ((j - 1, [j-1]), (j, [j])), cmp, style, pointers, labels: labels))
+      steps.push(_marked-step(msg(cat, "sort.compare", arr.at(j - 1), arr.at(j)), arr, ((j - 1, [j-1]), (j, [j])), cmp, style, pointers, labels: labels))
       if not _lt(arr.at(j), arr.at(j - 1), order) { break }
       let left = arr.at(j - 1)
       let right = arr.at(j)
       arr.at(j - 1) = right
       arr.at(j) = left
-      steps.push(_marked-step([swap #left and #right], arr, ((j - 1, [j-1]), (j, [j])), swp, style, pointers, labels: labels))
+      steps.push(_marked-step(msg(cat, "sort.swap", left, right), arr, ((j - 1, [j-1]), (j, [j])), swp, style, pointers, labels: labels))
       j -= 1
     }
   }
-  steps.push(_step([sorted], arr, _range-mark(0, arr.len(), _done), style, true, reserve: pointers, labels: labels))
+  steps.push(_step(msg(cat, "sort.sorted"), arr, _range-mark(0, arr.len(), _done), style, true, reserve: pointers, labels: labels))
   _finish(steps, arr, 3, 1em, 1em)
 }
 
-#let selection-sort(arr, order: "asc", pointers: true, labels: true, compare: none, current: none, minimum: none, swap: none) = {
+#let selection-sort(arr, order: "asc", pointers: true, labels: true, compare: none, current: none, minimum: none, swap: none, language: "en", messages: (:)) = {
   assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let cat = resolve-catalog(language: language, messages: messages)
   let (values, style) = _array-input(arr)
   let arr = values.map(value => value)
   let cur = _role(_current, current)
   let mn = _role(_minimum, minimum)
   let cmp = _role(_active, compare)
   let swp = _role(_changed, swap)
-  let steps = (_step([start], arr, (), style, true, reserve: pointers, labels: labels),)
+  let steps = (_step(msg(cat, "sort.start"), arr, (), style, true, reserve: pointers, labels: labels),)
   for i in range(arr.len()) {
     let settled = _range-mark(0, i, _done)
     let selected = i
     for j in range(i + 1, arr.len()) {
-      let label = [position #i, minimum #selected, item #j]
+      let label = msg(cat, "sort.selection-status", i, selected, j)
       let i-mark = if i == selected { cur + (stripe-fill: rgb("#C4B5FD")) } else { cur }
       let marks = settled + _mark((i,), i-mark) + _mark((selected,), mn) + _mark((j,), cmp)
       let pts = if pointers { _pointers(((i, [i]),), cur) + _pointers(((selected, [min]),), mn) + _pointers(((j, [j]),), cmp) } else { () }
@@ -775,10 +788,10 @@
       let b = arr.at(selected)
       arr.at(i) = b
       arr.at(selected) = a
-      steps.push(_marked-step([swap #a and #b], arr, ((i, [i]), (selected, [min])), swp, style, pointers, settled: settled, labels: labels))
-      steps.push(_step([#b settled], arr, _range-mark(0, i + 1, _done), style, true, reserve: pointers, labels: labels))
+      steps.push(_marked-step(msg(cat, "sort.swap", a, b), arr, ((i, [i]), (selected, [min])), swp, style, pointers, settled: settled, labels: labels))
+      steps.push(_step(msg(cat, "sort.settled", b), arr, _range-mark(0, i + 1, _done), style, true, reserve: pointers, labels: labels))
     }
   }
-  steps.push(_step([sorted], arr, _range-mark(0, arr.len(), _done), style, true, reserve: pointers, labels: labels))
+  steps.push(_step(msg(cat, "sort.sorted"), arr, _range-mark(0, arr.len(), _done), style, true, reserve: pointers, labels: labels))
   _finish(steps, arr, 3, 1em, 1em)
 }

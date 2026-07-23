@@ -8,7 +8,7 @@ consistent styling. It is built on top of
 [CeTZ](https://typst.app/universe/package/cetz).
 
 ```typst
-#import "@preview/typed-dsa:0.3.1": *
+#import "@preview/typed-dsa:0.4.0": *
 ```
 
 For the complete argument reference, including all nested `style:` and
@@ -285,6 +285,32 @@ Typography can be targeted by role with `value-text`, `index-text`,
 `label-text` defaults.
 
 ![Per-call styling and hand-composed trees](assets/readme/styling.png)
+
+## Localization
+
+Every generated caption — operation wording, graph-trace labels, sorting phase
+names, and the `Head`/`Front`/`Rear`/`top` annotations — is drawn from a central
+message catalog. Pass `language:` to switch it. Supported codes are `"en"`
+(default), `"de"`, and `"es"`; an invalid code fails with a clear assertion.
+
+```typst
+#(bst(8, 4, 12, language: "de").insert)(6).diagram   // caption: "6 einfügen"
+#bfs(("A": ("B",), "B": ()), "A", language: "es").diagram
+#bubble-sort((4, 2, 3), language: "de").diagram
+```
+
+The chosen language persists through operations and chained `.result` objects.
+Layer `messages:` over any language to override individual phrases — build the
+override with the `messages(...)` helper, whose values are content or callbacks
+returning content:
+
+```typst
+#let mine = messages(tree: (insert: key => [insertar #key]))
+#(bst(8, 4, 12, language: "es", messages: mine).insert)(6).diagram
+```
+
+`step-label:` still overrides a single operation call, winning over both. See
+the user guide's Localization chapter for the full message-key catalog.
 
 ## Worked Example: Last Stone Weight
 

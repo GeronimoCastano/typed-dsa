@@ -12,6 +12,7 @@
 #import "sorting.typ": merge-sort, merge-operation, partition-step, quick-sort, bubble-sort, insertion-sort, selection-sort, sort-sequence
 #import "hash.typ": hash-table
 #import "style.typ": theme, themes, theme-preset, resolve, tree-style, heap-style, graph-style, list-style, stack-style, queue-style, array-style, matrix-style, text-style, label-style, node-mark-style, cell-mark-style, node-label-style, indices-style
+#import "messages.typ": messages, supported-languages
 
 #let transition(variant, keys, op, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
   if variant == "min-heap" { return _heap-trans("min", keys, op, style: style) }

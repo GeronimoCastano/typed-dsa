@@ -7,7 +7,7 @@
 #import "@preview/codly-languages:0.1.1": *
 #import "../src/lib.typ": *
 
-#let version = "0.3.1"
+#let version = "0.4.0"
 #let accent = rgb("#1565C0")
 #let accent-soft = rgb("#E3F2FD")
 
@@ -76,6 +76,7 @@
   node-label-style: node-label-style, indices-style: indices-style,
   sequence: sequence, operation-sequence: operation-sequence, op-arrow: op-arrow,
   theme-preset: theme-preset, themes: themes, std: std,
+  messages: messages, supported-languages: supported-languages,
 )
 
 #let example(body, side: true) = block(
@@ -490,13 +491,13 @@ Import the package from the Typst preview namespace. A wildcard import gives
 you every public symbol:
 
 ```typ
-#import "@preview/typed-dsa:0.3.1": *
+#import "@preview/typed-dsa:0.4.0": *
 ```
 
 Or import only what you need:
 
 ```typ
-#import "@preview/typed-dsa:0.3.1": bst, avl, min-heap, max-heap
+#import "@preview/typed-dsa:0.4.0": bst, avl, min-heap, max-heap
 ```
 
 #warn[A wildcard import shadows Typst's built-in #c("stack") function. Use
@@ -553,8 +554,8 @@ covers the step shape they share.
   Full signatures:
 
   ```typ
-  #bst(..keys, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:))
-  #avl(..keys, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:))
+  #bst(..keys, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:))
+  #avl(..keys, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:))
   ```
 
   Both build a binary tree by inserting `keys` one at a time, in the order
@@ -645,8 +646,8 @@ covers the step shape they share.
   Full signatures:
 
   ```typ
-  #min-heap(..keys, style: (:))
-  #max-heap(..keys, style: (:))
+  #min-heap(..keys, style: (:), language: "en", messages: (:))
+  #max-heap(..keys, style: (:), language: "en", messages: (:))
   ```
 
   A heap is an array underneath. Index `i`'s children live at `2i+1` and
@@ -724,6 +725,8 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
     pointer: false,
     addresses: none,
     head: false,
+    language: "en",
+    messages: (:),
   )
   ```
 ]
@@ -800,6 +803,8 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
     pointer: false,
     addresses: none,
     head: false,
+    language: "en",
+    messages: (:),
   )
   ```
 ]
@@ -876,14 +881,14 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   Full signature:
 
   ```typ
-  #stack(..vals, style: (:), top-label: [top])
+  #stack(..vals, style: (:), top-label: auto, language: "en", messages: (:))
   ```
 ]
 
 #argtable(
   [#c("..vals")], [`int` / `content`], [(required)], [Values in the stack; the *first* argument is the top.],
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
-  [#c("top-label")], [`content`], [`[top]`], [Label beside the top cell.],
+  [#c("top-label")], [`content` / `auto`], [`auto`], [Label beside the top cell. #c("auto") uses the localized #c("stack.top") default (@localization).],
 )
 
 #linear-style-reference("stack")
@@ -940,8 +945,10 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
     style: (:),
     enqueue: none,
     dequeue: none,
-    front-label: [Front],
-    rear-label: [Rear],
+    front-label: auto,
+    rear-label: auto,
+    language: "en",
+    messages: (:),
   )
   ```
 ]
@@ -951,8 +958,8 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
   [#c("enqueue")], [`none` / `int` / `content`], [`none`], [Draw one extra element entering at the rear, with an arrow, in the same frame.],
   [#c("dequeue")], [`none` / `int` / `content`], [`none`], [Draw the front element leaving to the left, with an arrow, in the same frame.],
-  [#c("front-label")], [`content`], [`[Front]`], [Label over the front cell. Combined with #c("rear-label") for a one-cell queue.],
-  [#c("rear-label")], [`content`], [`[Rear]`], [Label over the rear cell. Combined with #c("front-label") for a one-cell queue.],
+  [#c("front-label")], [`content` / `auto`], [`auto`], [Label over the front cell; #c("auto") uses the localized #c("queue.front") default (@localization). Combined with #c("rear-label") for a one-cell queue.],
+  [#c("rear-label")], [`content` / `auto`], [`auto`], [Label over the rear cell; #c("auto") uses the localized #c("queue.rear") default (@localization). Combined with #c("front-label") for a one-cell queue.],
 )
 
 #linear-style-reference("queue")
@@ -1020,6 +1027,8 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
     decision-fn: default-decision-fn,
     level-spacing: 1.4,
     max-level: 4,
+    language: "en",
+    messages: (:),
   )
   ```
 
@@ -1187,7 +1196,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   so key/value pairs fit; an explicit #c("style.box-w") overrides it.
 
   ```typ
-  #hash-table(..entries, size: 7, collision: "chaining", hash: auto, style: (:))
+  #hash-table(..entries, size: 7, collision: "chaining", hash: auto, style: (:), language: "en", messages: (:))
   ```
 ]
 
@@ -1221,14 +1230,14 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   Full signatures:
 
   ```typ
-  #merge-sort(array, order: "asc", labels: true)
-  #merge-operation(left, right, order: "asc", pointers: true, labels: true)
-  #partition-step(array, order: "asc", pivot: "middle", pointers: false, labels: true)
-  #quick-sort(array, order: "asc", pivot: "last", labels: true)
-  #bubble-sort(array, order: "asc", pointers: true, labels: true, compare: none, swap: none)
-  #insertion-sort(array, order: "asc", pointers: true, labels: true, compare: none, swap: none)
+  #merge-sort(array, order: "asc", labels: true, language: "en", messages: (:))
+  #merge-operation(left, right, order: "asc", pointers: true, labels: true, language: "en", messages: (:))
+  #partition-step(array, order: "asc", pivot: "middle", pointers: false, labels: true, language: "en", messages: (:))
+  #quick-sort(array, order: "asc", pivot: "last", labels: true, language: "en", messages: (:))
+  #bubble-sort(array, order: "asc", pointers: true, labels: true, compare: none, swap: none, language: "en", messages: (:))
+  #insertion-sort(array, order: "asc", pointers: true, labels: true, compare: none, swap: none, language: "en", messages: (:))
   #selection-sort(array, order: "asc", pointers: true, labels: true,
-    compare: none, current: none, minimum: none, swap: none)
+    compare: none, current: none, minimum: none, swap: none, language: "en", messages: (:))
   #sort-sequence(steps, columns: 3, gap: 1em, row-gap: 1em)
   ```
 
@@ -1760,9 +1769,9 @@ transition to match trees and heaps. See @limitations.]
   every reachable node.
 
   ```typ
-  #bfs(adjacency, source, target: none, directed: true, goal-test: "discovery", columns: 1, captions: true, ..graph-options)
-  #dfs(adjacency, source, target: none, directed: true, columns: 1, captions: true, ..graph-options)
-  #dijkstra(adjacency, source, target: none, directed: true, columns: 1, captions: true, ..graph-options)
+  #bfs(adjacency, source, target: none, directed: true, goal-test: "discovery", columns: 1, captions: true, language: "en", messages: (:), ..graph-options)
+  #dfs(adjacency, source, target: none, directed: true, columns: 1, captions: true, language: "en", messages: (:), ..graph-options)
+  #dijkstra(adjacency, source, target: none, directed: true, columns: 1, captions: true, language: "en", messages: (:), ..graph-options)
   ```
 ]
 
@@ -2315,6 +2324,255 @@ the resulting object, and it doesn't accumulate across a chain of
 ]
 
 // ═════════════════════════════════════════════════════════════════════════════
+= Localization <localization>
+// ═════════════════════════════════════════════════════════════════════════════
+
+Every caption a diagram generates — the operation wording above a transition
+arrow, the labels in a BFS/DFS/Dijkstra trace, the phase names in a sorting
+tree, the #c("Head")/#c("Front")/#c("Rear")/#c("top") annotations — is drawn
+from a central message catalog. You can switch that catalog to another language
+with #c("language:"), override individual phrases with #c("messages:"), and
+still override any single operation call with #c("step-label:"). Nothing about
+the geometry or styling changes; only the words do.
+
+A document that passes none of these arguments renders exactly as before, in
+English.
+
+== The three resolution layers
+
+A caption is resolved by walking four sources, each one winning over the ones
+before it:
+
+#table(
+  columns: (auto, 1fr), inset: 6.5pt,
+  align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
+  fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
+  [*Layer*], [*What it is*],
+  [English / default catalog], [The built-in source of truth. Contains every message key.],
+  [Selected language catalog], [Chosen with #c("language:"). A complete translation that replaces the English strings.],
+  [#c("messages:") overrides], [A partial dictionary layered over the selected language, per builder.],
+  [#c("step-label:")], [The highest-priority override, for one operation call only.],
+)
+
+== #raw("language:")
+
+Every builder that can generate a caption accepts #c("language:"). The supported
+codes are #c("\"en\"") (default), #c("\"de\""), and #c("\"es\""). Any other
+value fails immediately with a clear assertion message, so a typo never silently
+falls back to English.
+
+#demo[
+  #example(```typ
+  #std.stack(spacing: 1em,
+    (bst(8, 4, 12, language: "de").insert)(6).diagram,
+    (bst(8, 4, 12, language: "es").insert)(6).diagram,
+  )
+  ```, side: false)
+]
+
+The chosen language is stored on the returned object and travels with it. Every
+operation you call, and every #c(".result") you chain from, keeps the same
+language without repeating the argument.
+
+#demo[
+  #example(```typ
+  #let tree = avl(20, 10, 30, language: "de")
+  #let step = (tree.insert)(40, rebalance: (enabled: true))
+  #let next = (step.result.insert)(50)
+  #std.stack(spacing: 1em, step.diagram, next.diagram)
+  ```, side: false)
+]
+
+The standalone operation functions (#c("tree-insert"), #c("heap-insert"), and
+the graph and sorting builders) also take #c("language:") directly, so
+#c("transition(...)") and one-off traces localize the same way:
+
+#demo[
+  #example(```typ
+  #transition("bst", (50, 30, 70, 20, 40), tree-insert(45, language: "de"))
+  ```, side: false)
+]
+
+== #raw("messages:") and the #raw("messages(...)") helper
+
+#c("messages:") layers a partial dictionary of overrides over whatever
+#c("language:") selected. Use it to change specific wording — house style, a
+different verb, a discipline's notation — without shipping a whole catalog, or to
+add a language the package doesn't include yet by overriding the English base.
+
+Build the dictionary with the #c("messages(...)") helper, which takes one named
+argument per structure group and returns a flat, reusable dictionary you can
+share across many builders:
+
+```typ
+#let spanish-tweaks = messages(
+  tree: (
+    insert: key => [insertar #key],
+    delete: key => [eliminar #key],
+  ),
+  graph: (
+    visit: node => [visitar #node],
+  ),
+)
+```
+
+Each value is either static #c("content") or a callback returning
+#c("content"). Interpolating captions use a callback; fixed captions can be
+plain content. Callbacks receive whatever Typst value the caller passes —
+integers, strings, math, arrows, arbitrary content — so you are free to build a
+caption out of anything, not just a formatted number.
+
+#demo[
+  #example(```typ
+  #let mine = messages(
+    tree: (insert: k => [🌱 add #k]),
+  )
+  #(bst(8, 4, 12, messages: mine).insert)(6).diagram
+  ```, side: false)
+]
+
+Overrides compose with a language. Here the Spanish catalog supplies every
+caption except #c("tree.insert"), which the override replaces:
+
+#demo[
+  #example(```typ
+  #let mine = messages(tree: (insert: k => [meter #k]))
+  #(bst(8, 4, 12, language: "es", messages: mine).insert)(6).diagram
+  ```, side: false)
+]
+
+An override key that does not name a real message fails with an error naming the
+offending key, so a misspelled group or key is caught at compile time instead of
+being silently ignored. (#c("messages:") also accepts a plain grouped dictionary
+like #c("(tree: (insert: ...))") directly, but #c("messages(...)") is the
+recommended, validated form.)
+
+#note[
+  Localization is deliberately *not* part of #c("style:"). Styling controls how a
+  diagram looks (color, shape, size); #c("messages:") controls the words. They
+  are independent, and a caption can contain math, arrows, or styled content, so
+  wording is always #c("content"), never a plain string to be concatenated.
+]
+
+== #raw("step-label:") has the last word
+
+The existing #c("step-label:") argument on each operation is unchanged and still
+wins over everything: language, messages, and the default. It sets both the
+rendered caption and the step's #c(".label") field for one call only.
+
+#demo[
+  #example(```typ
+  #let tree = bst(8, 4, 12, language: "de")
+  #(tree.insert)(6, step-label: [custom wording]).diagram
+  ```, side: false)
+]
+
+== Structural default labels
+
+#c("stack")'s #c("top-label"), and #c("queue")'s #c("front-label") and
+#c("rear-label"), default to #c("auto"), which means "use the localized
+default". Passing explicit content still overrides the localized word for that
+one builder, so an explicit label always wins over the language:
+
+#demo[
+  #example(```typ
+  #std.stack(spacing: 1.4em,
+    stack(3, 2, 1, language: "de").diagram,
+    stack(3, 2, 1, top-label: [TOS]).diagram,
+  )
+  ```, side: false)
+]
+
+== Message-key reference
+
+Every key below exists in all three catalogs. In #c("messages(...)"), the part
+before the dot is the group name and the part after is the key. The *Arguments*
+column lists what a callback receives; keys with no arguments are static
+content.
+
+#let msgtable(..rows) = table(
+  columns: (26%, 30%, 44%), inset: 5.6pt,
+  align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
+  fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
+  [*Key*], [*Arguments*], [*English default*],
+  ..rows,
+)
+
+#msgtable(
+  [#c("tree.insert")], [#c("key")], [insert #c("key")],
+  [#c("tree.delete")], [#c("key")], [delete #c("key")],
+  [#c("tree.search")], [#c("key")], [search #c("key")],
+  [#c("tree.rotate-left")], [#c("pivot")], [rotate left at #c("pivot")],
+  [#c("tree.rotate-right")], [#c("pivot")], [rotate right at #c("pivot")],
+  [#c("heap.insert")], [#c("key")], [insert #c("key")],
+  [#c("heap.extract")], [—], [extract],
+  [#c("list.insert")], [#c("value")], [insert #c("value")],
+  [#c("list.insert-at")], [#c("value, index")], [insert #c("value") at #c("index")],
+  [#c("list.prepend")], [#c("value")], [prepend #c("value")],
+  [#c("list.delete")], [#c("value")], [delete #c("value")],
+  [#c("list.delete-at")], [#c("index")], [delete index #c("index")],
+  [#c("list.search")], [#c("value")], [search #c("value")],
+  [#c("list.head")], [—], [Head],
+  [#c("stack.push")], [#c("value")], [push #c("value")],
+  [#c("stack.pop")], [—], [pop],
+  [#c("stack.top")], [—], [top],
+  [#c("queue.enqueue")], [#c("value")], [enqueue #c("value")],
+  [#c("queue.dequeue")], [—], [dequeue],
+  [#c("queue.enqueue-label")], [—], [Enqueue (single-frame builder annotation)],
+  [#c("queue.dequeue-label")], [—], [Dequeue (single-frame builder annotation)],
+  [#c("queue.front")], [—], [Front],
+  [#c("queue.rear")], [—], [Rear],
+  [#c("skip.search")], [#c("key")], [search #c("key")],
+  [#c("skip.insert")], [#c("value")], [insert #c("value")],
+  [#c("skip.delete")], [#c("value")], [delete #c("value")],
+  [#c("hash.insert")], [#c("key")], [insert #c("key")],
+  [#c("hash.delete")], [#c("key")], [delete #c("key")],
+  [#c("hash.search")], [#c("key")], [search #c("key")],
+  [#c("graph.queue")], [#c("node")], [queue #c("node") (BFS start)],
+  [#c("graph.stack")], [#c("node")], [stack #c("node") (DFS start)],
+  [#c("graph.visit")], [#c("node")], [visit #c("node")],
+  [#c("graph.inspect")], [#c("from, to")], [inspect #c("from") → #c("to")],
+  [#c("graph.finish")], [#c("node")], [finish #c("node")],
+  [#c("graph.reached")], [#c("node")], [reached #c("node")],
+  [#c("graph.settle")], [#c("node")], [settle #c("node") (Dijkstra)],
+  [#c("graph.relax")], [#c("from, to")], [relax #c("from") → #c("to")],
+  [#c("graph.distance-init")], [#c("node")], [distance(#c("node")) = 0],
+  [#c("graph.shortest-path")], [#c("node")], [shortest path to #c("node") found],
+  [#c("graph.distance")], [#c("value")], [d = #c("value") (node distance label)],
+  [#c("sort.original")], [—], [original array],
+  [#c("sort.sorted-array")], [—], [sorted array],
+  [#c("sort.divide")], [—], [divide (merge-sort step)],
+  [#c("sort.divide-phase")], [—], [Divide (merge-sort phase brace)],
+  [#c("sort.merge")], [—], [merge (merge-sort step)],
+  [#c("sort.merge-phase")], [—], [Merge (merge-sort phase brace)],
+  [#c("sort.partition-phase")], [—], [Partition (quick-sort phase brace)],
+  [#c("sort.left")], [—], [left (merge-operation column)],
+  [#c("sort.right")], [—], [right (merge-operation column)],
+  [#c("sort.result")], [—], [result (merge-operation column)],
+  [#c("sort.start")], [—], [start],
+  [#c("sort.sorted")], [—], [sorted],
+  [#c("sort.compare")], [#c("a, b")], [compare #c("a") and #c("b")],
+  [#c("sort.swap")], [#c("a, b")], [swap #c("a") and #c("b")],
+  [#c("sort.settled")], [#c("value")], [#c("value") settled],
+  [#c("sort.start-merge")], [—], [start merge],
+  [#c("sort.merged")], [—], [merged],
+  [#c("sort.take")], [#c("value")], [take #c("value")],
+  [#c("sort.take-remaining")], [#c("value")], [take remaining #c("value")],
+  [#c("sort.compare-pivot")], [#c("a, pivot")], [compare #c("a") and pivot #c("pivot")],
+  [#c("sort.select-pivot")], [#c("value")], [select pivot #c("value")],
+  [#c("sort.select-last-pivot")], [#c("value")], [select last pivot #c("value")],
+  [#c("sort.place-pivot")], [#c("value")], [place pivot #c("value")],
+  [#c("sort.advance-i")], [#c("i")], [advance i to #c("i")],
+  [#c("sort.partitioned")], [—], [partitioned],
+  [#c("sort.partition-pivot")], [#c("value")], [partition pivot #c("value")],
+  [#c("sort.partition-around")], [#c("value")], [partition around pivot #c("value")],
+  [#c("sort.pivot-info")], [#c("value, index, i, j")], [pivot: #c("value") at #c("index"); i: #c("i"); j: #c("j")],
+  [#c("sort.i-satisfies")], [#c("value")], [i #c("value") satisfies the pivot test],
+  [#c("sort.j-satisfies")], [#c("value")], [j #c("value") satisfies the pivot test],
+  [#c("sort.selection-status")], [#c("pos, min, item")], [position #c("pos"), minimum #c("min"), item #c("item")],
+)
+
+// ═════════════════════════════════════════════════════════════════════════════
 = Styling <styling>
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -2662,6 +2920,22 @@ One stone remains, weight *1*, matching
   [#c("operation-sequence(initial, ..operations, columns:, mode:)")], [Apply operation closures in order and return #c(".steps"), final #c(".result"), and #c(".diagram")],
   [#c("op-arrow(label, symbol:, style:)")], [Reusable labeled arrow for custom operation layouts],
 )
+
+== Localization
+
+#table(
+  columns: (auto, 1fr), inset: 6.5pt,
+  align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
+  fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
+  [*Call / argument*], [*Result*],
+  [#c("language:")], [Caption language on every generating builder: #c("\"en\"") (default), #c("\"de\""), #c("\"es\""). Persists through operations and #c(".result"). Invalid codes assert.],
+  [#c("messages:")], [Partial overrides layered over the selected language. Build with #c("messages(...)"). Unknown keys assert.],
+  [#c("messages(..groups)")], [Turn structure-grouped definitions (#c("tree: (insert: k => ...)")) into a flat, reusable overrides dictionary.],
+  [#c("step-label:")], [Highest-priority caption override for one operation call; also sets the step's #c(".label").],
+  [#c("supported-languages")], [The array of accepted language codes, currently #c("(\"en\", \"de\", \"es\")").],
+)
+
+See @localization for the full message-key catalog and the resolution order.
 
 == Styling keys
 

@@ -23,6 +23,7 @@
 
 #import "@preview/cetz:0.5.2"
 #import "style.typ": theme, resolve, scaled, edge-stroke, edge-arrow, edge-wave, wavy-parts
+#import "messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, circle, rect, content, bezier-through
 
 // Adjacency entries are either `"to"` or `("to", label)`.
@@ -619,12 +620,12 @@
   result
 }
 
-#let _distance-node-labels(nodes, distances, supplied, th) = {
+#let _distance-node-labels(nodes, distances, supplied, th, cat) = {
   let result = ()
   for node in nodes {
     let raw = _lookup-key(supplied, node)
     let value = if distances.at(node) == none { $infinity$ } else { distances.at(node) }
-    let body = [d = #value]
+    let body = msg(cat, "graph.distance", value)
     let custom = (color: rgb("#7048E8"), weight: "bold")
     let defaults = th.at("node-labels", default: (:))
     if "gap" not in defaults { custom.gap = 0.5 }
@@ -639,13 +640,13 @@
   label, adjacency, directed, labels, positions, layout, radius,
   edge-customizations, node-customizations, node-labels, style,
   visited, current, queued, active,
-  captions, distances: none, path: (), gap: auto,
+  captions, distances: none, path: (), gap: auto, cat: default-catalog,
 ) = {
   let th = resolve(style)
   let nodes = _nodes(adjacency)
   let state-nodes = _state-node-customizations(node-customizations, nodes, visited, current, queued, th)
   let state-edges = _state-edge-customizations(edge-customizations, active, path, directed, th)
-  let state-labels = if distances == none { node-labels } else { _distance-node-labels(nodes, distances, node-labels, th) }
+  let state-labels = if distances == none { node-labels } else { _distance-node-labels(nodes, distances, node-labels, th, cat) }
   let picture = _render(adjacency, directed, labels, positions, layout, radius, gap, state-edges, state-nodes, state-labels, th)
   (
     label: label,
@@ -690,9 +691,10 @@
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
   layout: "auto", radius: auto, gap: auto, edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
-  goal-test: "discovery",
+  goal-test: "discovery", language: "en", messages: (:),
 ) = {
   assert(goal-test in ("discovery", "expansion"), message: "bfs goal-test must be \"discovery\" or \"expansion\"")
+  let cat = resolve-catalog(language: language, messages: messages)
   let nodes = _validate-traversal(adjacency, source, target)
   let queue = (source,)
   let seen = (:)
@@ -704,23 +706,23 @@
   let make(label, state-visited, state-queued, current: none, active: none) = _algorithm-step(
     label, adjacency, directed, labels, positions, layout, radius,
     edge-customizations, node-customizations, node-labels, style,
-    state-visited, current, state-queued, active, captions, gap: gap,
+    state-visited, current, state-queued, active, captions, gap: gap, cat: cat,
   )
-  steps.push(make([queue #source], visited, queue))
+  steps.push(make(msg(cat, "graph.queue", source), visited, queue))
   if target == source {
     order.push(source)
     visited.push(source)
-    steps.push(make([reached #target], visited, ()))
+    steps.push(make(msg(cat, "graph.reached", target), visited, ()))
     return _trace-result(steps, (order: order, found: true, path: (source,)), columns, row-gap)
   }
   while queue.len() > 0 {
     let current = queue.first()
     queue = queue.slice(1)
-    steps.push(make([visit #current], visited, queue, current: current))
+    steps.push(make(msg(cat, "graph.visit", current), visited, queue, current: current))
     order.push(current)
     if goal-test == "expansion" and target != none and current == target {
       visited.push(current)
-      steps.push(make([reached #target], visited, queue))
+      steps.push(make(msg(cat, "graph.reached", target), visited, queue))
       break
     }
     let target-discovered = false
@@ -732,17 +734,17 @@
         previous.insert(next, current)
         queue.push(next)
       }
-      steps.push(make([inspect #current → #next], visited, queue, current: current, active: (current, next)))
+      steps.push(make(msg(cat, "graph.inspect", current, next), visited, queue, current: current, active: (current, next)))
       if goal-test == "discovery" and target != none and discovered and next == target {
         visited.push(current)
-        steps.push(make([reached #target], visited, queue, current: target))
+        steps.push(make(msg(cat, "graph.reached", target), visited, queue, current: target))
         target-discovered = true
         break
       }
     }
     if target-discovered { break }
     visited.push(current)
-    steps.push(make([finish #current], visited, queue))
+    steps.push(make(msg(cat, "graph.finish", current), visited, queue))
   }
   let found = if target == none { none } else { target in seen }
   _trace-result(steps, (order: order, found: found, path: _path(previous, source, target, found == true)), columns, row-gap)
@@ -752,7 +754,9 @@
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
   layout: "auto", radius: auto, gap: auto, edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
+  language: "en", messages: (:),
 ) = {
+  let cat = resolve-catalog(language: language, messages: messages)
   let nodes = _validate-traversal(adjacency, source, target)
   let stack = (source,)
   let seen = (:)
@@ -764,17 +768,17 @@
   let make(label, state-visited, state-queued, current: none, active: none) = _algorithm-step(
     label, adjacency, directed, labels, positions, layout, radius,
     edge-customizations, node-customizations, node-labels, style,
-    state-visited, current, state-queued, active, captions, gap: gap,
+    state-visited, current, state-queued, active, captions, gap: gap, cat: cat,
   )
-  steps.push(make([stack #source], visited, stack))
+  steps.push(make(msg(cat, "graph.stack", source), visited, stack))
   while stack.len() > 0 {
     let current = stack.last()
     stack = stack.slice(0, stack.len() - 1)
-    steps.push(make([visit #current], visited, stack, current: current))
+    steps.push(make(msg(cat, "graph.visit", current), visited, stack, current: current))
     order.push(current)
     if target != none and current == target {
       visited.push(current)
-      steps.push(make([reached #target], visited, stack))
+      steps.push(make(msg(cat, "graph.reached", target), visited, stack))
       break
     }
     let discovered = ()
@@ -785,11 +789,11 @@
         previous.insert(next, current)
         discovered.push(next)
       }
-      steps.push(make([inspect #current → #next], visited, stack + discovered, current: current, active: (current, next)))
+      steps.push(make(msg(cat, "graph.inspect", current, next), visited, stack + discovered, current: current, active: (current, next)))
     }
     stack += discovered.rev()
     visited.push(current)
-    steps.push(make([finish #current], visited, stack))
+    steps.push(make(msg(cat, "graph.finish", current), visited, stack))
   }
   let found = if target == none { none } else { target in seen }
   _trace-result(steps, (order: order, found: found, path: _path(previous, source, target, found == true)), columns, row-gap)
@@ -799,7 +803,9 @@
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
   layout: "auto", radius: auto, gap: auto, edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
+  language: "en", messages: (:),
 ) = {
+  let cat = resolve-catalog(language: language, messages: messages)
   let nodes = _validate-traversal(adjacency, source, target)
   let distances = (:)
   for node in nodes { distances.insert(node, if node == source { 0 } else { none }) }
@@ -811,9 +817,9 @@
   let make(label, state-visited, state-distances, current: none, active: none, path: ()) = _algorithm-step(
     label, adjacency, directed, labels, positions, layout, radius,
     edge-customizations, node-customizations, node-labels, style,
-    state-visited, current, frontier(state-distances, state-visited, current: current), active, captions, distances: state-distances, path: path, gap: gap,
+    state-visited, current, frontier(state-distances, state-visited, current: current), active, captions, distances: state-distances, path: path, gap: gap, cat: cat,
   )
-  steps.push(make([distance(#source) = 0], visited, distances))
+  steps.push(make(msg(cat, "graph.distance-init", source), visited, distances))
   while true {
     let current = none
     for node in nodes {
@@ -822,12 +828,12 @@
       }
     }
     if current == none { break }
-    steps.push(make([settle #current], visited, distances, current: current))
+    steps.push(make(msg(cat, "graph.settle", current), visited, distances, current: current))
     order.push(current)
     if target != none and current == target {
       visited.push(current)
       steps.push(make(
-        [shortest path to #target found],
+        msg(cat, "graph.shortest-path", target),
         visited,
         distances,
         path: _path(previous, source, target, true),
@@ -845,10 +851,10 @@
           previous.insert(next, current)
         }
       }
-      steps.push(make([relax #current → #next], visited, distances, current: current, active: (current, next)))
+      steps.push(make(msg(cat, "graph.relax", current, next), visited, distances, current: current, active: (current, next)))
     }
     visited.push(current)
-    steps.push(make([finish #current], visited, distances))
+    steps.push(make(msg(cat, "graph.finish", current), visited, distances))
   }
   let found = if target == none { none } else { distances.at(target) != none }
   _trace-result(steps, (

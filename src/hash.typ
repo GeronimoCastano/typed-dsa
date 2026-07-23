@@ -6,6 +6,7 @@
 #import "grid.typ": array-view
 #import "linear.typ": _linked-render, _null
 #import "tree.typ": trans-view
+#import "messages.typ": default-catalog, resolve-catalog, msg
 
 #let _entry(item, value: none) = {
   if value != none { return (key: item, value: value, pair: true) }
@@ -153,7 +154,7 @@
   marks
 }
 
-#let _hash-obj(model, collision, hash, style) = {
+#let _hash-obj(model, collision, hash, style, cat) = {
   let draw(m, marks: (:)) = _render(m, collision, style, marks: marks)
   (
     diagram: draw(model),
@@ -163,19 +164,19 @@
       if collision == "chaining" {
         let placed = _chain-put(model, entry, hash)
         let mark = (str(placed.bucket) + "," + str(placed.position): if placed.added { "new" } else { "current" })
-        let label = if step-label == none { [insert #entry.key] } else { step-label }
-        _step(label, draw(model), draw(placed.model, marks: mark), _hash-obj(placed.model, collision, hash, style), style)
+        let label = if step-label == none { msg(cat, "hash.insert", entry.key) } else { step-label }
+        _step(label, draw(model), draw(placed.model, marks: mark), _hash-obj(placed.model, collision, hash, style, cat), style)
       } else {
         let placed = _open-put(model, entry, hash)
         let marks = (:)
         for i in placed.probes { marks.insert(str(i), "path") }
         marks.insert(str(placed.index), if placed.added { "new" } else { "current" })
-        let label = if step-label == none { [insert #entry.key] } else { step-label }
-        _step(label, draw(model), draw(placed.model, marks: marks), _hash-obj(placed.model, collision, hash, style), style)
+        let label = if step-label == none { msg(cat, "hash.insert", entry.key) } else { step-label }
+        _step(label, draw(model), draw(placed.model, marks: marks), _hash-obj(placed.model, collision, hash, style, cat), style)
       }
     },
     delete: (key, step-label: none) => {
-      let label = if step-label == none { [delete #key] } else { step-label }
+      let label = if step-label == none { msg(cat, "hash.delete", key) } else { step-label }
       if collision == "chaining" {
         let b = _hash-index(key, model.len(), hash)
         let bucket = model.at(b)
@@ -183,7 +184,7 @@
         let after = model
         if p != none { after.at(b) = bucket.slice(0, p) + bucket.slice(p + 1) }
         let before-marks = if p == none { _prefix-bucket-marks(b, _chain-path(bucket, none, false)) } else { (str(b) + "," + str(p): "remove") }
-        _step(label, draw(model, marks: before-marks), draw(after), _hash-obj(after, collision, hash, style), style, extra: (found: p != none,))
+        _step(label, draw(model, marks: before-marks), draw(after), _hash-obj(after, collision, hash, style, cat), style, extra: (found: p != none,))
       } else {
         let probe = _open-probe(model, key, hash)
         let after = model
@@ -191,34 +192,34 @@
         let marks = (:)
         for i in probe.probes { marks.insert(str(i), "path") }
         if probe.found { marks.insert(str(probe.index), "remove") }
-        _step(label, draw(model, marks: marks), draw(after), _hash-obj(after, collision, hash, style), style, extra: (found: probe.found, index: if probe.found { probe.index } else { none }))
+        _step(label, draw(model, marks: marks), draw(after), _hash-obj(after, collision, hash, style, cat), style, extra: (found: probe.found, index: if probe.found { probe.index } else { none }))
       }
     },
     search: (key, step-label: none) => {
-      let label = if step-label == none { [search #key] } else { step-label }
+      let label = if step-label == none { msg(cat, "hash.search", key) } else { step-label }
       if collision == "chaining" {
         let b = _hash-index(key, model.len(), hash)
         let bucket = model.at(b)
         let p = bucket.position(item => item.key == key)
         let marks = _prefix-bucket-marks(b, _chain-path(bucket, p, p != none))
-        _step(label, draw(model), draw(model, marks: marks), _hash-obj(model, collision, hash, style), style,
+        _step(label, draw(model), draw(model, marks: marks), _hash-obj(model, collision, hash, style, cat), style,
           extra: (found: p != none, bucket: b, position: p))
       } else {
         let probe = _open-probe(model, key, hash)
         let marks = (:)
         for i in probe.probes { marks.insert(str(i), "path") }
         if probe.found { marks.insert(str(probe.index), "current") }
-        _step(label, draw(model), draw(model, marks: marks), _hash-obj(model, collision, hash, style), style,
+        _step(label, draw(model), draw(model, marks: marks), _hash-obj(model, collision, hash, style, cat), style,
           extra: (found: probe.found, index: if probe.found { probe.index } else { none }))
       }
     },
   )
 }
 
-#let hash-table(size: 7, collision: "chaining", hash: auto, style: (:), ..entries) = {
+#let hash-table(size: 7, collision: "chaining", hash: auto, style: (:), language: "en", messages: (:), ..entries) = {
   assert(type(size) == int and size > 0, message: "hash-table size must be a positive integer")
   let mode = if collision == "chain" { "chaining" } else { collision }
   assert(mode in ("chaining", "linear"), message: "hash-table collision must be \"chaining\" or \"linear\"")
   let model = if mode == "chaining" { _chain-build(entries.pos(), size, hash) } else { _open-build(entries.pos(), size, hash) }
-  _hash-obj(model, mode, hash, style)
+  _hash-obj(model, mode, hash, style, resolve-catalog(language: language, messages: messages))
 }

@@ -198,7 +198,7 @@
   result
 }
 
-#let _style(
+#let _build-style-dictionary(
   node-radius: auto,
   node-shape: auto,
   x-gap: auto,
@@ -301,7 +301,7 @@
   node-labels: auto, scale: auto, diff-colors: auto,
   new-style: auto, path-style: auto, remove-style: auto, rotate-style: auto,
   visited-style: auto, current-style: auto, queued-style: auto, active-edge-style: auto,
-) = _style(
+) = _build-style-dictionary(
   node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
   edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
@@ -324,7 +324,7 @@
   node-text: auto, value-text: auto, label-text: auto, operation-text: auto,
   edge-label-text: auto, scale: auto, diff-colors: auto,
   new-style: auto, path-style: auto, remove-style: auto,
-) = _style(
+) = _build-style-dictionary(
   node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
   edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
@@ -342,7 +342,7 @@
   node-text: auto, value-text: auto, label-text: auto, edge-label-text: auto,
   algorithm-label-text: auto, node-labels: auto, scale: auto,
   visited-style: auto, current-style: auto, queued-style: auto, active-edge-style: auto,
-) = _style(
+) = _build-style-dictionary(
   node-radius: node-radius, node-shape: node-shape,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
   edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
@@ -360,7 +360,7 @@
   node-text: auto, value-text: auto, label-text: auto, pointer-text: auto,
   operation-text: auto, scale: auto, diff-colors: auto,
   new-style: auto, path-style: auto, remove-style: auto,
-) = _style(
+) = _build-style-dictionary(
   box-w: box-w, box-h: box-h, box-shape: box-shape, box-gap: box-gap,
   box-stroke: box-stroke, box-fill: box-fill,
   ptr-fill: ptr-fill, prev-ptr-fill: prev-ptr-fill, next-ptr-fill: next-ptr-fill,
@@ -375,7 +375,7 @@
   node-text: auto, value-text: auto, label-text: auto, pointer-text: auto,
   operation-text: auto, scale: auto, diff-colors: auto,
   new-style: auto, remove-style: auto,
-) = _style(
+) = _build-style-dictionary(
   box-w: box-w, box-h: box-h, box-shape: box-shape, box-gap: box-gap,
   box-stroke: box-stroke, box-fill: box-fill,
   node-text: node-text, value-text: value-text, label-text: label-text,
@@ -402,7 +402,7 @@
   box-w: auto, box-h: auto, box-shape: auto, box-stroke: auto, box-fill: auto,
   node-text: auto, value-text: auto, label-text: auto, index-text: auto,
   pointer-text: auto, algorithm-label-text: auto, indices: auto, scale: auto,
-) = _style(
+) = _build-style-dictionary(
   box-w: box-w, box-h: box-h, box-shape: box-shape, box-stroke: box-stroke, box-fill: box-fill,
   node-text: node-text, value-text: value-text, label-text: label-text,
   index-text: index-text, pointer-text: pointer-text,
@@ -412,7 +412,7 @@
 #let matrix-style(
   box-w: auto, box-h: auto, box-shape: auto, box-stroke: auto, box-fill: auto,
   node-text: auto, value-text: auto, label-text: auto, index-text: auto, scale: auto,
-) = _style(
+) = _build-style-dictionary(
   box-w: box-w, box-h: box-h, box-shape: box-shape, box-stroke: box-stroke, box-fill: box-fill,
   node-text: node-text, value-text: value-text, label-text: label-text,
   index-text: index-text, scale: scale,
@@ -420,80 +420,118 @@
 
 // Merge a per-call override dict over the defaults.
 #let resolve(style) = {
-  let res = theme + style
+  let resolved-style = theme + style
   if "node-text" in style {
-    res.node-text = theme.node-text + style.node-text
+    resolved-style.node-text = theme.node-text + style.node-text
   }
-  
+
   let label-defaults = theme.label-text
-  // If label-text doesn't explicitly specify a size, derive it from node-text
-  if "size" not in label-defaults and ("label-text" not in style or "size" not in style.label-text) {
-     label-defaults.size = res.node-text.at("size", default: 9pt) * 0.85
+  let label-size-is-unspecified = "size" not in label-defaults and (
+    "label-text" not in style or "size" not in style.label-text
+  )
+  // Annotation text scales from node text unless the theme or caller supplies
+  // an explicit label size.
+  if label-size-is-unspecified {
+    label-defaults.size = (
+      resolved-style.node-text.at("size", default: 9pt) * 0.85
+    )
   }
 
   if "label-text" in style {
-    res.label-text = label-defaults + style.label-text
+    resolved-style.label-text = label-defaults + style.label-text
   } else {
-    res.label-text = label-defaults
+    resolved-style.label-text = label-defaults
   }
 
-  res.value-text = res.node-text + theme.value-text + style.at("value-text", default: (:))
-  for key in ("index-text", "pointer-text", "operation-text", "edge-label-text", "algorithm-label-text") {
-    res.insert(key, res.label-text + theme.at(key) + style.at(key, default: (:)))
+  resolved-style.value-text = (
+    resolved-style.node-text
+      + theme.value-text
+      + style.at("value-text", default: (:))
+  )
+  let label-text-roles = (
+    "index-text",
+    "pointer-text",
+    "operation-text",
+    "edge-label-text",
+    "algorithm-label-text",
+  )
+  for text-role in label-text-roles {
+    resolved-style.insert(
+      text-role,
+      resolved-style.label-text
+        + theme.at(text-role)
+        + style.at(text-role, default: (:)),
+    )
   }
-  
-  if "color" in res.node-text {
-    res.node-text.fill = res.node-text.color
-    let _ = res.node-text.remove("color")
+
+  if "color" in resolved-style.node-text {
+    resolved-style.node-text.fill = resolved-style.node-text.color
+    let _ = resolved-style.node-text.remove("color")
   }
-  
-  if "color" in res.label-text {
-    res.label-text.fill = res.label-text.color
-    let _ = res.label-text.remove("color")
+
+  if "color" in resolved-style.label-text {
+    resolved-style.label-text.fill = resolved-style.label-text.color
+    let _ = resolved-style.label-text.remove("color")
   }
-  for key in ("value-text", "index-text", "pointer-text", "operation-text", "edge-label-text", "algorithm-label-text") {
-    let item = res.at(key)
-    if "color" in item {
-      item.fill = item.color
-      let _ = item.remove("color")
-      res.insert(key, item)
+  for text-role in ("value-text",) + label-text-roles {
+    let role-style = resolved-style.at(text-role)
+    if "color" in role-style {
+      role-style.fill = role-style.color
+      let _ = role-style.remove("color")
+      resolved-style.insert(text-role, role-style)
     }
   }
-  
-  res
+
+  resolved-style
 }
 
 // Wraps a rendered diagram in the theme's `scale` factor. `reflow: true` so
 // surrounding layout (arrows, stacks, tables) sees the resized box instead of
 // a visual-only transform that overlaps its neighbors.
-#let scaled(th, body) = if th.scale == 1.0 { body } else { scale(th.scale * 100%, reflow: true, body) }
+#let scaled(th, body) = {
+  let resolved-style = th
+  if resolved-style.scale == 1.0 {
+    body
+  } else {
+    scale(resolved-style.scale * 100%, reflow: true, body)
+  }
+}
 
 #let edge-mark(spec, fill: none) = {
-  if spec == "both" { (start: ">", end: ">", fill: fill) }
-  else if spec == "start" { (start: ">", fill: fill) }
-  else if spec == "end" or spec == true { (end: ">", fill: fill) }
+  let arrow-specification = spec
+  if arrow-specification == "both" { (start: ">", end: ">", fill: fill) }
+  else if arrow-specification == "start" { (start: ">", fill: fill) }
+  else if arrow-specification == "end" or arrow-specification == true { (end: ">", fill: fill) }
   else { none }
 }
 
-#let _dash-stroke(stroke, dash) = {
+#let _apply-dash-to-stroke(stroke, dash) = {
   if dash == none or dash == false { return stroke }
   if type(stroke) == dictionary { return stroke + (dash: dash) }
   if type(stroke) == color { return (paint: stroke, dash: dash) }
   (paint: stroke.paint, thickness: stroke.thickness, dash: dash)
 }
 
-#let _edge-pattern(th, custom) = {
-  if custom != none and "pattern" in custom { return custom.pattern }
-  // Backwards-compatible aliases for the short-lived split API.
-  if custom != none and custom.at("wave", default: false) { return "wavy" }
-  if custom != none and custom.at("dash", default: none) not in (none, false) { return custom.dash }
-  if th.at("edge-wave", default: false) { return "wavy" }
-  let dash = th.at("edge-dash", default: none)
-  if dash not in (none, false) { return dash }
-  th.edge-pattern
+#let _resolve-edge-pattern(resolved-style, customization) = {
+  if customization != none and "pattern" in customization {
+    return customization.pattern
+  }
+  if customization != none and customization.at("wave", default: false) {
+    return "wavy"
+  }
+  let custom-dash = if customization == none {
+    none
+  } else {
+    customization.at("dash", default: none)
+  }
+  if custom-dash not in (none, false) { return custom-dash }
+  if resolved-style.at("edge-wave", default: false) { return "wavy" }
+  let style-dash = resolved-style.at("edge-dash", default: none)
+  if style-dash not in (none, false) { return style-dash }
+  resolved-style.edge-pattern
 }
 
-#let _pattern-dash(pattern) = {
+#let _resolve-pattern-dash(pattern) = {
   if pattern in (none, false, "normal", "solid", "wavy", "wave") { return none }
   if pattern == "dash" { return "dashed" }
   if pattern in ("dot", "dots") { return "dotted" }
@@ -501,59 +539,125 @@
 }
 
 #let edge-stroke(th, custom: none) = {
-  let stroke = if custom != none and "stroke" in custom { custom.stroke }
-    else if custom != none and "color" in custom { custom.color }
-    else { th.edge-stroke }
-  _dash-stroke(stroke, _pattern-dash(_edge-pattern(th, custom)))
+  let resolved-style = th
+  let base-stroke = if custom != none and "stroke" in custom {
+    custom.stroke
+  } else if custom != none and "color" in custom {
+    custom.color
+  } else {
+    resolved-style.edge-stroke
+  }
+  let edge-pattern = _resolve-edge-pattern(resolved-style, custom)
+  _apply-dash-to-stroke(base-stroke, _resolve-pattern-dash(edge-pattern))
 }
 
 #let edge-arrow(th, directed, custom: none) = {
-  let spec = if custom != none and "arrow" in custom { custom.arrow }
-    else if th.edge-arrow != none and th.edge-arrow != false { th.edge-arrow }
-    else if directed { "end" }
-    else { none }
-  edge-mark(spec, fill: th.edge-arrow-fill)
+  let resolved-style = th
+  let arrow-specification = if custom != none and "arrow" in custom {
+    custom.arrow
+  } else if resolved-style.edge-arrow not in (none, false) {
+    resolved-style.edge-arrow
+  } else if directed {
+    "end"
+  } else {
+    none
+  }
+  edge-mark(arrow-specification, fill: resolved-style.edge-arrow-fill)
 }
 
-#let edge-wave(th, custom: none) = _edge-pattern(th, custom) in ("wavy", "wave")
+#let edge-wave(th, custom: none) = {
+  let resolved-style = th
+  _resolve-edge-pattern(resolved-style, custom) in ("wavy", "wave")
+}
 
 #let wavy-parts(p, q, th, start-tip: false, end-tip: false) = {
-  let dx = q.at(0) - p.at(0)
-  let dy = q.at(1) - p.at(1)
-  let len = calc.sqrt(dx * dx + dy * dy)
-  if len == 0 { return (points: (p, q), start-cap: p, end-cap: q) }
-  let ux = dx / len
-  let uy = dy / len
-  let node-cap = th.node-radius * 0.35
-  let tip-cap = th.node-radius * 0.8
-  let start-cap = if start-tip { tip-cap } else { node-cap }
-  let end-cap = if end-tip { tip-cap } else { node-cap }
-  let cap-scale = calc.min(1, len * 0.7 / (start-cap + end-cap))
-  let start = start-cap * cap-scale
-  let end = end-cap * cap-scale
-  let t0 = start / len
-  let t1 = 1 - end / len
-  let usable = len - start - end
-  let waves = calc.max(1, calc.floor(usable / th.edge-wave-step + 0.5))
-  let steps = calc.max(8, calc.ceil(waves * 10))
-  let start-point = (p.at(0) + dx * t0, p.at(1) + dy * t0)
-  let end-point = (p.at(0) + dx * t1, p.at(1) + dy * t1)
-  let points = if start-tip { (start-point,) } else { (p, start-point) }
-  for i in range(1, steps) {
-    let u = i / steps
-    let t = t0 + (t1 - t0) * u
-    let x = p.at(0) + dx * t
-    let y = p.at(1) + dy * t
-    let off = calc.sin(360deg * waves * u) * th.edge-wave-amplitude
-    points.push((x - uy * off, y + ux * off))
+  let from-position = p
+  let to-position = q
+  let resolved-style = th
+  let delta-x = to-position.at(0) - from-position.at(0)
+  let delta-y = to-position.at(1) - from-position.at(1)
+  let edge-length = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+  if edge-length == 0 {
+    return (
+      points: (from-position, to-position),
+      start-cap: from-position,
+      end-cap: to-position,
+    )
   }
-  points.push(end-point)
-  if not end-tip { points.push(q) }
-  (points: points, start-cap: start-point, end-cap: end-point)
+  let unit-x = delta-x / edge-length
+  let unit-y = delta-y / edge-length
+  let node-cap-length = resolved-style.node-radius * 0.35
+  let arrow-tip-cap-length = resolved-style.node-radius * 0.8
+  let requested-start-cap = if start-tip {
+    arrow-tip-cap-length
+  } else {
+    node-cap-length
+  }
+  let requested-end-cap = if end-tip {
+    arrow-tip-cap-length
+  } else {
+    node-cap-length
+  }
+  let cap-scale = calc.min(
+    1,
+    edge-length * 0.7 / (requested-start-cap + requested-end-cap),
+  )
+  let start-cap-length = requested-start-cap * cap-scale
+  let end-cap-length = requested-end-cap * cap-scale
+  let start-ratio = start-cap-length / edge-length
+  let end-ratio = 1 - end-cap-length / edge-length
+  let usable-length = edge-length - start-cap-length - end-cap-length
+  let wave-count = calc.max(
+    1,
+    calc.floor(usable-length / resolved-style.edge-wave-step + 0.5),
+  )
+  let sample-count = calc.max(8, calc.ceil(wave-count * 10))
+  let start-cap-position = (
+    from-position.at(0) + delta-x * start-ratio,
+    from-position.at(1) + delta-y * start-ratio,
+  )
+  let end-cap-position = (
+    from-position.at(0) + delta-x * end-ratio,
+    from-position.at(1) + delta-y * end-ratio,
+  )
+  let points = if start-tip {
+    (start-cap-position,)
+  } else {
+    (from-position, start-cap-position)
+  }
+  for sample-index in range(1, sample-count) {
+    let sample-ratio = sample-index / sample-count
+    let edge-ratio = (
+      start-ratio + (end-ratio - start-ratio) * sample-ratio
+    )
+    let x = from-position.at(0) + delta-x * edge-ratio
+    let y = from-position.at(1) + delta-y * edge-ratio
+    let perpendicular-offset = (
+      calc.sin(360deg * wave-count * sample-ratio)
+        * resolved-style.edge-wave-amplitude
+    )
+    points.push((
+      x - unit-y * perpendicular-offset,
+      y + unit-x * perpendicular-offset,
+    ))
+  }
+  points.push(end-cap-position)
+  if not end-tip { points.push(to-position) }
+  (
+    points: points,
+    start-cap: start-cap-position,
+    end-cap: end-cap-position,
+  )
 }
 
 #let wavy-points(p, q, th, start-tip: false, end-tip: false) = {
-  wavy-parts(p, q, th, start-tip: start-tip, end-tip: end-tip).points
+  wavy-parts(
+    p,
+    q,
+    th,
+    start-tip: start-tip,
+    end-tip: end-tip,
+  ).points
 }
 
 // Fallback highlight colors, used when a `<kind>-style` override dict omits
@@ -569,24 +673,42 @@
   queued: rgb("#FFE9A8"),
 )
 
-// Resolves `th`'s `<kind>-style` value (a color, or a dict of `fill:`,
+// Resolves `resolved-style`'s `<kind>-style` value (a color, or a dict of `fill:`,
 // `shape:`, `stroke:`, `node-radius:`, `text:`) into a complete per-node style. A
 // plain color is shorthand for `(fill: color)`. With `diff-colors: false`,
 // fills stay at `base-fill`, while shape/stroke/radius overrides still apply.
 #let resolve-mark-style(th, kind, base-fill: auto) = {
-  let value = th.at(kind + "-style")
-  let d = if type(value) == color { (fill: value) } else { value }
-  let normal-fill = if base-fill == auto { th.node-fill } else { base-fill }
-  let text-style = th.value-text + d.at("text", default: (:))
+  let resolved-style = th
+  let mark-value = resolved-style.at(kind + "-style")
+  let mark-overrides = if type(mark-value) == color {
+    (fill: mark-value)
+  } else {
+    mark-value
+  }
+  let normal-fill = if base-fill == auto {
+    resolved-style.node-fill
+  } else {
+    base-fill
+  }
+  let text-style = (
+    resolved-style.value-text + mark-overrides.at("text", default: (:))
+  )
   if "color" in text-style {
     text-style.fill = text-style.color
     let _ = text-style.remove("color")
   }
   (
-    fill: if th.diff-colors { d.at("fill", default: mark-defaults.at(kind)) } else { normal-fill },
-    shape: d.at("shape", default: th.node-shape),
-    stroke: d.at("stroke", default: th.node-stroke),
-    node-radius: d.at("node-radius", default: th.node-radius),
+    fill: if resolved-style.diff-colors {
+      mark-overrides.at("fill", default: mark-defaults.at(kind))
+    } else {
+      normal-fill
+    },
+    shape: mark-overrides.at("shape", default: resolved-style.node-shape),
+    stroke: mark-overrides.at("stroke", default: resolved-style.node-stroke),
+    node-radius: mark-overrides.at(
+      "node-radius",
+      default: resolved-style.node-radius,
+    ),
     text: text-style,
   )
 }

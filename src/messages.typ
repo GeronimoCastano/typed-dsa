@@ -308,14 +308,17 @@
 // like a catalog entry.
 #let messages(..groups) = {
   assert(groups.pos().len() == 0, message: "typed-dsa messages() takes only named groups, e.g. messages(tree: (...))")
-  let flat = (:)
-  for (group, entries) in groups.named() {
-    assert(type(entries) == dictionary, message: "typed-dsa messages() group \"" + group + "\" must be a dictionary of key: value entries")
-    for (key, value) in entries {
-      flat.insert(group + "." + key, value)
+  let message-catalog = (:)
+  for (group-name, group-messages) in groups.named() {
+    assert(type(group-messages) == dictionary, message: "typed-dsa messages() group \"" + group-name + "\" must be a dictionary of key: value entries")
+    for (message-key, message-value) in group-messages {
+      message-catalog.insert(
+        group-name + "." + message-key,
+        message-value,
+      )
     }
   }
-  flat
+  message-catalog
 }
 
 // Accept either the flat output of `messages(...)` or a raw grouped dictionary,
@@ -323,20 +326,26 @@
 // bare group name mapping to a sub-dictionary of key/value pairs; a flat entry
 // is already a dotted key. Message values are always content or functions, so a
 // dictionary value can only mean a group.
-#let _normalize-overrides(overrides) = {
+#let _normalize-message-overrides(overrides) = {
   if overrides == none { return (:) }
   assert(type(overrides) == dictionary, message: "typed-dsa messages: must be a dictionary (build one with messages(...))")
-  let flat = (:)
-  for (key, value) in overrides {
-    if type(value) == dictionary and not key.contains(".") {
-      for (sub, sub-value) in value {
-        flat.insert(key + "." + sub, sub-value)
+  let normalized-overrides = (:)
+  for (message-key, message-value) in overrides {
+    let is-grouped-entry = (
+      type(message-value) == dictionary and not message-key.contains(".")
+    )
+    if is-grouped-entry {
+      for (group-key, group-value) in message-value {
+        normalized-overrides.insert(
+          message-key + "." + group-key,
+          group-value,
+        )
       }
     } else {
-      flat.insert(key, value)
+      normalized-overrides.insert(message-key, message-value)
     }
   }
-  flat
+  normalized-overrides
 }
 
 // ── Resolution and lookup ────────────────────────────────────────────────────
@@ -349,12 +358,12 @@
     language in supported-languages,
     message: "typed-dsa language must be one of " + supported-languages.map(l => "\"" + l + "\"").join(", ") + ", got \"" + str(language) + "\"",
   )
-  let base = catalogs.at(language)
-  let overrides = _normalize-overrides(messages)
-  for (key, _) in overrides {
-    assert(key in base, message: "typed-dsa messages: unknown message key \"" + key + "\" (see the message-key reference in the documentation)")
+  let base-catalog = catalogs.at(language)
+  let message-overrides = _normalize-message-overrides(messages)
+  for (message-key, _) in message-overrides {
+    assert(message-key in base-catalog, message: "typed-dsa messages: unknown message key \"" + message-key + "\" (see the message-key reference in the documentation)")
   }
-  base + overrides
+  base-catalog + message-overrides
 }
 
 // Look up `key` in a resolved catalog and produce its caption content. When the
@@ -363,6 +372,10 @@
 // integers, strings, math, or arbitrary content — untouched.
 #let msg(catalog, key, ..args) = {
   assert(key in catalog, message: "typed-dsa: unknown message key \"" + key + "\"")
-  let value = catalog.at(key)
-  if type(value) == function { value(..args.pos()) } else { value }
+  let message-value = catalog.at(key)
+  if type(message-value) == function {
+    message-value(..args.pos())
+  } else {
+    message-value
+  }
 }

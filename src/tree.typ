@@ -14,199 +14,324 @@
 
 // ── Model: generated BST/AVL ─────────────────────────────────────────────────
 
-#let _node(key) = (kind: "node", key: key, left: none, right: none, height: 1)
+#let _create-tree-node(key) = (kind: "node", key: key, left: none, right: none, height: 1)
 
-#let _h(n) = if n == none { 0 } else { n.height }
-#let _bf(n) = _h(n.left) - _h(n.right)
-#let _fix-height(n) = {
-  n.height = calc.max(_h(n.left), _h(n.right)) + 1
-  n
+#let _tree-height(tree-node) = if tree-node == none { 0 } else { tree-node.height }
+
+#let _calculate-balance-factor(tree-node) = (
+  _tree-height(tree-node.left) - _tree-height(tree-node.right)
+)
+
+#let _update-tree-node-height(tree-node) = {
+  tree-node.height = calc.max(
+    _tree-height(tree-node.left),
+    _tree-height(tree-node.right),
+  ) + 1
+  tree-node
 }
 
-#let _rot-left(x) = {
-  let y = x.right
-  x.right = y.left
-  y.left = _fix-height(x)
-  _fix-height(y)
+#let _rotate-subtree-left(subtree-root) = {
+  let promoted-node = subtree-root.right
+  subtree-root.right = promoted-node.left
+  promoted-node.left = _update-tree-node-height(subtree-root)
+  _update-tree-node-height(promoted-node)
 }
 
-#let _rot-right(y) = {
-  let x = y.left
-  y.left = x.right
-  x.right = _fix-height(y)
-  _fix-height(x)
+#let _rotate-subtree-right(subtree-root) = {
+  let promoted-node = subtree-root.left
+  subtree-root.left = promoted-node.right
+  promoted-node.right = _update-tree-node-height(subtree-root)
+  _update-tree-node-height(promoted-node)
 }
 
 // Plain BST insert. Duplicate keys are ignored.
-#let _bst-insert(n, key) = {
-  if n == none { return _node(key) }
-  if key < n.key { n.left = _bst-insert(n.left, key) }
-  else if key > n.key { n.right = _bst-insert(n.right, key) }
-  n
+#let _insert-bst-node(subtree-root, key) = {
+  if subtree-root == none { return _create-tree-node(key) }
+  if key < subtree-root.key {
+    subtree-root.left = _insert-bst-node(subtree-root.left, key)
+  } else if key > subtree-root.key {
+    subtree-root.right = _insert-bst-node(subtree-root.right, key)
+  }
+  subtree-root
 }
 
-#let _node-key(n) = if n == none { none } else { n.key }
+#let _tree-node-key(tree-node) = if tree-node == none { none } else { tree-node.key }
 
-// One rotation's worth of schematic parts. For a right rotation, `pivot` is
-// x, `new-top` is y, and `subs` are T_A, T_B, T_C from left to right. For a
-// left rotation, `pivot` is y, `new-top` is x, and `subs` are T_A, T_B, T_C
-// from left to right in the mirror schematic.
-#let _rot-event(dir, pivot, new-top, ta, tb, tc) = (
-  dir: dir,
+// Rotation events retain the visible schematic roots so transition panels can
+// highlight every node whose parent changes.
+#let _create-rotation-event(direction, pivot, promoted-node, left-subtree, middle-subtree, right-subtree) = (
+  dir: direction,
   pivot: pivot.key,
-  new-top: new-top.key,
-  subs: (_node-key(ta), _node-key(tb), _node-key(tc)).filter(k => k != none),
+  new-top: promoted-node.key,
+  subs: (
+    _tree-node-key(left-subtree),
+    _tree-node-key(middle-subtree),
+    _tree-node-key(right-subtree),
+  ).filter(subtree-key => subtree-key != none),
 )
 
-// AVL insert. Returns `(node, rot, mid)`:
-// - `rot`: the rotation event(s) performed — one for a single (LL/RR)
-//   rotation, two (inner then outer) for a double (LR/RL) rotation — so a
-//   transition can highlight every node that changed parent, not just the
-//   pivot.
-// - `mid`: for a double rotation only, the tree with just the inner rotation
-//   applied, before the outer one — lets a transition show that step on its
-//   own. `none` otherwise; a single insert only ever rotates once, so no
-//   ancestor above the rotation point needs to carry a `mid` of its own.
-#let _avl-insert(n, key) = {
-  if n == none { return (_node(key), (), none) }
-  let rot = ()
-  let mid = none
-  if key < n.key {
-    let (c, r, m) = _avl-insert(n.left, key)
-    if m != none {
-      let n2 = n
-      n2.left = m
-      mid = n2
+// AVL insertion returns the balanced subtree, its rotation events, and the
+// inner-rotation snapshot used by optional multi-panel transitions.
+#let _insert-avl-node(subtree-root, key) = {
+  if subtree-root == none { return (_create-tree-node(key), (), none) }
+  let rotation-events = ()
+  let intermediate-tree = none
+  if key < subtree-root.key {
+    let (left-subtree, child-events, child-intermediate-tree) = (
+      _insert-avl-node(subtree-root.left, key)
+    )
+    if child-intermediate-tree != none {
+      let propagated-intermediate-tree = subtree-root
+      propagated-intermediate-tree.left = child-intermediate-tree
+      intermediate-tree = propagated-intermediate-tree
     }
-    n.left = c
-    rot += r
-  } else if key > n.key {
-    let (c, r, m) = _avl-insert(n.right, key)
-    if m != none {
-      let n2 = n
-      n2.right = m
-      mid = n2
+    subtree-root.left = left-subtree
+    rotation-events += child-events
+  } else if key > subtree-root.key {
+    let (right-subtree, child-events, child-intermediate-tree) = (
+      _insert-avl-node(subtree-root.right, key)
+    )
+    if child-intermediate-tree != none {
+      let propagated-intermediate-tree = subtree-root
+      propagated-intermediate-tree.right = child-intermediate-tree
+      intermediate-tree = propagated-intermediate-tree
     }
-    n.right = c
-    rot += r
+    subtree-root.right = right-subtree
+    rotation-events += child-events
   } else {
-    return (n, (), none)
+    return (subtree-root, (), none)
   }
-  n = _fix-height(n)
-  let b = _bf(n)
-  if b > 1 and key < n.left.key {
-    let event = _rot-event("right", n, n.left, n.left.left, n.left.right, n.right)
-    return (_rot-right(n), rot + (event,), mid)
+  subtree-root = _update-tree-node-height(subtree-root)
+  let balance-factor = _calculate-balance-factor(subtree-root)
+  if balance-factor > 1 and key < subtree-root.left.key {
+    let rotation-event = _create-rotation-event(
+      "right",
+      subtree-root,
+      subtree-root.left,
+      subtree-root.left.left,
+      subtree-root.left.right,
+      subtree-root.right,
+    )
+    return (
+      _rotate-subtree-right(subtree-root),
+      rotation-events + (rotation-event,),
+      intermediate-tree,
+    )
   }
-  if b < -1 and key > n.right.key {
-    let event = _rot-event("left", n, n.right, n.left, n.right.left, n.right.right)
-    return (_rot-left(n), rot + (event,), mid)
+  if balance-factor < -1 and key > subtree-root.right.key {
+    let rotation-event = _create-rotation-event(
+      "left",
+      subtree-root,
+      subtree-root.right,
+      subtree-root.left,
+      subtree-root.right.left,
+      subtree-root.right.right,
+    )
+    return (
+      _rotate-subtree-left(subtree-root),
+      rotation-events + (rotation-event,),
+      intermediate-tree,
+    )
   }
-  if b > 1 and key > n.left.key {
-    // LR: inner left-rotation at n.left, then outer right-rotation at n. `n`
-    // with only the inner rotation applied (n.left updated, n itself not yet
-    // rotated) is exactly the "after-inner" snapshot.
-    let inner = _rot-event("left", n.left, n.left.right, n.left.left, n.left.right.left, n.left.right.right)
-    n.left = _rot-left(n.left)
-    mid = n
-    let outer = _rot-event("right", n, n.left, n.left.left, n.left.right, n.right)
-    return (_rot-right(n), rot + (inner, outer), mid)
+  if balance-factor > 1 and key > subtree-root.left.key {
+    let inner-rotation = _create-rotation-event(
+      "left",
+      subtree-root.left,
+      subtree-root.left.right,
+      subtree-root.left.left,
+      subtree-root.left.right.left,
+      subtree-root.left.right.right,
+    )
+    subtree-root.left = _rotate-subtree-left(subtree-root.left)
+    intermediate-tree = subtree-root
+    let outer-rotation = _create-rotation-event(
+      "right",
+      subtree-root,
+      subtree-root.left,
+      subtree-root.left.left,
+      subtree-root.left.right,
+      subtree-root.right,
+    )
+    return (
+      _rotate-subtree-right(subtree-root),
+      rotation-events + (inner-rotation, outer-rotation),
+      intermediate-tree,
+    )
   }
-  if b < -1 and key < n.right.key {
-    let inner = _rot-event("right", n.right, n.right.left, n.right.left.left, n.right.left.right, n.right.right)
-    n.right = _rot-right(n.right)
-    mid = n
-    let outer = _rot-event("left", n, n.right, n.left, n.right.left, n.right.right)
-    return (_rot-left(n), rot + (inner, outer), mid)
+  if balance-factor < -1 and key < subtree-root.right.key {
+    let inner-rotation = _create-rotation-event(
+      "right",
+      subtree-root.right,
+      subtree-root.right.left,
+      subtree-root.right.left.left,
+      subtree-root.right.left.right,
+      subtree-root.right.right,
+    )
+    subtree-root.right = _rotate-subtree-right(subtree-root.right)
+    intermediate-tree = subtree-root
+    let outer-rotation = _create-rotation-event(
+      "left",
+      subtree-root,
+      subtree-root.right,
+      subtree-root.left,
+      subtree-root.right.left,
+      subtree-root.right.right,
+    )
+    return (
+      _rotate-subtree-left(subtree-root),
+      rotation-events + (inner-rotation, outer-rotation),
+      intermediate-tree,
+    )
   }
-  (n, rot, mid)
+  (subtree-root, rotation-events, intermediate-tree)
 }
 
-#let _bst-min(n) = {
-  while n.left != none { n = n.left }
-  n.key
+#let _find-minimum-bst-key(subtree-root) = {
+  while subtree-root.left != none { subtree-root = subtree-root.left }
+  subtree-root.key
 }
 
 // Standard BST delete using the in-order successor for two-child nodes.
-#let _bst-delete(n, key) = {
-  if n == none { return none }
-  if key < n.key { n.left = _bst-delete(n.left, key) }
-  else if key > n.key { n.right = _bst-delete(n.right, key) }
+#let _remove-bst-node(subtree-root, key) = {
+  if subtree-root == none { return none }
+  if key < subtree-root.key {
+    subtree-root.left = _remove-bst-node(subtree-root.left, key)
+  } else if key > subtree-root.key {
+    subtree-root.right = _remove-bst-node(subtree-root.right, key)
+  }
   else {
-    if n.left == none { return n.right }
-    if n.right == none { return n.left }
-    let succ = _bst-min(n.right)
-    n.key = succ
-    n.right = _bst-delete(n.right, succ)
+    if subtree-root.left == none { return subtree-root.right }
+    if subtree-root.right == none { return subtree-root.left }
+    let successor-key = _find-minimum-bst-key(subtree-root.right)
+    subtree-root.key = successor-key
+    subtree-root.right = _remove-bst-node(subtree-root.right, successor-key)
   }
-  n
+  subtree-root
 }
 
-#let _avl-rebalance(n, rot) = {
-  n = _fix-height(n)
-  let b = _bf(n)
-  if b > 1 {
-    if _bf(n.left) < 0 {
-      let inner = _rot-event("left", n.left, n.left.right, n.left.left, n.left.right.left, n.left.right.right)
-      n.left = _rot-left(n.left)
-      let outer = _rot-event("right", n, n.left, n.left.left, n.left.right, n.right)
-      return (_rot-right(n), rot + (inner, outer))
+#let _rebalance-avl-subtree(subtree-root, rotation-events) = {
+  subtree-root = _update-tree-node-height(subtree-root)
+  let balance-factor = _calculate-balance-factor(subtree-root)
+  if balance-factor > 1 {
+    if _calculate-balance-factor(subtree-root.left) < 0 {
+      let inner-rotation = _create-rotation-event(
+        "left",
+        subtree-root.left,
+        subtree-root.left.right,
+        subtree-root.left.left,
+        subtree-root.left.right.left,
+        subtree-root.left.right.right,
+      )
+      subtree-root.left = _rotate-subtree-left(subtree-root.left)
+      let outer-rotation = _create-rotation-event(
+        "right",
+        subtree-root,
+        subtree-root.left,
+        subtree-root.left.left,
+        subtree-root.left.right,
+        subtree-root.right,
+      )
+      return (
+        _rotate-subtree-right(subtree-root),
+        rotation-events + (inner-rotation, outer-rotation),
+      )
     }
-    let event = _rot-event("right", n, n.left, n.left.left, n.left.right, n.right)
-    return (_rot-right(n), rot + (event,))
+    let rotation-event = _create-rotation-event(
+      "right",
+      subtree-root,
+      subtree-root.left,
+      subtree-root.left.left,
+      subtree-root.left.right,
+      subtree-root.right,
+    )
+    return (
+      _rotate-subtree-right(subtree-root),
+      rotation-events + (rotation-event,),
+    )
   }
-  if b < -1 {
-    if _bf(n.right) > 0 {
-      let inner = _rot-event("right", n.right, n.right.left, n.right.left.left, n.right.left.right, n.right.right)
-      n.right = _rot-right(n.right)
-      let outer = _rot-event("left", n, n.right, n.left, n.right.left, n.right.right)
-      return (_rot-left(n), rot + (inner, outer))
+  if balance-factor < -1 {
+    if _calculate-balance-factor(subtree-root.right) > 0 {
+      let inner-rotation = _create-rotation-event(
+        "right",
+        subtree-root.right,
+        subtree-root.right.left,
+        subtree-root.right.left.left,
+        subtree-root.right.left.right,
+        subtree-root.right.right,
+      )
+      subtree-root.right = _rotate-subtree-right(subtree-root.right)
+      let outer-rotation = _create-rotation-event(
+        "left",
+        subtree-root,
+        subtree-root.right,
+        subtree-root.left,
+        subtree-root.right.left,
+        subtree-root.right.right,
+      )
+      return (
+        _rotate-subtree-left(subtree-root),
+        rotation-events + (inner-rotation, outer-rotation),
+      )
     }
-    let event = _rot-event("left", n, n.right, n.left, n.right.left, n.right.right)
-    return (_rot-left(n), rot + (event,))
+    let rotation-event = _create-rotation-event(
+      "left",
+      subtree-root,
+      subtree-root.right,
+      subtree-root.left,
+      subtree-root.right.left,
+      subtree-root.right.right,
+    )
+    return (
+      _rotate-subtree-left(subtree-root),
+      rotation-events + (rotation-event,),
+    )
   }
-  (n, rot)
+  (subtree-root, rotation-events)
 }
 
-#let _avl-delete(n, key) = {
-  if n == none { return (none, ()) }
-  let rot = ()
-  if key < n.key {
-    let (c, r) = _avl-delete(n.left, key)
-    n.left = c
-    rot += r
-  } else if key > n.key {
-    let (c, r) = _avl-delete(n.right, key)
-    n.right = c
-    rot += r
+#let _remove-avl-node(subtree-root, key) = {
+  if subtree-root == none { return (none, ()) }
+  let rotation-events = ()
+  if key < subtree-root.key {
+    let (left-subtree, child-events) = _remove-avl-node(subtree-root.left, key)
+    subtree-root.left = left-subtree
+    rotation-events += child-events
+  } else if key > subtree-root.key {
+    let (right-subtree, child-events) = _remove-avl-node(subtree-root.right, key)
+    subtree-root.right = right-subtree
+    rotation-events += child-events
   } else {
-    if n.left == none { return (n.right, ()) }
-    if n.right == none { return (n.left, ()) }
-    let succ = _bst-min(n.right)
-    n.key = succ
-    let (c, r) = _avl-delete(n.right, succ)
-    n.right = c
-    rot += r
+    if subtree-root.left == none { return (subtree-root.right, ()) }
+    if subtree-root.right == none { return (subtree-root.left, ()) }
+    let successor-key = _find-minimum-bst-key(subtree-root.right)
+    subtree-root.key = successor-key
+    let (right-subtree, child-events) = (
+      _remove-avl-node(subtree-root.right, successor-key)
+    )
+    subtree-root.right = right-subtree
+    rotation-events += child-events
   }
-  _avl-rebalance(n, rot)
+  _rebalance-avl-subtree(subtree-root, rotation-events)
 }
 
 // Keys visited from the root while searching for `key`, in order.
-#let _search-path(n, key) = {
-  if n == none { return () }
-  if key == n.key { return (n.key,) }
-  if key < n.key { return (n.key,) + _search-path(n.left, key) }
-  (n.key,) + _search-path(n.right, key)
+#let _find-bst-search-path(subtree-root, key) = {
+  if subtree-root == none { return () }
+  if key == subtree-root.key { return (subtree-root.key,) }
+  if key < subtree-root.key {
+    return (subtree-root.key,) + _find-bst-search-path(subtree-root.left, key)
+  }
+  (subtree-root.key,) + _find-bst-search-path(subtree-root.right, key)
 }
 
-#let _build(variant, keys) = {
+#let _build-search-tree(variant, keys) = {
   let root = none
-  for k in keys {
+  for key in keys {
     if variant == "avl" {
-      let (r, _, _) = _avl-insert(root, k)
-      root = r
+      let (tree-after-insertion, _, _) = _insert-avl-node(root, key)
+      root = tree-after-insertion
     } else {
-      root = _bst-insert(root, k)
+      root = _insert-bst-node(root, key)
     }
   }
   root
@@ -233,218 +358,306 @@
 
 // ── Layout ───────────────────────────────────────────────────────────────────
 
-// Writes `_col` and `_depth` onto each node; returns `(node, next-col)`.
+// Writes `_col` and `_depth` onto each node and returns the next free column.
 // Leaves consume a column left to right; a node is centered over its children so
 // the two child edges stay symmetric regardless of how lopsided the subtrees
 // are. A missing child still reserves a phantom column, so a lone child keeps its
 // left/right slant and siblings can never overlap. Subtree triangles claim two
 // columns so neighbours stay clear.
-//
-// ponytail: leaf-sequential centering, not a full Reingold–Tilford contour
-// layout. Distinct subtrees are guaranteed >= 1 column apart, which is enough
-// for the trees this package draws; revisit if very wide siblings need tighter
-// packing.
-#let _place(n, depth, col) = {
-  if n == none { return (none, col) }
-  n._depth = depth
-  if n.kind == "subtree" {
-    n._col = col
-    return (n, col + 2)
+#let _calculate-tree-layout(tree-node, depth, next-column) = {
+  if tree-node == none { return (none, next-column) }
+  tree-node._depth = depth
+  if tree-node.kind == "subtree" {
+    tree-node._col = next-column
+    return (tree-node, next-column + 2)
   }
-  let cs = n.at("children", default: none)
-  if cs != none {
-    if cs.len() == 0 {
-      n._col = col
-      return (n, col + 1)
+  let explicit-children = tree-node.at("children", default: none)
+  if explicit-children != none {
+    if explicit-children.len() == 0 {
+      tree-node._col = next-column
+      return (tree-node, next-column + 1)
     }
-    let placed = ()
-    let c = col
-    for child in cs {
-      let (p, next) = _place(child, depth + 1, c)
-      placed.push(p)
-      c = next
+    let laid-out-children = ()
+    let child-column = next-column
+    for child in explicit-children {
+      let (laid-out-child, next-child-column) = (
+        _calculate-tree-layout(child, depth + 1, child-column)
+      )
+      laid-out-children.push(laid-out-child)
+      child-column = next-child-column
     }
-    n.children = placed
-    n._col = (placed.first()._col + placed.last()._col) / 2
-    return (n, c)
+    tree-node.children = laid-out-children
+    tree-node._col = (
+      laid-out-children.first()._col + laid-out-children.last()._col
+    ) / 2
+    return (tree-node, child-column)
   }
-  let has-l = n.left != none
-  let has-r = n.right != none
-  if not has-l and not has-r {
-    n._col = col
-    return (n, col + 1)
+  let has-left-child = tree-node.left != none
+  let has-right-child = tree-node.right != none
+  if not has-left-child and not has-right-child {
+    tree-node._col = next-column
+    return (tree-node, next-column + 1)
   }
-  if has-l and has-r {
-    let (l, c1) = _place(n.left, depth + 1, col)
-    n.left = l
-    let (r, c2) = _place(n.right, depth + 1, c1)
-    n.right = r
-    n._col = (l._col + r._col) / 2
-    (n, c2)
-  } else if has-l {
+  if has-left-child and has-right-child {
+    let (left-child, next-right-column) = (
+      _calculate-tree-layout(tree-node.left, depth + 1, next-column)
+    )
+    tree-node.left = left-child
+    let (right-child, column-after-children) = (
+      _calculate-tree-layout(tree-node.right, depth + 1, next-right-column)
+    )
+    tree-node.right = right-child
+    tree-node._col = (left-child._col + right-child._col) / 2
+    (tree-node, column-after-children)
+  } else if has-left-child {
     // Phantom right child occupies the next column.
-    let (l, c1) = _place(n.left, depth + 1, col)
-    n.left = l
-    n._col = (l._col + c1) / 2
-    (n, c1 + 1)
+    let (left-child, phantom-right-column) = (
+      _calculate-tree-layout(tree-node.left, depth + 1, next-column)
+    )
+    tree-node.left = left-child
+    tree-node._col = (left-child._col + phantom-right-column) / 2
+    (tree-node, phantom-right-column + 1)
   } else {
     // Phantom left child occupies this column; the real right child follows.
-    let (r, c2) = _place(n.right, depth + 1, col + 1)
-    n.right = r
-    n._col = (col + r._col) / 2
-    (n, c2)
+    let (right-child, column-after-right-child) = (
+      _calculate-tree-layout(tree-node.right, depth + 1, next-column + 1)
+    )
+    tree-node.right = right-child
+    tree-node._col = (next-column + right-child._col) / 2
+    (tree-node, column-after-right-child)
   }
 }
 
 // ── Render ───────────────────────────────────────────────────────────────────
 
-#let _xy(n, th) = (n._col * th.x-gap, -n._depth * th.y-gap)
+#let _tree-node-position(tree-node, resolved-style) = (
+  tree-node._col * resolved-style.x-gap,
+  -tree-node._depth * resolved-style.y-gap,
+)
 
-#let _edge-id(n) = n.at("key", default: n.at("label", default: none))
+#let _tree-node-id(tree-node) = (
+  tree-node.at("key", default: tree-node.at("label", default: none))
+)
 
-#let _explicit-children(n) = n.at("children", default: none)
-
-#let _multi-children(n) = {
-  let cs = _explicit-children(n)
-  if cs == none { return none }
-  cs
+#let _visible-tree-children(tree-node) = {
+  let explicit-children = tree-node.at("children", default: none)
+  if explicit-children != none {
+    return explicit-children.filter(child => child != none)
+  }
+  (tree-node.left, tree-node.right).filter(child => child != none)
 }
 
-#let _visible-children(n) = {
-  let cs = _multi-children(n)
-  if cs != none { return cs.filter(c => c != none) }
-  (n.left, n.right).filter(c => c != none)
-}
-
-#let _edge-custom(customizations, from, to) = {
-  for (a, b, opts) in customizations {
-    if a == from and b == to { return opts }
+#let _resolve-tree-edge-customization(customizations, from-node-id, to-node-id) = {
+  for (custom-from-id, custom-to-id, options) in customizations {
+    if custom-from-id == from-node-id and custom-to-id == to-node-id {
+      return options
+    }
   }
   none
 }
 
-#let _node-custom(customizations, id) = {
-  for (key, opts) in customizations {
-    if key == id { return opts }
+#let _resolve-tree-node-customization(customizations, node-id) = {
+  for (custom-node-id, options) in customizations {
+    if custom-node-id == node-id { return options }
   }
   none
 }
 
-#let _text-style(style) = {
-  let res = style
-  if "color" in res {
-    res.fill = res.color
-    let _ = res.remove("color")
+#let _normalize-text-style(style) = {
+  let normalized-style = style
+  if "color" in normalized-style {
+    normalized-style.fill = normalized-style.color
+    let _ = normalized-style.remove("color")
   }
-  res
+  normalized-style
 }
 
-#let _lookup-key(items, id) = {
-  if type(items) == dictionary {
-    if type(id) == str or type(id) == int or type(id) == float {
-      return items.at(str(id), default: none)
+#let _lookup-node-value(values, node-id) = {
+  if type(values) == dictionary {
+    if type(node-id) == str or type(node-id) == int or type(node-id) == float {
+      return values.at(str(node-id), default: none)
     }
     return none
   }
-  for (key, value) in items {
-    if key == id { return value }
+  for (candidate-node-id, value) in values {
+    if candidate-node-id == node-id { return value }
   }
   none
 }
 
-#let _shape-radius(th, mark: none, custom: none) = {
+#let _resolve-node-radius(resolved-style, mark: none, custom: none) = {
   if custom != none and "node-radius" in custom { return custom.node-radius }
   if mark != none { return mark.node-radius }
-  th.node-radius
+  resolved-style.node-radius
 }
 
-#let _shape-name(th, mark: none, custom: none) = {
+#let _resolve-node-shape(resolved-style, mark: none, custom: none) = {
   if custom != none and "shape" in custom { return custom.shape }
   if mark != none { return mark.shape }
-  th.node-shape
+  resolved-style.node-shape
 }
 
-#let _boundary-radius(shape, r, ux, uy) = {
+#let _calculate-shape-boundary-radius(shape, node-radius, unit-x, unit-y) = {
   if shape in ("square", "rounded") {
-    return r / calc.max(calc.abs(ux), calc.abs(uy))
+    return node-radius / calc.max(calc.abs(unit-x), calc.abs(unit-y))
   }
   if shape == "diamond" {
-    return r / (calc.abs(ux) + calc.abs(uy))
+    return node-radius / (calc.abs(unit-x) + calc.abs(unit-y))
   }
   if shape == "capsule" {
-    let a = 0.4 * r
-    return a * calc.abs(ux) + calc.sqrt(r * r - a * a * uy * uy)
+    let horizontal-radius-offset = 0.4 * node-radius
+    return horizontal-radius-offset * calc.abs(unit-x) + calc.sqrt(
+      node-radius * node-radius
+        - horizontal-radius-offset * horizontal-radius-offset * unit-y * unit-y,
+    )
   }
-  r
+  node-radius
 }
 
-#let _trim-shape(a, b, shape, r) = {
-  let dx = b.at(0) - a.at(0)
-  let dy = b.at(1) - a.at(1)
-  let len = calc.sqrt(dx * dx + dy * dy)
-  if len == 0 { return a }
-  let ux = dx / len
-  let uy = dy / len
-  let d = _boundary-radius(shape, r, ux, uy)
-  (a.at(0) + ux * d, a.at(1) + uy * d)
+#let _trim-edge-to-shape(from-position, toward-position, shape, node-radius) = {
+  let delta-x = toward-position.at(0) - from-position.at(0)
+  let delta-y = toward-position.at(1) - from-position.at(1)
+  let distance = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+  if distance == 0 { return from-position }
+  let unit-x = delta-x / distance
+  let unit-y = delta-y / distance
+  let boundary-distance = _calculate-shape-boundary-radius(
+    shape,
+    node-radius,
+    unit-x,
+    unit-y,
+  )
+  (
+    from-position.at(0) + unit-x * boundary-distance,
+    from-position.at(1) + unit-y * boundary-distance,
+  )
 }
 
-#let _draw-tree-edge(p, q, r1, r2, th, custom) = {
-  let dx = q.at(0) - p.at(0)
-  let dy = q.at(1) - p.at(1)
-  let len = calc.sqrt(dx * dx + dy * dy)
-  if len == 0 { return }
-  let mark = edge-mark(if custom != none and "arrow" in custom { custom.arrow } else { th.edge-arrow })
-  let stroke = edge-stroke(th, custom: custom)
-  let bend = if custom != none { custom.at("bend", default: false) } else { false }
-  if bend != false and bend != none {
-    let bp = _bend-point(p, q, bend, custom.at("angle", default: 25deg))
-    let a = _trim-shape(p, bp, r1.at(0), r1.at(1))
-    let b = _trim-shape(q, bp, r2.at(0), r2.at(1))
-    bezier-through(a, bp, b, stroke: stroke, mark: mark)
-  } else {
-    let ux = dx / len
-    let uy = dy / len
-    let a = _trim-shape(p, q, r1.at(0), r1.at(1))
-    let b = _trim-shape(q, p, r2.at(0), r2.at(1))
-    if edge-wave(th, custom: custom) {
-    let start-tip = mark != none and "start" in mark
-    let end-tip = mark != none and "end" in mark
-    let parts = wavy-parts(a, b, th, start-tip: start-tip, end-tip: end-tip)
-    line(..parts.points, stroke: stroke)
-    let fill = if mark == none { none } else { mark.at("fill", default: none) }
-    if start-tip { line(a, parts.start-cap, stroke: stroke, mark: (start: ">", fill: fill)) }
-    if end-tip { line(parts.end-cap, b, stroke: stroke, mark: (end: ">", fill: fill)) }
+#let _render-tree-edge(
+  from-position,
+  to-position,
+  from-boundary,
+  to-boundary,
+  resolved-style,
+  customization,
+) = {
+  let delta-x = to-position.at(0) - from-position.at(0)
+  let delta-y = to-position.at(1) - from-position.at(1)
+  let distance = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+  if distance == 0 { return }
+  let arrow-mark = edge-mark(
+    if customization != none and "arrow" in customization {
+      customization.arrow
     } else {
-      line(a, b, stroke: stroke, mark: mark)
+      resolved-style.edge-arrow
+    },
+  )
+  let stroke = edge-stroke(resolved-style, custom: customization)
+  let bend-direction = if customization != none {
+    customization.at("bend", default: false)
+  } else {
+    false
+  }
+  if bend-direction != false and bend-direction != none {
+    let bend-position = _calculate-edge-bend-point(
+      from-position,
+      to-position,
+      bend-direction,
+      customization.at("angle", default: 25deg),
+    )
+    let trimmed-start = _trim-edge-to-shape(
+      from-position,
+      bend-position,
+      from-boundary.at(0),
+      from-boundary.at(1),
+    )
+    let trimmed-end = _trim-edge-to-shape(
+      to-position,
+      bend-position,
+      to-boundary.at(0),
+      to-boundary.at(1),
+    )
+    bezier-through(
+      trimmed-start,
+      bend-position,
+      trimmed-end,
+      stroke: stroke,
+      mark: arrow-mark,
+    )
+  } else {
+    let trimmed-start = _trim-edge-to-shape(
+      from-position,
+      to-position,
+      from-boundary.at(0),
+      from-boundary.at(1),
+    )
+    let trimmed-end = _trim-edge-to-shape(
+      to-position,
+      from-position,
+      to-boundary.at(0),
+      to-boundary.at(1),
+    )
+    if edge-wave(resolved-style, custom: customization) {
+      let has-start-tip = arrow-mark != none and "start" in arrow-mark
+      let has-end-tip = arrow-mark != none and "end" in arrow-mark
+      let wave-parts = wavy-parts(
+        trimmed-start,
+        trimmed-end,
+        resolved-style,
+        start-tip: has-start-tip,
+        end-tip: has-end-tip,
+      )
+      line(..wave-parts.points, stroke: stroke)
+      let arrow-fill = if arrow-mark == none {
+        none
+      } else {
+        arrow-mark.at("fill", default: none)
+      }
+      if has-start-tip {
+        line(
+          trimmed-start,
+          wave-parts.start-cap,
+          stroke: stroke,
+          mark: (start: ">", fill: arrow-fill),
+        )
+      }
+      if has-end-tip {
+        line(
+          wave-parts.end-cap,
+          trimmed-end,
+          stroke: stroke,
+          mark: (end: ">", fill: arrow-fill),
+        )
+      }
+    } else {
+      line(trimmed-start, trimmed-end, stroke: stroke, mark: arrow-mark)
     }
   }
 }
 
-#let _bend-point(p, q, bend, angle) = {
-  let dx = q.at(0) - p.at(0)
-  let dy = q.at(1) - p.at(1)
-  let len = calc.sqrt(dx * dx + dy * dy)
-  let mx = (p.at(0) + q.at(0)) / 2
-  let my = (p.at(1) + q.at(1)) / 2
-  if len == 0 { return (mx, my) }
-  let ux = dx / len
-  let uy = dy / len
-  let (px, py) = if bend == "left" { (-uy, ux) } else { (uy, -ux) }
-  let sagitta = (len / 2) * calc.tan(angle)
-  (mx + px * sagitta, my + py * sagitta)
+#let _calculate-edge-bend-point(from-position, to-position, bend-direction, angle) = {
+  let delta-x = to-position.at(0) - from-position.at(0)
+  let delta-y = to-position.at(1) - from-position.at(1)
+  let distance = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+  let midpoint-x = (from-position.at(0) + to-position.at(0)) / 2
+  let midpoint-y = (from-position.at(1) + to-position.at(1)) / 2
+  if distance == 0 { return (midpoint-x, midpoint-y) }
+  let unit-x = delta-x / distance
+  let unit-y = delta-y / distance
+  let (perpendicular-x, perpendicular-y) = if bend-direction == "left" {
+    (-unit-y, unit-x)
+  } else {
+    (unit-y, -unit-x)
+  }
+  let sagitta = (distance / 2) * calc.tan(angle)
+  (
+    midpoint-x + perpendicular-x * sagitta,
+    midpoint-y + perpendicular-y * sagitta,
+  )
 }
 
-#let _trim-toward(a, b, r) = {
-  let dx = b.at(0) - a.at(0)
-  let dy = b.at(1) - a.at(1)
-  let len = calc.sqrt(dx * dx + dy * dy)
-  if len == 0 { return a }
-  (a.at(0) + dx / len * r, a.at(1) + dy / len * r)
-}
-
-#let _tree-label-style(th, custom) = {
-  let style = th.edge-label-text
+#let _resolve-tree-edge-label(resolved-style, custom) = {
+  let style = resolved-style.edge-label-text
   let body = none
   if custom != none and "label" in custom {
     let lbl = custom.label
@@ -465,7 +678,7 @@
   (body: body, style: style)
 }
 
-#let _label-vector(pos) = {
+#let _node-label-direction(pos) = {
   if pos == "right" { return (1, 0) }
   if pos == "left" { return (-1, 0) }
   if pos == "top" { return (0, 1) }
@@ -474,12 +687,12 @@
   (1, 0)
 }
 
-#let _resolve-node-label(th, node-labels, id) = {
-  let raw = _lookup-key(node-labels, id)
+#let _resolve-tree-node-label(resolved-style, node-labels, id) = {
+  let raw = _lookup-node-value(node-labels, id)
   if raw == none { return none }
   let body = raw
-  let style = th.label-text
-  let defaults = th.at("node-labels", default: (:))
+  let style = resolved-style.label-text
+  let defaults = resolved-style.at("node-labels", default: (:))
   let position = defaults.at("position", default: "right")
   let offset = defaults.at("offset", default: (0, 0))
   let gap = defaults.at("gap", default: 0.22)
@@ -519,22 +732,34 @@
   (body: body, style: style, position: position, offset: offset, gap: gap)
 }
 
-#let _draw-node-label(p, boundary, th, label) = {
+#let _render-tree-node-label(node-position, boundary, resolved-style, label) = {
   if label == none { return }
-  let dir = _label-vector(label.position)
-  let ox = label.offset.at(0)
-  let oy = label.offset.at(1)
-  let gap = label.gap
-  let r = _boundary-radius(boundary.at(0), boundary.at(1), dir.at(0), dir.at(1))
-  let pt = (p.at(0) + dir.at(0) * (r + gap) + ox, p.at(1) + dir.at(1) * (r + gap) + oy)
+  let label-direction = _node-label-direction(label.position)
+  let offset-x = label.offset.at(0)
+  let offset-y = label.offset.at(1)
+  let label-gap = label.gap
+  let boundary-distance = _calculate-shape-boundary-radius(
+    boundary.at(0),
+    boundary.at(1),
+    label-direction.at(0),
+    label-direction.at(1),
+  )
+  let label-position = (
+    node-position.at(0)
+      + label-direction.at(0) * (boundary-distance + label-gap)
+      + offset-x,
+    node-position.at(1)
+      + label-direction.at(1) * (boundary-distance + label-gap)
+      + offset-y,
+  )
   let text-style = label.style
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  content(pt, text(..text-style)[#label.body], angle: rotation)
+  content(label-position, text(..text-style)[#label.body], angle: rotation)
 }
 
-#let _draw-tree-edge-label(p, q, r1, r2, th, custom) = {
-  let lbl = _tree-label-style(th, custom)
+#let _render-tree-edge-label(p, q, r1, r2, resolved-style, custom) = {
+  let lbl = _resolve-tree-edge-label(resolved-style, custom)
   if lbl.body == none { return }
   let dx = q.at(0) - p.at(0)
   let dy = q.at(1) - p.at(1)
@@ -542,13 +767,13 @@
   if len == 0 { return }
   let ux = dx / len
   let uy = dy / len
-  let a = _trim-shape(p, q, r1.at(0), r1.at(1))
-  let b = _trim-shape(q, p, r2.at(0), r2.at(1))
+  let a = _trim-edge-to-shape(p, q, r1.at(0), r1.at(1))
+  let b = _trim-edge-to-shape(q, p, r2.at(0), r2.at(1))
   let bend = if custom != none { custom.at("bend", default: false) } else { false }
   let base = if bend == false or bend == none {
     ((a.at(0) + b.at(0)) / 2, (a.at(1) + b.at(1)) / 2)
   } else {
-    _bend-point(p, q, bend, if custom != none { custom.at("angle", default: 25deg) } else { 25deg })
+    _calculate-edge-bend-point(p, q, bend, if custom != none { custom.at("angle", default: 25deg) } else { 25deg })
   }
   let (ox, oy) = if bend == "right" {
     (uy, -ux)
@@ -570,36 +795,85 @@
   content((base.at(0) + ox * shift, base.at(1) + oy * shift), text(..text-style)[#lbl.body], angle: rotation)
 }
 
-#let _draw-edges(n, th, edge-customizations, node-customizations) = {
-  if n == none or n.kind == "subtree" { return }
-  let p = _xy(n, th)
-  for c in _visible-children(n) {
-    if c != none {
-      // Stop the edge at each node's boundary so arrowheads stay visible
-      // instead of hiding under the node. Subtree leaves connect at the apex.
-      let q = _xy(c, th)
-      let p-custom = _node-custom(node-customizations, _edge-id(n))
-      let c-custom = _node-custom(node-customizations, _edge-id(c))
-      let rp = (_shape-name(th, custom: p-custom), _shape-radius(th, custom: p-custom))
-      let rc = if c.kind == "subtree" { ("circle", 0) } else { (_shape-name(th, custom: c-custom), _shape-radius(th, custom: c-custom)) }
-      let custom = _edge-custom(edge-customizations, _edge-id(n), _edge-id(c))
-      _draw-tree-edge(p, q, rp, rc, th, custom)
-      _draw-tree-edge-label(p, q, rp, rc, th, custom)
-      _draw-edges(c, th, edge-customizations, node-customizations)
+#let _render-tree-edges(tree-node, resolved-style, edge-customizations, node-customizations) = {
+  if tree-node == none or tree-node.kind == "subtree" { return }
+  let parent-position = _tree-node-position(tree-node, resolved-style)
+  for child-node in _visible-tree-children(tree-node) {
+    if child-node != none {
+      let child-position = _tree-node-position(child-node, resolved-style)
+      let parent-customization = _resolve-tree-node-customization(
+        node-customizations,
+        _tree-node-id(tree-node),
+      )
+      let child-customization = _resolve-tree-node-customization(
+        node-customizations,
+        _tree-node-id(child-node),
+      )
+      let parent-boundary = (
+        _resolve-node-shape(
+          resolved-style,
+          custom: parent-customization,
+        ),
+        _resolve-node-radius(
+          resolved-style,
+          custom: parent-customization,
+        ),
+      )
+      let child-boundary = if child-node.kind == "subtree" {
+        ("circle", 0)
+      } else {
+        (
+          _resolve-node-shape(
+            resolved-style,
+            custom: child-customization,
+          ),
+          _resolve-node-radius(
+            resolved-style,
+            custom: child-customization,
+          ),
+        )
+      }
+      let edge-customization = _resolve-tree-edge-customization(
+        edge-customizations,
+        _tree-node-id(tree-node),
+        _tree-node-id(child-node),
+      )
+      _render-tree-edge(
+        parent-position,
+        child-position,
+        parent-boundary,
+        child-boundary,
+        resolved-style,
+        edge-customization,
+      )
+      _render-tree-edge-label(
+        parent-position,
+        child-position,
+        parent-boundary,
+        child-boundary,
+        resolved-style,
+        edge-customization,
+      )
+      _render-tree-edges(
+        child-node,
+        resolved-style,
+        edge-customizations,
+        node-customizations,
+      )
     }
   }
 }
 
-// `mark` is `none` (use `th`'s node defaults and `fill`) or a resolved dict
+// `mark` is `none` (use `resolved-style`'s node defaults and `fill`) or a resolved dict
 // from `mark-style`, overriding the shape/stroke/radius/text of this node.
-#let _draw-shape(p, label, th, fill, mark: none, custom: none) = {
-  let shape = _shape-name(th, mark: mark, custom: custom)
-  let r = _shape-radius(th, mark: mark, custom: custom)
-  let stroke = if custom != none and "stroke" in custom { custom.stroke } else if mark != none { mark.stroke } else { th.node-stroke }
+#let _render-tree-node-shape(p, label, resolved-style, fill, mark: none, custom: none) = {
+  let shape = _resolve-node-shape(resolved-style, mark: mark, custom: custom)
+  let r = _resolve-node-radius(resolved-style, mark: mark, custom: custom)
+  let stroke = if custom != none and "stroke" in custom { custom.stroke } else if mark != none { mark.stroke } else { resolved-style.node-stroke }
   let f = if custom != none and "fill" in custom { custom.fill } else if mark != none { mark.fill } else { fill }
-  let text-style = if mark != none { mark.text } else { th.value-text }
+  let text-style = if mark != none { mark.text } else { resolved-style.value-text }
   if custom != none and "text" in custom { text-style = text-style + custom.text }
-  text-style = _text-style(text-style)
+  text-style = _normalize-text-style(text-style)
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
   let polygon = pts => line(..pts, close: true, fill: f, stroke: stroke)
@@ -627,70 +901,149 @@
   content(p, text(..text-style)[#label], angle: rotation)
 }
 
-#let _draw-triangle(n, th) = {
-  let p = _xy(n, th)
-  let s = n.tscale
-  let hw = th.tri-w / 2 * s
-  let hh = th.tri-h * s
-  let tint = n.fill
-  let stroke = if tint == none { th.node-stroke } else { 1pt + tint }
-  let ink = if tint == none { black } else { tint }
-  let text-style = th.value-text + (fill: ink)
+#let _render-subtree-triangle(subtree-node, resolved-style) = {
+  let node-position = _tree-node-position(subtree-node, resolved-style)
+  let triangle-scale = subtree-node.tscale
+  let half-width = resolved-style.tri-w / 2 * triangle-scale
+  let triangle-height = resolved-style.tri-h * triangle-scale
+  let fill-tint = subtree-node.fill
+  let stroke = if fill-tint == none {
+    resolved-style.node-stroke
+  } else {
+    1pt + fill-tint
+  }
+  let text-fill = if fill-tint == none { black } else { fill-tint }
+  let text-style = resolved-style.value-text + (fill: text-fill)
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  line(p, (p.at(0) - hw, p.at(1) - hh), (p.at(0) + hw, p.at(1) - hh), close: true, stroke: stroke)
-  content((p.at(0), p.at(1) - hh * 0.62), text(..text-style, n.label), angle: rotation)
-  if n.h-label != none {
-    let bx = p.at(0) - hw - 0.32
-    line((bx, p.at(1)), (bx, p.at(1) - hh), stroke: stroke, mark: (start: ">", end: ">"))
-    content((bx - 0.3, p.at(1) - hh / 2), text(..text-style, n.h-label), angle: rotation)
+  line(
+    node-position,
+    (
+      node-position.at(0) - half-width,
+      node-position.at(1) - triangle-height,
+    ),
+    (
+      node-position.at(0) + half-width,
+      node-position.at(1) - triangle-height,
+    ),
+    close: true,
+    stroke: stroke,
+  )
+  content(
+    (
+      node-position.at(0),
+      node-position.at(1) - triangle-height * 0.62,
+    ),
+    text(..text-style, subtree-node.label),
+    angle: rotation,
+  )
+  if subtree-node.h-label != none {
+    let bracket-x = node-position.at(0) - half-width - 0.32
+    line(
+      (bracket-x, node-position.at(1)),
+      (bracket-x, node-position.at(1) - triangle-height),
+      stroke: stroke,
+      mark: (start: ">", end: ">"),
+    )
+    content(
+      (
+        bracket-x - 0.3,
+        node-position.at(1) - triangle-height / 2,
+      ),
+      text(..text-style, subtree-node.h-label),
+      angle: rotation,
+    )
   }
 }
 
-#let _draw-nodes(n, th, marks, node-customizations, node-labels) = {
-  if n == none { return }
-  if n.kind == "subtree" {
-    _draw-triangle(n, th)
+#let _render-tree-nodes(tree-node, resolved-style, marks, node-customizations, node-labels) = {
+  if tree-node == none { return }
+  if tree-node.kind == "subtree" {
+    _render-subtree-triangle(tree-node, resolved-style)
     return
   }
-  for c in _visible-children(n) { _draw-nodes(c, th, marks, node-customizations, node-labels) }
-  let key = n.at("key", default: none)
-  let tint = n.at("fill", default: none)
-  let label = n.at("label", default: none)
-  if label == none { label = str(key) }
-  let id = _edge-id(n)
-  let custom = _node-custom(node-customizations, id)
+  for child-node in _visible-tree-children(tree-node) {
+    _render-tree-nodes(
+      child-node,
+      resolved-style,
+      marks,
+      node-customizations,
+      node-labels,
+    )
+  }
+  let node-key = tree-node.at("key", default: none)
+  let fill-tint = tree-node.at("fill", default: none)
+  let display-label = tree-node.at("label", default: none)
+  if display-label == none { display-label = str(node-key) }
+  let node-id = _tree-node-id(tree-node)
+  let node-customization = _resolve-tree-node-customization(
+    node-customizations,
+    node-id,
+  )
   // A hand-composed node(fill:) tint takes priority over an operation
   // highlight; generated bst/avl nodes never set `.fill`, so the two never
   // actually collide.
-  if tint != none {
-    _draw-shape(_xy(n, th), label, th, tint, custom: custom)
+  if fill-tint != none {
+    _render-tree-node-shape(
+      _tree-node-position(tree-node, resolved-style),
+      display-label,
+      resolved-style,
+      fill-tint,
+      custom: node-customization,
+    )
   } else {
-    let kind = if key == none { none } else { marks.at(str(key), default: none) }
-    let mark = if kind != none { resolve-mark-style(th, kind, base-fill: th.node-fill) } else { none }
-    _draw-shape(_xy(n, th), label, th, th.node-fill, mark: mark, custom: custom)
+    let mark-kind = if node-key == none {
+      none
+    } else {
+      marks.at(str(node-key), default: none)
+    }
+    let mark-style = if mark-kind != none {
+      resolve-mark-style(
+        resolved-style,
+        mark-kind,
+        base-fill: resolved-style.node-fill,
+      )
+    } else {
+      none
+    }
+    _render-tree-node-shape(
+      _tree-node-position(tree-node, resolved-style),
+      display-label,
+      resolved-style,
+      resolved-style.node-fill,
+      mark: mark-style,
+      custom: node-customization,
+    )
   }
-  let boundary = (_shape-name(th, custom: custom), _shape-radius(th, custom: custom))
-  _draw-node-label(_xy(n, th), boundary, th, _resolve-node-label(th, node-labels, id))
+  let node-boundary = (
+    _resolve-node-shape(resolved-style, custom: node-customization),
+    _resolve-node-radius(resolved-style, custom: node-customization),
+  )
+  _render-tree-node-label(
+    _tree-node-position(tree-node, resolved-style),
+    node-boundary,
+    resolved-style,
+    _resolve-tree-node-label(resolved-style, node-labels, node-id),
+  )
 }
 
 // `marks` maps `str(key)` to a highlight kind ("new"/"path"/"remove"/"rotate"),
-// resolved against `th`'s `<kind>-style` via `mark-style` at draw time — so a
+// resolved against `resolved-style`'s `<kind>-style` via `mark-style` at draw time — so a
 // per-call `style:` override actually reaches the mark, not just the theme
 // default.
-#let _render(root, marks: (:), th: theme, edge-customizations: (), node-customizations: (), node-labels: (:)) = {
-  if root == none { return scaled(th, cetz.canvas({ circle((0, 0), radius: 0.01, stroke: none) })) }
-  let (placed, _) = _place(root, 0, 0)
-  scaled(th, cetz.canvas({
-    _draw-edges(placed, th, edge-customizations, node-customizations)
-    _draw-nodes(placed, th, marks, node-customizations, node-labels)
+#let _render-tree(root, marks: (:), resolved-style: theme, edge-customizations: (), node-customizations: (), node-labels: (:)) = {
+  if root == none { return scaled(resolved-style, cetz.canvas({ circle((0, 0), radius: 0.01, stroke: none) })) }
+  let (placed, _) = _calculate-tree-layout(root, 0, 0)
+  scaled(resolved-style, cetz.canvas({
+    _render-tree-edges(placed, resolved-style, edge-customizations, node-customizations)
+    _render-tree-nodes(placed, resolved-style, marks, node-customizations, node-labels)
   }))
 }
 
 // ── Public structure builders ────────────────────────────────────────────────
 
 // Render a hand-composed tree built from `node(...)` and `subtree(...)`.
-#let tree(root, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = _render(root, th: resolve(style), edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
+#let tree(root, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = _render-tree(root, resolved-style: resolve(style), edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
 
 // ── Operations ───────────────────────────────────────────────────────────────
 //
@@ -706,26 +1059,30 @@
 // resolved against the caller's `style:` at draw time by `mark-style` —
 // keeping the kind here instead of a resolved color is what lets a per-call
 // style override actually reach the mark.
-#let _marks(keys, kind) = {
-  let m = (:)
-  for k in keys { m.insert(str(k), kind) }
-  m
+#let _create-value-marks(keys, kind) = {
+  let marks = (:)
+  for node-key in keys { marks.insert(str(node-key), kind) }
+  marks
 }
 
 // Every visible schematic part in a rotation: the pivot, the child promoted
 // above it, and the roots of T_A/T_B/T_C when those subtrees exist.
-#let _event-keys(event) = {
+#let _rotation-event-keys(event) = {
   let keys = (event.pivot, event.new-top)
   keys += event.subs
   keys
 }
-#let _rotated-keys(rot) = {
+#let _rotated-node-keys(rotation-events) = {
   let keys = ()
-  for e in rot { keys += _event-keys(e) }
+  for rotation-event in rotation-events {
+    keys += _rotation-event-keys(rotation-event)
+  }
   keys
 }
 
-#let _rot-label(cat, event) = msg(cat, "tree.rotate-" + event.dir, event.pivot)
+#let _rotation-label(message-catalog, event) = (
+  msg(message-catalog, "tree.rotate-" + event.dir, event.pivot)
+)
 
 // `rebalance: (enabled: false, all-steps: false)` — `enabled: true` adds a
 // panel for the tree right after the plain BST placement, before any
@@ -735,67 +1092,157 @@
 // (left-right / right-left) into its own inner-then-outer steps instead of
 // collapsing straight from the unrotated tree to the final one; it has no
 // effect on a single rotation, since there's only one step to show either way.
-//
-// ponytail: `enabled`, not `show` — `show` is a reserved word in Typst
-// (show rules), so it can't be a bare dict key.
 #let tree-insert(key, rebalance: (:), step-label: none, language: "en", messages: (:), catalog: none) = (variant, root) => {
-  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
-  let default-label = msg(cat, "tree.insert", key)
+  let message-catalog = if catalog != none {
+    catalog
+  } else {
+    resolve-catalog(language: language, messages: messages)
+  }
+  let default-label = msg(message-catalog, "tree.insert", key)
   let final-step-label = if step-label == none { default-label } else { step-label }
   if variant == "avl" {
-    let cfg = (enabled: false, all-steps: false) + rebalance
-    let (after, rot, mid-snapshot) = _avl-insert(root, key)
-    let mids = ()
-    if cfg.enabled and rot.len() > 0 {
-      let broken = _bst-insert(root, key)
-      let new-mark = _marks((key,), "new")
-      mids.push((tree: broken, marks: new-mark, label: default-label))
-      if cfg.all-steps and rot.len() == 2 and mid-snapshot != none {
-        let inner-mark = new-mark + _marks(_event-keys(rot.at(0)), "rotate")
-        mids.push((tree: mid-snapshot, marks: inner-mark, label: _rot-label(cat, rot.at(0))))
+    let rebalance-options = (enabled: false, all-steps: false) + rebalance
+    let (tree-after-insertion, rotation-events, inner-rotation-snapshot) = (
+      _insert-avl-node(root, key)
+    )
+    let intermediate-panels = ()
+    if rebalance-options.enabled and rotation-events.len() > 0 {
+      let unbalanced-tree = _insert-bst-node(root, key)
+      let new-node-marks = _create-value-marks((key,), "new")
+      intermediate-panels.push((
+        tree: unbalanced-tree,
+        marks: new-node-marks,
+        label: default-label,
+      ))
+      let should-render-inner-rotation = (
+        rebalance-options.all-steps
+          and rotation-events.len() == 2
+          and inner-rotation-snapshot != none
+      )
+      if should-render-inner-rotation {
+        let inner-rotation-marks = (
+          new-node-marks
+            + _create-value-marks(
+              _rotation-event-keys(rotation-events.at(0)),
+              "rotate",
+            )
+        )
+        intermediate-panels.push((
+          tree: inner-rotation-snapshot,
+          marks: inner-rotation-marks,
+          label: _rotation-label(message-catalog, rotation-events.at(0)),
+        ))
       }
     }
-    let ma = if cfg.enabled and cfg.all-steps and rot.len() == 2 and mid-snapshot != none {
-      _marks(_event-keys(rot.at(1)), "rotate")
+    let should-mark_outer-rotation-only = (
+      rebalance-options.enabled
+        and rebalance-options.all-steps
+        and rotation-events.len() == 2
+        and inner-rotation-snapshot != none
+    )
+    let after-marks = if should-mark_outer-rotation-only {
+      _create-value-marks(
+        _rotation-event-keys(rotation-events.at(1)),
+        "rotate",
+      )
     } else {
-      _marks((key,), "new") + _marks(_rotated-keys(rot), "rotate")
+      (
+        _create-value-marks((key,), "new")
+          + _create-value-marks(
+            _rotated-node-keys(rotation-events),
+            "rotate",
+          )
+      )
     }
-    let final-label = if mids.len() == 2 {
-      _rot-label(cat, rot.at(1))
+    let rotation-summary-label = if intermediate-panels.len() == 2 {
+      _rotation-label(message-catalog, rotation-events.at(1))
     } else {
-      rot.map(e => _rot-label(cat, e)).join([, ])
+      rotation-events.map(
+        event => _rotation-label(message-catalog, event),
+      ).join([, ])
     }
-    (after, (:), ma, if step-label != none { step-label } else if rot.len() > 0 { final-label } else { default-label }, mids)
+    let label = if step-label != none {
+      step-label
+    } else if rotation-events.len() > 0 {
+      rotation-summary-label
+    } else {
+      default-label
+    }
+    (
+      tree-after-insertion,
+      (:),
+      after-marks,
+      label,
+      intermediate-panels,
+    )
   } else {
-    let mb = _marks(_search-path(root, key), "path")
-    (_bst-insert(root, key), mb, _marks((key,), "new"), final-step-label, ())
+    let before-marks = _create-value-marks(
+      _find-bst-search-path(root, key),
+      "path",
+    )
+    (
+      _insert-bst-node(root, key),
+      before-marks,
+      _create-value-marks((key,), "new"),
+      final-step-label,
+      (),
+    )
   }
 }
 
 #let tree-delete(key, step-label: none, language: "en", messages: (:), catalog: none) = (variant, root) => {
-  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
-  let label = if step-label == none { msg(cat, "tree.delete", key) } else { step-label }
-  let mb = _marks(_search-path(root, key), "path") + _marks((key,), "remove")
-  if variant == "avl" {
-    let (after, rot) = _avl-delete(root, key)
-    return (after, mb, _marks(_rotated-keys(rot), "rotate"), label, ())
+  let message-catalog = if catalog != none {
+    catalog
+  } else {
+    resolve-catalog(language: language, messages: messages)
   }
-  (_bst-delete(root, key), mb, (:), label, ())
+  let label = if step-label == none {
+    msg(message-catalog, "tree.delete", key)
+  } else {
+    step-label
+  }
+  let before-marks = (
+    _create-value-marks(_find-bst-search-path(root, key), "path")
+      + _create-value-marks((key,), "remove")
+  )
+  if variant == "avl" {
+    let (tree-after-deletion, rotation-events) = _remove-avl-node(root, key)
+    return (
+      tree-after-deletion,
+      before-marks,
+      _create-value-marks(_rotated-node-keys(rotation-events), "rotate"),
+      label,
+      (),
+    )
+  }
+  (_remove-bst-node(root, key), before-marks, (:), label, ())
 }
 
 #let tree-search(key, step-label: none, language: "en", messages: (:), catalog: none) = (variant, root) => {
-  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
-  let m = _marks(_search-path(root, key), "path")
-  (root, (:), m, if step-label == none { msg(cat, "tree.search", key) } else { step-label }, ())
+  let message-catalog = if catalog != none {
+    catalog
+  } else {
+    resolve-catalog(language: language, messages: messages)
+  }
+  let search-path-marks = _create-value-marks(
+    _find-bst-search-path(root, key),
+    "path",
+  )
+  let label = if step-label == none {
+    msg(message-catalog, "tree.search", key)
+  } else {
+    step-label
+  }
+  (root, (:), search-path-marks, label, ())
 }
 
 // ── Composable operation views ───────────────────────────────────────────────
 
 #let op-arrow(label, symbol: $arrow.r$, style: (:)) = align(horizon)[
-  #let th = resolve(style)
+  #let resolved-style = resolve(style)
   #set align(center)
   #if label != none [
-    #text(..th.operation-text, label) \
+    #text(..resolved-style.operation-text, label) \
   ]
   #text(size: 1.3em, symbol)
 ]
@@ -815,27 +1262,83 @@
 // `labels` holds one more entry than `mids` — the arrow leading into each
 // mid panel, then the arrow leading into `after`.
 #let trans-view-n(before, mids, labels, after, style: (:)) = {
-  let parts = (align(horizon, before),)
-  for (i, m) in mids.enumerate() {
-    parts.push(op-arrow(labels.at(i), style: style))
-    parts.push(align(horizon, m))
+  let transition-parts = (align(horizon, before),)
+  for (panel-index, intermediate-panel) in mids.enumerate() {
+    transition-parts.push(op-arrow(labels.at(panel-index), style: style))
+    transition-parts.push(align(horizon, intermediate-panel))
   }
-  parts.push(op-arrow(labels.last(), style: style))
-  parts.push(align(horizon, after))
-  stack(dir: ltr, spacing: 1.2em, ..parts)
+  transition-parts.push(op-arrow(labels.last(), style: style))
+  transition-parts.push(align(horizon, after))
+  stack(dir: ltr, spacing: 1.2em, ..transition-parts)
 }
 
 // Renders an operation's step diagram, expanding to extra panels when the op
 // returns non-empty `mids`.
-#let _op-diagram(before, mb, after, ma, label, mids, th, style, edge-customizations, node-customizations, node-labels) = {
-  let b = _render(before, marks: mb, th: th, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
-  let a = _render(after, marks: ma, th: th, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
-  if mids.len() == 0 {
-    (before: b, after: a, diagram: trans-view(b, label, a, style: style))
+#let _render-tree-operation-step(
+  tree-before-operation,
+  before-marks,
+  tree-after-operation,
+  after-marks,
+  label,
+  intermediate-panels,
+  resolved-style,
+  style,
+  edge-customizations,
+  node-customizations,
+  node-labels,
+) = {
+  let before-diagram = _render-tree(
+    tree-before-operation,
+    marks: before-marks,
+    resolved-style: resolved-style,
+    edge-customizations: edge-customizations,
+    node-customizations: node-customizations,
+    node-labels: node-labels,
+  )
+  let after-diagram = _render-tree(
+    tree-after-operation,
+    marks: after-marks,
+    resolved-style: resolved-style,
+    edge-customizations: edge-customizations,
+    node-customizations: node-customizations,
+    node-labels: node-labels,
+  )
+  if intermediate-panels.len() == 0 {
+    (
+      before: before-diagram,
+      after: after-diagram,
+      diagram: trans-view(
+        before-diagram,
+        label,
+        after-diagram,
+        style: style,
+      ),
+    )
   } else {
-    let rendered = mids.map(m => _render(m.tree, marks: m.marks, th: th, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels))
-    let labels = mids.map(m => m.label) + (label,)
-    (before: b, after: a, diagram: trans-view-n(b, rendered, labels, a, style: style))
+    let intermediate-diagrams = intermediate-panels.map(panel => (
+      _render-tree(
+        panel.tree,
+        marks: panel.marks,
+        resolved-style: resolved-style,
+        edge-customizations: edge-customizations,
+        node-customizations: node-customizations,
+        node-labels: node-labels,
+      )
+    ))
+    let transition-labels = intermediate-panels.map(
+      panel => panel.label,
+    ) + (label,)
+    (
+      before: before-diagram,
+      after: after-diagram,
+      diagram: trans-view-n(
+        before-diagram,
+        intermediate-diagrams,
+        transition-labels,
+        after-diagram,
+        style: style,
+      ),
+    )
   }
 }
 
@@ -844,36 +1347,88 @@
 // before, after, diagram, result)` where `result` is the tree after the
 // operation. Typst calls functions stored in dictionaries as `(obj.field)(...)`,
 // so examples use that shape instead of `obj.field(...)`.
-//
-// ponytail: dictionary-backed object, not a custom type. Switch if Typst gains
-// user-defined types with method dispatch.
-#let _tree-obj(variant, root, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), catalog: default-catalog) = {
-  let apply = op => {
-    let (after, mb, ma, label, mids) = op(variant, root)
-    let v = _op-diagram(root, mb, after, ma, label, mids, resolve(style), style, edge-customizations, node-customizations, node-labels)
+#let _create-tree-object(variant, root, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), catalog: default-catalog) = {
+  let apply-operation = operation => {
+    let (
+      tree-after-operation,
+      before-marks,
+      after-marks,
+      label,
+      intermediate-panels,
+    ) = operation(variant, root)
+    let rendered-step = _render-tree-operation-step(
+      root,
+      before-marks,
+      tree-after-operation,
+      after-marks,
+      label,
+      intermediate-panels,
+      resolve(style),
+      style,
+      edge-customizations,
+      node-customizations,
+      node-labels,
+    )
     (
       label: label,
-      before: v.before,
-      after: v.after,
-      diagram: v.diagram,
-      result: _tree-obj(variant, after, style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: catalog),
+      before: rendered-step.before,
+      after: rendered-step.after,
+      diagram: rendered-step.diagram,
+      result: _create-tree-object(
+        variant,
+        tree-after-operation,
+        style: style,
+        edge-customizations: edge-customizations,
+        node-customizations: node-customizations,
+        node-labels: node-labels,
+        catalog: catalog,
+      ),
     )
   }
   (
-    diagram: _render(root, th: resolve(style), edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels),
-    insert: (key, rebalance: (:), step-label: none) => apply(tree-insert(key, rebalance: rebalance, step-label: step-label, catalog: catalog)),
-    delete: (key, step-label: none) => apply(tree-delete(key, step-label: step-label, catalog: catalog)),
-    search: (key, step-label: none) => apply(tree-search(key, step-label: step-label, catalog: catalog)),
+    diagram: _render-tree(root, resolved-style: resolve(style), edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels),
+    insert: (key, rebalance: (:), step-label: none) => apply-operation(
+      tree-insert(
+        key,
+        rebalance: rebalance,
+        step-label: step-label,
+        catalog: catalog,
+      ),
+    ),
+    delete: (key, step-label: none) => apply-operation(
+      tree-delete(key, step-label: step-label, catalog: catalog),
+    ),
+    search: (key, step-label: none) => apply-operation(
+      tree-search(key, step-label: step-label, catalog: catalog),
+    ),
   )
 }
 
-#let bst(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _tree-obj("bst", _build("bst", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
-#let avl(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _tree-obj("avl", _build("avl", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
+#let bst(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _create-tree-object("bst", _build-search-tree("bst", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
+#let avl(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _create-tree-object("avl", _build-search-tree("avl", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
 
 // ── Transition ───────────────────────────────────────────────────────────────
 
 #let transition(variant, keys, op, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
-  let before = _build(variant, keys)
-  let (after, mb, ma, label, mids) = op(variant, before)
-  _op-diagram(before, mb, after, ma, label, mids, resolve(style), style, edge-customizations, node-customizations, node-labels).diagram
+  let tree-before-operation = _build-search-tree(variant, keys)
+  let (
+    tree-after-operation,
+    before-marks,
+    after-marks,
+    label,
+    intermediate-panels,
+  ) = op(variant, tree-before-operation)
+  _render-tree-operation-step(
+    tree-before-operation,
+    before-marks,
+    tree-after-operation,
+    after-marks,
+    label,
+    intermediate-panels,
+    resolve(style),
+    style,
+    edge-customizations,
+    node-customizations,
+    node-labels,
+  ).diagram
 }

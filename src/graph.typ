@@ -15,121 +15,130 @@
 // `edge-customizations:` restyles individual edges, including dash, wave,
 // arrowheads, and bend.
 //
-// ponytail: nodes default to a circle, in first-seen order — no attempt yet
-// to place connected nodes closer together. A force-directed layout (see
-// AGENTS.md) is the planned upgrade; the call shape here won't need to
-// change when it lands, only the default positions will improve. Manually
-// placed nodes (`positions:`) are unaffected either way.
-
 #import "@preview/cetz:0.5.2"
 #import "style.typ": theme, resolve, scaled, edge-stroke, edge-arrow, edge-wave, wavy-parts
 #import "messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, circle, rect, content, bezier-through
 
 // Adjacency entries are either `"to"` or `("to", label)`.
-#let _edge-to(entry) = if type(entry) == array { entry.at(0) } else { entry }
-#let _edge-label(entry) = if type(entry) == array and entry.len() > 1 { entry.at(1) } else { none }
+#let _edge-target-id(entry) = if type(entry) == array { entry.at(0) } else { entry }
+#let _edge-display-label(entry) = if type(entry) == array and entry.len() > 1 { entry.at(1) } else { none }
 
 // Every key, plus every neighbor not already a key, in first-seen order.
-#let _nodes(adjacency) = {
-  let seen = (:)
-  let order = ()
-  for k in adjacency.keys() {
-    if k not in seen {
-      seen.insert(k, true)
-      order.push(k)
+#let _collect-graph-node-ids(adjacency) = {
+  let seen-node-ids = (:)
+  let node-ids = ()
+  for adjacency-key in adjacency.keys() {
+    if adjacency-key not in seen-node-ids {
+      seen-node-ids.insert(adjacency-key, true)
+      node-ids.push(adjacency-key)
     }
   }
-  for k in adjacency.keys() {
-    for entry in adjacency.at(k) {
-      let t = _edge-to(entry)
-      if t not in seen {
-        seen.insert(t, true)
-        order.push(t)
+  for adjacency-key in adjacency.keys() {
+    for edge-entry in adjacency.at(adjacency-key) {
+      let target-node-id = _edge-target-id(edge-entry)
+      if target-node-id not in seen-node-ids {
+        seen-node-ids.insert(target-node-id, true)
+        node-ids.push(target-node-id)
       }
     }
   }
-  order
+  node-ids
 }
 
 // A key for an unordered pair, so an undirected "a","b" and "b","a" match.
-#let _norm-key(from, to) = if from < to { from + "\u{0}" + to } else { to + "\u{0}" + from }
+#let _normalize-undirected-edge-key(from-node-id, to-node-id) = if from-node-id < to-node-id {
+  from-node-id + "\u{0}" + to-node-id
+} else {
+  to-node-id + "\u{0}" + from-node-id
+}
 
 // Directed edges keep every declared (from, to) pair as its own arrow.
 // Undirected edges collapse a reciprocal pair (both "a": ("b",) and
 // "b": ("a",)) into the single line it represents.
-#let _edges(adjacency, directed) = {
-  let edges = ()
-  let seen = (:)
-  for from in adjacency.keys() {
-    for entry in adjacency.at(from) {
-      let to = _edge-to(entry)
-      let label = _edge-label(entry)
+#let _collect-graph-edges(adjacency, directed) = {
+  let graph-edges = ()
+  let seen-edge-keys = (:)
+  for from-node-id in adjacency.keys() {
+    for edge-entry in adjacency.at(from-node-id) {
+      let to-node-id = _edge-target-id(edge-entry)
+      let edge-label = _edge-display-label(edge-entry)
       if directed {
-        edges.push((from, to, label))
+        graph-edges.push((from-node-id, to-node-id, edge-label))
       } else {
-        let key = _norm-key(from, to)
-        if key not in seen {
-          seen.insert(key, true)
-          edges.push((from, to, label))
+        let edge-key = _normalize-undirected-edge-key(
+          from-node-id,
+          to-node-id,
+        )
+        if edge-key not in seen-edge-keys {
+          seen-edge-keys.insert(edge-key, true)
+          graph-edges.push((from-node-id, to-node-id, edge-label))
         }
       }
     }
   }
-  edges
+  graph-edges
 }
 
 // Looks up an edge's customization dict. Order matters for a directed graph
 // (from -> to is a specific edge) but not for an undirected one.
-#let _edge-custom(customizations, from, to, directed) = {
-  let key = if directed { from + "\u{0}" + to } else { _norm-key(from, to) }
-  for (a, b, opts) in customizations {
-    let k = if directed { a + "\u{0}" + b } else { _norm-key(a, b) }
-    if k == key { return opts }
+#let _resolve-graph-edge-customization(customizations, from-node-id, to-node-id, directed) = {
+  let requested-edge-key = if directed {
+    from-node-id + "\u{0}" + to-node-id
+  } else {
+    _normalize-undirected-edge-key(from-node-id, to-node-id)
+  }
+  for (custom-from-id, custom-to-id, options) in customizations {
+    let customized-edge-key = if directed {
+      custom-from-id + "\u{0}" + custom-to-id
+    } else {
+      _normalize-undirected-edge-key(custom-from-id, custom-to-id)
+    }
+    if customized-edge-key == requested-edge-key { return options }
   }
   none
 }
 
-#let _node-custom(customizations, id) = {
-  for (key, opts) in customizations {
-    if key == id { return opts }
+#let _resolve-graph-node-customization(customizations, node-id) = {
+  for (custom-node-id, options) in customizations {
+    if custom-node-id == node-id { return options }
   }
   none
 }
 
-#let _text-style(style) = {
-  let res = style
-  if "color" in res {
-    res.fill = res.color
-    let _ = res.remove("color")
+#let _normalize-graph-text-style(style) = {
+  let normalized-style = style
+  if "color" in normalized-style {
+    normalized-style.fill = normalized-style.color
+    let _ = normalized-style.remove("color")
   }
-  res
+  normalized-style
 }
 
-#let _lookup-key(items, id) = {
-  if type(items) == dictionary {
-    if type(id) == str or type(id) == int or type(id) == float {
-      return items.at(str(id), default: none)
+#let _lookup-graph-node-value(values, node-id) = {
+  if type(values) == dictionary {
+    if type(node-id) == str or type(node-id) == int or type(node-id) == float {
+      return values.at(str(node-id), default: none)
     }
     return none
   }
-  for (key, value) in items {
-    if key == id { return value }
+  for (candidate-node-id, value) in values {
+    if candidate-node-id == node-id { return value }
   }
   none
 }
 
-#let _node-shape(th, custom) = {
+#let _resolve-graph-node-shape(resolved-style, custom) = {
   if custom != none and "shape" in custom { return custom.shape }
-  th.node-shape
+  resolved-style.node-shape
 }
 
-#let _node-radius(th, custom) = {
+#let _resolve-graph-node-radius(resolved-style, custom) = {
   if custom != none and "node-radius" in custom { return custom.node-radius }
-  th.node-radius
+  resolved-style.node-radius
 }
 
-#let _boundary-radius(shape, r, ux, uy) = {
+#let _calculate-node-boundary-radius(shape, r, ux, uy) = {
   if shape in ("square", "rounded") {
     return r / calc.max(calc.abs(ux), calc.abs(uy))
   }
@@ -145,105 +154,139 @@
 
 // Evenly spaced on a circle, starting at the top and going clockwise.
 // `radius: auto` grows with node count; a number fixes the circle radius.
-#let _circle-layout(nodes, th, radius) = {
-  let n = nodes.len()
-  let pos = (:)
-  if n == 1 {
-    pos.insert(nodes.at(0), (0.0, 0.0))
-    return pos
+#let _calculate-circular-graph-layout(node-ids, resolved-style, radius) = {
+  let node-count = node-ids.len()
+  let node-positions = (:)
+  if node-count == 1 {
+    node-positions.insert(node-ids.at(0), (0.0, 0.0))
+    return node-positions
   }
-  let node-width = if th.node-shape == "capsule" { 2.8 * th.node-radius } else { 2 * th.node-radius }
-  let min-chord = node-width + 1.05
-  let r = if radius == auto { calc.max(min-chord / (2 * calc.sin(180deg / n)), th.node-radius * 2) } else { radius }
-  for (i, name) in nodes.enumerate() {
-    let theta = 90deg - 360deg * i / n
-    pos.insert(name, (r * calc.cos(theta), r * calc.sin(theta)))
+  let node-width = if resolved-style.node-shape == "capsule" {
+    2.8 * resolved-style.node-radius
+  } else {
+    2 * resolved-style.node-radius
   }
-  pos
+  let minimum-chord = node-width + 1.05
+  let layout-radius = if radius == auto {
+    calc.max(
+      minimum-chord / (2 * calc.sin(180deg / node-count)),
+      resolved-style.node-radius * 2,
+    )
+  } else {
+    radius
+  }
+  for (node-index, node-id) in node-ids.enumerate() {
+    let node-angle = 90deg - 360deg * node-index / node-count
+    node-positions.insert(node-id, (
+      layout-radius * calc.cos(node-angle),
+      layout-radius * calc.sin(node-angle),
+    ))
+  }
+  node-positions
 }
 
 // Evenly spaced linear layout, from left to right.
-#let _linear-layout(nodes, gap) = {
-  let n = nodes.len()
-  let pos = (:)
-  for (i, name) in nodes.enumerate() {
-    pos.insert(name, (gap * i, 0.0))
+#let _calculate-linear-graph-layout(node-ids, gap) = {
+  let node-positions = (:)
+  for (node-index, node-id) in node-ids.enumerate() {
+    node-positions.insert(node-id, (gap * node-index, 0.0))
   }
-  pos
+  node-positions
 }
 
-#let _position-point(spec, pos) = {
-  if "rel" in spec {
-    if spec.rel not in pos { return none }
-    let ref = pos.at(spec.rel)
-    let off = spec.at("offset", default: (0, 0))
-    return (ref.at(0) + off.at(0), ref.at(1) + off.at(1))
+#let _resolve-position-specification(position-specification, resolved-positions) = {
+  if "rel" in position-specification {
+    if position-specification.rel not in resolved-positions { return none }
+    let reference-position = resolved-positions.at(position-specification.rel)
+    let offset = position-specification.at("offset", default: (0, 0))
+    return (
+      reference-position.at(0) + offset.at(0),
+      reference-position.at(1) + offset.at(1),
+    )
   }
-  (spec.at(0), spec.at(1))
+  (position-specification.at(0), position-specification.at(1))
 }
 
 // Resolves `positions:`. In auto mode, omitted nodes keep their automatic
 // circular spot. In manual mode, every node must be positioned, with at least
 // one absolute `(x, y)` entry acting as the anchor for relative entries.
-#let _resolve-positions(pos, positions, nodes, manual) = {
-  if manual {
-    for name in nodes {
-      assert(name in positions, message: "graph layout \"manual\" needs a position for " + name)
+#let _resolve-graph-node-positions(initial-positions, positions, node-ids, uses-manual-layout) = {
+  if uses-manual-layout {
+    for node-id in node-ids {
+      assert(node-id in positions, message: "graph layout \"manual\" needs a position for " + node-id)
     }
   }
-  for _ in range(nodes.len()) {
-    for name in nodes {
-      if name in positions {
-        let p = _position-point(positions.at(name), pos)
-        if p != none { pos.insert(name, p) }
+  for _ in range(node-ids.len()) {
+    for node-id in node-ids {
+      if node-id in positions {
+        let resolved-position = _resolve-position-specification(
+          positions.at(node-id),
+          initial-positions,
+        )
+        if resolved-position != none {
+          initial-positions.insert(node-id, resolved-position)
+        }
       }
     }
   }
-  for name in nodes {
-    assert(name in pos, message: "graph could not resolve a position for " + name)
+  for node-id in node-ids {
+    assert(node-id in initial-positions, message: "graph could not resolve a position for " + node-id)
   }
-  for name in nodes {
-    if name in positions {
-      let spec = positions.at(name)
-      if "rel" in spec {
-        assert(spec.rel in pos, message: "graph position for " + name + " references missing node " + spec.rel)
+  for node-id in node-ids {
+    if node-id in positions {
+      let position-specification = positions.at(node-id)
+      if "rel" in position-specification {
+        assert(position-specification.rel in initial-positions, message: "graph position for " + node-id + " references missing node " + position-specification.rel)
       }
     }
   }
-  pos
+  initial-positions
 }
 
 // A point offset from the straight p-q midpoint, perpendicular to p-q, sized
 // so the curve leaves each endpoint roughly `angle` off the straight line.
 // `bend` is `"left"` or `"right"` (relative to travel from p to q).
-#let _bend-point(p, q, bend, angle) = {
-  let dx = q.at(0) - p.at(0)
-  let dy = q.at(1) - p.at(1)
-  let len = calc.sqrt(dx * dx + dy * dy)
-  let mx = (p.at(0) + q.at(0)) / 2
-  let my = (p.at(1) + q.at(1)) / 2
-  if len == 0 { return (mx, my) }
-  let ux = dx / len
-  let uy = dy / len
-  let (px, py) = if bend == "left" { (-uy, ux) } else { (uy, -ux) }
-  let sagitta = (len / 2) * calc.tan(angle)
-  (mx + px * sagitta, my + py * sagitta)
+#let _calculate-graph-edge-bend-point(from-position, to-position, bend-direction, angle) = {
+  let delta-x = to-position.at(0) - from-position.at(0)
+  let delta-y = to-position.at(1) - from-position.at(1)
+  let edge-length = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+  let midpoint-x = (from-position.at(0) + to-position.at(0)) / 2
+  let midpoint-y = (from-position.at(1) + to-position.at(1)) / 2
+  if edge-length == 0 { return (midpoint-x, midpoint-y) }
+  let unit-x = delta-x / edge-length
+  let unit-y = delta-y / edge-length
+  let (perpendicular-x, perpendicular-y) = if bend-direction == "left" {
+    (-unit-y, unit-x)
+  } else {
+    (unit-y, -unit-x)
+  }
+  let sagitta = (edge-length / 2) * calc.tan(angle)
+  (
+    midpoint-x + perpendicular-x * sagitta,
+    midpoint-y + perpendicular-y * sagitta,
+  )
 }
 
-// Backs `a` off toward `b` by `r`, landing it on a node's circumference
-// instead of its center.
-#let _trim-toward(a, b, r, shape: "circle") = {
-  let dx = b.at(0) - a.at(0)
-  let dy = b.at(1) - a.at(1)
-  let len = calc.sqrt(dx * dx + dy * dy)
-  if len == 0 { return a }
-  let ux = dx / len
-  let uy = dy / len
-  let d = _boundary-radius(shape, r, ux, uy)
-  (a.at(0) + ux * d, a.at(1) + uy * d)
+#let _trim-edge-to-node-boundary(node-position, toward-position, node-radius, shape: "circle") = {
+  let delta-x = toward-position.at(0) - node-position.at(0)
+  let delta-y = toward-position.at(1) - node-position.at(1)
+  let edge-length = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+  if edge-length == 0 { return node-position }
+  let unit-x = delta-x / edge-length
+  let unit-y = delta-y / edge-length
+  let boundary-distance = _calculate-node-boundary-radius(
+    shape,
+    node-radius,
+    unit-x,
+    unit-y,
+  )
+  (
+    node-position.at(0) + unit-x * boundary-distance,
+    node-position.at(1) + unit-y * boundary-distance,
+  )
 }
 
-#let _edge-label-point(p, q, r, custom, th) = {
+#let _calculate-edge-label-position(p, q, r, custom, resolved-style) = {
   let dx = q.at(0) - p.at(0)
   let dy = q.at(1) - p.at(1)
   let len = calc.sqrt(dx * dx + dy * dy)
@@ -258,7 +301,7 @@
       ((a.at(0) + b.at(0)) / 2, (a.at(1) + b.at(1)) / 2)
     } else {
       let angle = if custom != none { custom.at("angle", default: 25deg) } else { 25deg }
-      _bend-point(p, q, bend, angle)
+      _calculate-graph-edge-bend-point(p, q, bend, angle)
     }
   }
 
@@ -291,7 +334,7 @@
     }
   }
 
-  let size = th.edge-label-text.at("size", default: 9pt)
+  let size = resolved-style.edge-label-text.at("size", default: 9pt)
   // Gap is 10% of size. But since text is centered, we also need to shift by 50% of size 
   // so the text's bounding box clears the line. Total shift = 60% of size.
   // Convert pt to CetZ coordinate units (1 unit = 1cm = 28.346pt).
@@ -301,9 +344,9 @@
   (base.at(0) + ox * gap, base.at(1) + oy * gap)
 }
 
-#let _draw-edge(p, q, from-boundary, to-boundary, directed, th, custom) = {
-  let stroke = edge-stroke(th, custom: custom)
-  let mark = edge-arrow(th, directed, custom: custom)
+#let _render-graph-edge(p, q, from-boundary, to-boundary, directed, resolved-style, custom) = {
+  let stroke = edge-stroke(resolved-style, custom: custom)
+  let mark = edge-arrow(resolved-style, directed, custom: custom)
   let bend = if custom != none { custom.at("bend", default: false) } else { false }
   if bend == false or bend == none {
     let dx = q.at(0) - p.at(0)
@@ -312,12 +355,12 @@
     if len == 0 { return }
     let ux = dx / len
     let uy = dy / len
-    let a = _trim-toward(p, q, from-boundary.at(1), shape: from-boundary.at(0))
-    let b = _trim-toward(q, p, to-boundary.at(1), shape: to-boundary.at(0))
-    if edge-wave(th, custom: custom) {
+    let a = _trim-edge-to-node-boundary(p, q, from-boundary.at(1), shape: from-boundary.at(0))
+    let b = _trim-edge-to-node-boundary(q, p, to-boundary.at(1), shape: to-boundary.at(0))
+    if edge-wave(resolved-style, custom: custom) {
       let start-tip = mark != none and "start" in mark
       let end-tip = mark != none and "end" in mark
-      let parts = wavy-parts(a, b, th, start-tip: start-tip, end-tip: end-tip)
+      let parts = wavy-parts(a, b, resolved-style, start-tip: start-tip, end-tip: end-tip)
       line(..parts.points, stroke: stroke)
       let fill = if mark == none { none } else { mark.at("fill", default: none) }
       if start-tip { line(a, parts.start-cap, stroke: stroke, mark: (start: ">", fill: fill)) }
@@ -327,18 +370,18 @@
     }
   } else {
     let angle = if custom != none { custom.at("angle", default: 25deg) } else { 25deg }
-    let bp = _bend-point(p, q, bend, angle)
-    let p2 = _trim-toward(p, bp, from-boundary.at(1), shape: from-boundary.at(0))
-    let q2 = _trim-toward(q, bp, to-boundary.at(1), shape: to-boundary.at(0))
+    let bp = _calculate-graph-edge-bend-point(p, q, bend, angle)
+    let p2 = _trim-edge-to-node-boundary(p, bp, from-boundary.at(1), shape: from-boundary.at(0))
+    let q2 = _trim-edge-to-node-boundary(q, bp, to-boundary.at(1), shape: to-boundary.at(0))
     bezier-through(p2, bp, q2, stroke: stroke, mark: mark)
   }
 }
 
-#let _draw-edge-label(label, p, q, r, th, custom) = {
+#let _render-graph-edge-label(label, p, q, r, resolved-style, custom) = {
   if label == none { return }
-  let pt = _edge-label-point(p, q, r, custom, th)
+  let pt = _calculate-edge-label-position(p, q, r, custom, resolved-style)
   
-  let label-style = th.edge-label-text
+  let label-style = resolved-style.edge-label-text
   let rotation = label-style.at("rotation", default: 0deg)
   
   if custom != none and "label" in custom {
@@ -373,7 +416,7 @@
   content(pt, text(..label-style)[#label], angle: rotation)
 }
 
-#let _label-vector(pos) = {
+#let _graph-node-label-direction(pos) = {
   if pos == "right" { return (1, 0) }
   if pos == "left" { return (-1, 0) }
   if pos == "top" { return (0, 1) }
@@ -382,12 +425,12 @@
   (1, 0)
 }
 
-#let _resolve-node-label(th, node-labels, id) = {
-  let raw = _lookup-key(node-labels, id)
+#let _resolve-graph-node-label(resolved-style, node-labels, id) = {
+  let raw = _lookup-graph-node-value(node-labels, id)
   if raw == none { return none }
   let body = raw
-  let style = th.label-text
-  let defaults = th.at("node-labels", default: (:))
+  let style = resolved-style.label-text
+  let defaults = resolved-style.at("node-labels", default: (:))
   let position = defaults.at("position", default: "right")
   let offset = defaults.at("offset", default: (0, 0))
   let gap = defaults.at("gap", default: 0.22)
@@ -427,28 +470,40 @@
   (body: body, style: style, position: position, offset: offset, gap: gap)
 }
 
-#let _draw-node-label(p, boundary, th, label) = {
+#let _render-graph-node-label(node-position, boundary, resolved-style, label) = {
   if label == none { return }
-  let dir = _label-vector(label.position)
-  let ox = label.offset.at(0)
-  let oy = label.offset.at(1)
-  let gap = label.gap
-  let r = _boundary-radius(boundary.at(0), boundary.at(1), dir.at(0), dir.at(1))
-  let pt = (p.at(0) + dir.at(0) * (r + gap) + ox, p.at(1) + dir.at(1) * (r + gap) + oy)
+  let label-direction = _graph-node-label-direction(label.position)
+  let offset-x = label.offset.at(0)
+  let offset-y = label.offset.at(1)
+  let label-gap = label.gap
+  let boundary-distance = _calculate-node-boundary-radius(
+    boundary.at(0),
+    boundary.at(1),
+    label-direction.at(0),
+    label-direction.at(1),
+  )
+  let label-position = (
+    node-position.at(0)
+      + label-direction.at(0) * (boundary-distance + label-gap)
+      + offset-x,
+    node-position.at(1)
+      + label-direction.at(1) * (boundary-distance + label-gap)
+      + offset-y,
+  )
   let text-style = label.style
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  content(pt, text(..text-style)[#label.body], angle: rotation)
+  content(label-position, text(..text-style)[#label.body], angle: rotation)
 }
 
-#let _draw-node(label, p, th, custom) = {
-  let r = _node-radius(th, custom)
-  let shape = _node-shape(th, custom)
-  let fill = if custom != none and "fill" in custom { custom.fill } else { th.node-fill }
-  let stroke = if custom != none and "stroke" in custom { custom.stroke } else { th.node-stroke }
-  let text-style = th.value-text
+#let _render-graph-node(label, p, resolved-style, custom) = {
+  let r = _resolve-graph-node-radius(resolved-style, custom)
+  let shape = _resolve-graph-node-shape(resolved-style, custom)
+  let fill = if custom != none and "fill" in custom { custom.fill } else { resolved-style.node-fill }
+  let stroke = if custom != none and "stroke" in custom { custom.stroke } else { resolved-style.node-stroke }
+  let text-style = resolved-style.value-text
   if custom != none and "text" in custom { text-style = text-style + custom.text }
-  text-style = _text-style(text-style)
+  text-style = _normalize-graph-text-style(text-style)
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
   let polygon = pts => line(..pts, close: true, fill: fill, stroke: stroke)
@@ -476,48 +531,112 @@
   content(p, text(..text-style, label), angle: rotation)
 }
 
-#let _render(adjacency, directed, labels, positions, layout, radius, gap, edge-customizations, node-customizations, node-labels, th) = {
+#let _render-graph(adjacency, directed, labels, positions, layout, radius, gap, edge-customizations, node-customizations, node-labels, resolved-style) = {
   assert(layout == "auto" or layout == "linear" or layout == "manual", message: "graph layout must be \"auto\", \"linear\" or \"manual\"")
 
   assert(layout == "auto" or radius == auto, message: "graph radius only works with layout \"auto\"")
   assert(layout == "linear" or gap == auto, message: "gap only works with layout \"linear\"")
 
-  let nodes = _nodes(adjacency)
-  let layout = if layout == "auto" {
-    _circle-layout(nodes, th, radius)
+  let node-ids = _collect-graph-node-ids(adjacency)
+  let initial-node-positions = if layout == "auto" {
+    _calculate-circular-graph-layout(node-ids, resolved-style, radius)
   } else if layout == "linear" {
-    _linear-layout(nodes, if gap == auto { 1.5 } else { gap })
+    _calculate-linear-graph-layout(
+      node-ids,
+      if gap == auto { 1.5 } else { gap },
+    )
   } else {
     (:)
   }
-  let pos = _resolve-positions(layout, positions, nodes, layout == "manual")
-  let edges = _edges(adjacency, directed)
+  let node-positions = _resolve-graph-node-positions(
+    initial-node-positions,
+    positions,
+    node-ids,
+    layout == "manual",
+  )
+  let graph-edges = _collect-graph-edges(adjacency, directed)
   
-  for (u, v, opts) in edge-customizations {
-    let found = false
-    let key = if directed { u + "\u{0}" + v } else { _norm-key(u, v) }
-    for (from, to, _) in edges {
-      let k = if directed { from + "\u{0}" + to } else { _norm-key(from, to) }
-      if k == key { found = true }
+  for (custom-from-id, custom-to-id, _) in edge-customizations {
+    let edge-exists = false
+    let customized-edge-key = if directed {
+      custom-from-id + "\u{0}" + custom-to-id
+    } else {
+      _normalize-undirected-edge-key(custom-from-id, custom-to-id)
     }
-    assert(found, message: "edge-customizations specified edge " + u + " -> " + v + " which does not exist in the graph")
+    for (from-node-id, to-node-id, _) in graph-edges {
+      let graph-edge-key = if directed {
+        from-node-id + "\u{0}" + to-node-id
+      } else {
+        _normalize-undirected-edge-key(from-node-id, to-node-id)
+      }
+      if graph-edge-key == customized-edge-key { edge-exists = true }
+    }
+    assert(edge-exists, message: "edge-customizations specified edge " + custom-from-id + " -> " + custom-to-id + " which does not exist in the graph")
   }
 
-  scaled(th, cetz.canvas({
-    for (from, to, label) in edges {
-      let custom = _edge-custom(edge-customizations, from, to, directed)
-      let from-custom = _node-custom(node-customizations, from)
-      let to-custom = _node-custom(node-customizations, to)
-      let from-boundary = (_node-shape(th, from-custom), _node-radius(th, from-custom))
-      let to-boundary = (_node-shape(th, to-custom), _node-radius(th, to-custom))
-      _draw-edge(pos.at(from), pos.at(to), from-boundary, to-boundary, directed, th, custom)
-      _draw-edge-label(label, pos.at(from), pos.at(to), th.node-radius, th, custom)
+  scaled(resolved-style, cetz.canvas({
+    for (from-node-id, to-node-id, edge-label) in graph-edges {
+      let edge-customization = _resolve-graph-edge-customization(
+        edge-customizations,
+        from-node-id,
+        to-node-id,
+        directed,
+      )
+      let from-node-customization = _resolve-graph-node-customization(
+        node-customizations,
+        from-node-id,
+      )
+      let to-node-customization = _resolve-graph-node-customization(
+        node-customizations,
+        to-node-id,
+      )
+      let from-boundary = (
+        _resolve-graph-node-shape(resolved-style, from-node-customization),
+        _resolve-graph-node-radius(resolved-style, from-node-customization),
+      )
+      let to-boundary = (
+        _resolve-graph-node-shape(resolved-style, to-node-customization),
+        _resolve-graph-node-radius(resolved-style, to-node-customization),
+      )
+      _render-graph-edge(
+        node-positions.at(from-node-id),
+        node-positions.at(to-node-id),
+        from-boundary,
+        to-boundary,
+        directed,
+        resolved-style,
+        edge-customization,
+      )
+      _render-graph-edge-label(
+        edge-label,
+        node-positions.at(from-node-id),
+        node-positions.at(to-node-id),
+        resolved-style.node-radius,
+        resolved-style,
+        edge-customization,
+      )
     }
-    for name in nodes {
-      let custom = _node-custom(node-customizations, name)
-      _draw-node(labels.at(name, default: name), pos.at(name), th, custom)
-      let boundary = (_node-shape(th, custom), _node-radius(th, custom))
-      _draw-node-label(pos.at(name), boundary, th, _resolve-node-label(th, node-labels, name))
+    for node-id in node-ids {
+      let node-customization = _resolve-graph-node-customization(
+        node-customizations,
+        node-id,
+      )
+      _render-graph-node(
+        labels.at(node-id, default: node-id),
+        node-positions.at(node-id),
+        resolved-style,
+        node-customization,
+      )
+      let node-boundary = (
+        _resolve-graph-node-shape(resolved-style, node-customization),
+        _resolve-graph-node-radius(resolved-style, node-customization),
+      )
+      _render-graph-node-label(
+        node-positions.at(node-id),
+        node-boundary,
+        resolved-style,
+        _resolve-graph-node-label(resolved-style, node-labels, node-id),
+      )
     }
   }))
 }
@@ -551,103 +670,229 @@
   node-labels: (:),
   style: (:),
 ) = (
-  diagram: _render(adjacency, directed, labels, positions, layout, radius, gap, edge-customizations, node-customizations, node-labels, resolve(style)),
+  diagram: _render-graph(adjacency, directed, labels, positions, layout, radius, gap, edge-customizations, node-customizations, node-labels, resolve(style)),
 )
 
 // ── Algorithm traces ────────────────────────────────────────────────────────
 
-#let _neighbors(adjacency, node, directed) = {
-  let result = ()
-  if node in adjacency {
-    for entry in adjacency.at(node) {
-      result.push((node: _edge-to(entry), weight: _edge-label(entry)))
+#let _collect-graph-neighbors(adjacency, node-id, directed) = {
+  let neighbors = ()
+  if node-id in adjacency {
+    for edge-entry in adjacency.at(node-id) {
+      neighbors.push((
+        node: _edge-target-id(edge-entry),
+        weight: _edge-display-label(edge-entry),
+      ))
     }
   }
   if not directed {
-    for from in adjacency.keys() {
-      for entry in adjacency.at(from) {
-        if _edge-to(entry) == node and result.position(item => item.node == from) == none {
-          result.push((node: from, weight: _edge-label(entry)))
+    for from-node-id in adjacency.keys() {
+      for edge-entry in adjacency.at(from-node-id) {
+        let is-incoming-edge = _edge-target-id(edge-entry) == node-id
+        let neighbor-is-recorded = neighbors.position(
+          neighbor => neighbor.node == from-node-id,
+        ) != none
+        if is-incoming-edge and not neighbor-is-recorded {
+          neighbors.push((
+            node: from-node-id,
+            weight: _edge-display-label(edge-entry),
+          ))
         }
       }
     }
   }
-  result
+  neighbors
 }
 
-#let _state-node-customizations(base, nodes, visited, current, queued, th) = {
-  let result = ()
-  for node in nodes {
-    let custom = _node-custom(base, node)
-    if custom == none { custom = (:) }
-    let state = if node == current { th.current-style }
-      else if node in queued { th.queued-style }
-      else if node in visited { th.visited-style }
-      else { none }
-    if state != none { custom += state }
-    if custom.len() > 0 { result.push((node, custom)) }
-  }
-  result
-}
-
-#let _same-edge(a, b, from, to, directed) = if directed {
-  a == from and b == to
-} else {
-  (a == from and b == to) or (a == to and b == from)
-}
-
-#let _path-edges(path) = {
-  let result = ()
-  for index in range(path.len() - 1) {
-    result.push((path.at(index), path.at(index + 1)))
-  }
-  result
-}
-
-#let _state-edge-customizations(base, active, path, directed, th) = {
-  let highlights = if active == none { _path-edges(path) } else { (active,) + _path-edges(path) }
-  if highlights.len() == 0 { return base }
-  let result = ()
-  for (from, to) in highlights {
-    let existing = _edge-custom(base, from, to, directed)
-    result.push((from, to, (if existing == none { (:) } else { existing }) + th.active-edge-style))
-  }
-  for (a, b, custom) in base {
-    if highlights.all(edge => not _same-edge(a, b, edge.at(0), edge.at(1), directed)) {
-      result.push((a, b, custom))
+#let _build-graph-state-node-customizations(
+  base-customizations,
+  node-ids,
+  visited-node-ids,
+  current-node-id,
+  frontier-node-ids,
+  resolved-style,
+) = {
+  let state-customizations = ()
+  for node-id in node-ids {
+    let node-customization = _resolve-graph-node-customization(
+      base-customizations,
+      node-id,
+    )
+    if node-customization == none { node-customization = (:) }
+    let state-style = if node-id == current-node-id {
+      resolved-style.current-style
+    } else if node-id in frontier-node-ids {
+      resolved-style.queued-style
+    } else if node-id in visited-node-ids {
+      resolved-style.visited-style
+    } else {
+      none
+    }
+    if state-style != none { node-customization += state-style }
+    if node-customization.len() > 0 {
+      state-customizations.push((node-id, node-customization))
     }
   }
-  result
+  state-customizations
 }
 
-#let _distance-node-labels(nodes, distances, supplied, th, cat) = {
-  let result = ()
-  for node in nodes {
-    let raw = _lookup-key(supplied, node)
-    let value = if distances.at(node) == none { $infinity$ } else { distances.at(node) }
-    let body = msg(cat, "graph.distance", value)
-    let custom = (color: rgb("#7048E8"), weight: "bold")
-    let defaults = th.at("node-labels", default: (:))
-    if "gap" not in defaults { custom.gap = 0.5 }
-    if type(raw) == dictionary { custom += raw }
-    custom.content = body
-    result.push((node, custom))
+#let _graph-edges-match(
+  candidate-from-id,
+  candidate-to-id,
+  from-node-id,
+  to-node-id,
+  directed,
+) = if directed {
+  candidate-from-id == from-node-id and candidate-to-id == to-node-id
+} else {
+  (
+    candidate-from-id == from-node-id and candidate-to-id == to-node-id
+  ) or (
+    candidate-from-id == to-node-id and candidate-to-id == from-node-id
+  )
+}
+
+#let _path-to-graph-edges(path) = {
+  let path-edges = ()
+  for path-index in range(path.len() - 1) {
+    path-edges.push((path.at(path-index), path.at(path-index + 1)))
   }
-  result
+  path-edges
 }
 
-#let _algorithm-step(
+#let _build-graph-state-edge-customizations(
+  base-customizations,
+  active-edge,
+  path,
+  directed,
+  resolved-style,
+) = {
+  let highlighted-edges = if active-edge == none {
+    _path-to-graph-edges(path)
+  } else {
+    (active-edge,) + _path-to-graph-edges(path)
+  }
+  if highlighted-edges.len() == 0 { return base-customizations }
+  let state-customizations = ()
+  for (from-node-id, to-node-id) in highlighted-edges {
+    let existing-customization = _resolve-graph-edge-customization(
+      base-customizations,
+      from-node-id,
+      to-node-id,
+      directed,
+    )
+    let highlighted-customization = (
+      if existing-customization == none { (:) } else { existing-customization }
+    ) + resolved-style.active-edge-style
+    state-customizations.push((
+      from-node-id,
+      to-node-id,
+      highlighted-customization,
+    ))
+  }
+  for (from-node-id, to-node-id, customization) in base-customizations {
+    let edge-is-highlighted = highlighted-edges.any(edge => (
+      _graph-edges-match(
+        from-node-id,
+        to-node-id,
+        edge.at(0),
+        edge.at(1),
+        directed,
+      )
+    ))
+    if not edge-is-highlighted {
+      state-customizations.push((
+        from-node-id,
+        to-node-id,
+        customization,
+      ))
+    }
+  }
+  state-customizations
+}
+
+#let _build-distance-node-labels(
+  node-ids,
+  distances,
+  supplied-labels,
+  resolved-style,
+  message-catalog,
+) = {
+  let distance-labels = ()
+  for node-id in node-ids {
+    let supplied-label = _lookup-graph-node-value(supplied-labels, node-id)
+    let distance-value = if distances.at(node-id) == none {
+      $infinity$
+    } else {
+      distances.at(node-id)
+    }
+    let label-body = msg(
+      message-catalog,
+      "graph.distance",
+      distance-value,
+    )
+    let label-customization = (
+      color: rgb("#7048E8"),
+      weight: "bold",
+    )
+    let label-defaults = resolved-style.at("node-labels", default: (:))
+    if "gap" not in label-defaults { label-customization.gap = 0.5 }
+    if type(supplied-label) == dictionary {
+      label-customization += supplied-label
+    }
+    label-customization.content = label-body
+    distance-labels.push((node-id, label-customization))
+  }
+  distance-labels
+}
+
+#let _create-graph-algorithm-step(
   label, adjacency, directed, labels, positions, layout, radius,
   edge-customizations, node-customizations, node-labels, style,
   visited, current, queued, active,
   captions, distances: none, path: (), gap: auto, cat: default-catalog,
 ) = {
-  let th = resolve(style)
-  let nodes = _nodes(adjacency)
-  let state-nodes = _state-node-customizations(node-customizations, nodes, visited, current, queued, th)
-  let state-edges = _state-edge-customizations(edge-customizations, active, path, directed, th)
-  let state-labels = if distances == none { node-labels } else { _distance-node-labels(nodes, distances, node-labels, th, cat) }
-  let picture = _render(adjacency, directed, labels, positions, layout, radius, gap, state-edges, state-nodes, state-labels, th)
+  let resolved-style = resolve(style)
+  let node-ids = _collect-graph-node-ids(adjacency)
+  let state-node-customizations = _build-graph-state-node-customizations(
+    node-customizations,
+    node-ids,
+    visited,
+    current,
+    queued,
+    resolved-style,
+  )
+  let state-edge-customizations = _build-graph-state-edge-customizations(
+    edge-customizations,
+    active,
+    path,
+    directed,
+    resolved-style,
+  )
+  let state-node-labels = if distances == none {
+    node-labels
+  } else {
+    _build-distance-node-labels(
+      node-ids,
+      distances,
+      node-labels,
+      resolved-style,
+      cat,
+    )
+  }
+  let graph-diagram = _render-graph(
+    adjacency,
+    directed,
+    labels,
+    positions,
+    layout,
+    radius,
+    gap,
+    state-edge-customizations,
+    state-node-customizations,
+    state-node-labels,
+    resolved-style,
+  )
   (
     label: label,
     current: current,
@@ -656,35 +901,57 @@
     active-edge: active,
     path: path,
     diagram: align(center)[
-      #if captions [#text(..th.algorithm-label-text)[#label] #v(0.25em)]
-      #picture
+      #if captions [#text(..resolved-style.algorithm-label-text)[#label] #v(0.25em)]
+      #graph-diagram
     ],
   ) + if distances == none { (:) } else { (distances: distances,) }
 }
 
-#let _trace-result(steps, result, columns, row-gap) = (
+#let _create-graph-trace-result(steps, result, columns, row-gap) = (
   steps: steps,
   result: result,
   diagram: grid(columns: columns, column-gutter: row-gap, row-gutter: row-gap, ..steps.map(step => step.diagram)),
 )
 
-#let _path(previous, source, target, found) = {
+#let _reconstruct-graph-path(previous, source, target, found) = {
   if target == none or not found { return () }
-  let path = (target,)
-  let current = target
-  while current != source {
-    current = previous.at(current, default: none)
-    if current == none { return () }
-    path.push(current)
+  let reverse-path = (target,)
+  let current-node-id = target
+  while current-node-id != source {
+    current-node-id = previous.at(current-node-id, default: none)
+    if current-node-id == none { return () }
+    reverse-path.push(current-node-id)
   }
-  path.rev()
+  reverse-path.rev()
 }
 
-#let _validate-traversal(adjacency, source, target) = {
-  let nodes = _nodes(adjacency)
-  assert(source in nodes, message: "graph traversal source must be a node in the graph")
-  if target != none { assert(target in nodes, message: "graph traversal target must be a node in the graph") }
-  nodes
+#let _validate-graph-traversal(adjacency, source, target) = {
+  let node-ids = _collect-graph-node-ids(adjacency)
+  assert(source in node-ids, message: "graph traversal source must be a node in the graph")
+  if target != none {
+    assert(target in node-ids, message: "graph traversal target must be a node in the graph")
+  }
+  node-ids
+}
+
+#let _should-relax-edge(current-distance, edge-weight, neighbor-distance) = (
+  neighbor-distance == none or current-distance + edge-weight < neighbor-distance
+)
+
+#let _select-closest-unvisited-node(node-ids, distances, visited-node-ids) = {
+  let closest-node-id = none
+  for node-id in node-ids {
+    let node-is-reachable = distances.at(node-id) != none
+    if node-id not in visited-node-ids and node-is-reachable {
+      let node-is-closer = if closest-node-id == none {
+        true
+      } else {
+        distances.at(node-id) < distances.at(closest-node-id)
+      }
+      if node-is-closer { closest-node-id = node-id }
+    }
+  }
+  closest-node-id
 }
 
 #let bfs(
@@ -694,60 +961,136 @@
   goal-test: "discovery", language: "en", messages: (:),
 ) = {
   assert(goal-test in ("discovery", "expansion"), message: "bfs goal-test must be \"discovery\" or \"expansion\"")
-  let cat = resolve-catalog(language: language, messages: messages)
-  let nodes = _validate-traversal(adjacency, source, target)
+  let message-catalog = resolve-catalog(language: language, messages: messages)
+  let node-ids = _validate-graph-traversal(adjacency, source, target)
   let queue = (source,)
-  let seen = (:)
-  seen.insert(source, true)
-  let visited = ()
-  let order = ()
-  let previous = (:)
+  let discovered-node-ids = (:)
+  discovered-node-ids.insert(source, true)
+  let visited-node-ids = ()
+  let traversal-order = ()
+  let previous-node-by-id = (:)
   let steps = ()
-  let make(label, state-visited, state-queued, current: none, active: none) = _algorithm-step(
+  let create-step(label, state-visited, state-queued, current: none, active: none) = _create-graph-algorithm-step(
     label, adjacency, directed, labels, positions, layout, radius,
     edge-customizations, node-customizations, node-labels, style,
-    state-visited, current, state-queued, active, captions, gap: gap, cat: cat,
+    state-visited, current, state-queued, active, captions,
+    gap: gap, cat: message-catalog,
   )
-  steps.push(make(msg(cat, "graph.queue", source), visited, queue))
+  steps.push(create-step(
+    msg(message-catalog, "graph.queue", source),
+    visited-node-ids,
+    queue,
+  ))
   if target == source {
-    order.push(source)
-    visited.push(source)
-    steps.push(make(msg(cat, "graph.reached", target), visited, ()))
-    return _trace-result(steps, (order: order, found: true, path: (source,)), columns, row-gap)
+    traversal-order.push(source)
+    visited-node-ids.push(source)
+    steps.push(create-step(
+      msg(message-catalog, "graph.reached", target),
+      visited-node-ids,
+      (),
+    ))
+    return _create-graph-trace-result(
+      steps,
+      (order: traversal-order, found: true, path: (source,)),
+      columns,
+      row-gap,
+    )
   }
   while queue.len() > 0 {
-    let current = queue.first()
+    let current-node-id = queue.first()
     queue = queue.slice(1)
-    steps.push(make(msg(cat, "graph.visit", current), visited, queue, current: current))
-    order.push(current)
-    if goal-test == "expansion" and target != none and current == target {
-      visited.push(current)
-      steps.push(make(msg(cat, "graph.reached", target), visited, queue))
+    steps.push(create-step(
+      msg(message-catalog, "graph.visit", current-node-id),
+      visited-node-ids,
+      queue,
+      current: current-node-id,
+    ))
+    traversal-order.push(current-node-id)
+    let reached-target-on-expansion = (
+      goal-test == "expansion"
+        and target != none
+        and current-node-id == target
+    )
+    if reached-target-on-expansion {
+      visited-node-ids.push(current-node-id)
+      steps.push(create-step(
+        msg(message-catalog, "graph.reached", target),
+        visited-node-ids,
+        queue,
+      ))
       break
     }
-    let target-discovered = false
-    for neighbor in _neighbors(adjacency, current, directed) {
-      let next = neighbor.node
-      let discovered = next not in seen
-      if discovered {
-        seen.insert(next, true)
-        previous.insert(next, current)
-        queue.push(next)
+    let has-discovered-target = false
+    for neighbor in _collect-graph-neighbors(
+      adjacency,
+      current-node-id,
+      directed,
+    ) {
+      let neighbor-node-id = neighbor.node
+      let neighbor-is-new = neighbor-node-id not in discovered-node-ids
+      if neighbor-is-new {
+        discovered-node-ids.insert(neighbor-node-id, true)
+        previous-node-by-id.insert(neighbor-node-id, current-node-id)
+        queue.push(neighbor-node-id)
       }
-      steps.push(make(msg(cat, "graph.inspect", current, next), visited, queue, current: current, active: (current, next)))
-      if goal-test == "discovery" and target != none and discovered and next == target {
-        visited.push(current)
-        steps.push(make(msg(cat, "graph.reached", target), visited, queue, current: target))
-        target-discovered = true
+      steps.push(create-step(
+        msg(
+          message-catalog,
+          "graph.inspect",
+          current-node-id,
+          neighbor-node-id,
+        ),
+        visited-node-ids,
+        queue,
+        current: current-node-id,
+        active: (current-node-id, neighbor-node-id),
+      ))
+      let reached-target-on-discovery = (
+        goal-test == "discovery"
+          and target != none
+          and neighbor-is-new
+          and neighbor-node-id == target
+      )
+      if reached-target-on-discovery {
+        visited-node-ids.push(current-node-id)
+        steps.push(create-step(
+          msg(message-catalog, "graph.reached", target),
+          visited-node-ids,
+          queue,
+          current: target,
+        ))
+        has-discovered-target = true
         break
       }
     }
-    if target-discovered { break }
-    visited.push(current)
-    steps.push(make(msg(cat, "graph.finish", current), visited, queue))
+    if has-discovered-target { break }
+    visited-node-ids.push(current-node-id)
+    steps.push(create-step(
+      msg(message-catalog, "graph.finish", current-node-id),
+      visited-node-ids,
+      queue,
+    ))
   }
-  let found = if target == none { none } else { target in seen }
-  _trace-result(steps, (order: order, found: found, path: _path(previous, source, target, found == true)), columns, row-gap)
+  let found-target = if target == none {
+    none
+  } else {
+    target in discovered-node-ids
+  }
+  _create-graph-trace-result(
+    steps,
+    (
+      order: traversal-order,
+      found: found-target,
+      path: _reconstruct-graph-path(
+        previous-node-by-id,
+        source,
+        target,
+        found-target == true,
+      ),
+    ),
+    columns,
+    row-gap,
+  )
 }
 
 #let dfs(
@@ -756,47 +1099,98 @@
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
   language: "en", messages: (:),
 ) = {
-  let cat = resolve-catalog(language: language, messages: messages)
-  let nodes = _validate-traversal(adjacency, source, target)
+  let message-catalog = resolve-catalog(language: language, messages: messages)
+  let node-ids = _validate-graph-traversal(adjacency, source, target)
   let stack = (source,)
-  let seen = (:)
-  seen.insert(source, true)
-  let visited = ()
-  let order = ()
-  let previous = (:)
+  let discovered-node-ids = (:)
+  discovered-node-ids.insert(source, true)
+  let visited-node-ids = ()
+  let traversal-order = ()
+  let previous-node-by-id = (:)
   let steps = ()
-  let make(label, state-visited, state-queued, current: none, active: none) = _algorithm-step(
+  let create-step(label, state-visited, state-frontier, current: none, active: none) = _create-graph-algorithm-step(
     label, adjacency, directed, labels, positions, layout, radius,
     edge-customizations, node-customizations, node-labels, style,
-    state-visited, current, state-queued, active, captions, gap: gap, cat: cat,
+    state-visited, current, state-frontier, active, captions,
+    gap: gap, cat: message-catalog,
   )
-  steps.push(make(msg(cat, "graph.stack", source), visited, stack))
+  steps.push(create-step(
+    msg(message-catalog, "graph.stack", source),
+    visited-node-ids,
+    stack,
+  ))
   while stack.len() > 0 {
-    let current = stack.last()
+    let current-node-id = stack.last()
     stack = stack.slice(0, stack.len() - 1)
-    steps.push(make(msg(cat, "graph.visit", current), visited, stack, current: current))
-    order.push(current)
-    if target != none and current == target {
-      visited.push(current)
-      steps.push(make(msg(cat, "graph.reached", target), visited, stack))
+    steps.push(create-step(
+      msg(message-catalog, "graph.visit", current-node-id),
+      visited-node-ids,
+      stack,
+      current: current-node-id,
+    ))
+    traversal-order.push(current-node-id)
+    if target != none and current-node-id == target {
+      visited-node-ids.push(current-node-id)
+      steps.push(create-step(
+        msg(message-catalog, "graph.reached", target),
+        visited-node-ids,
+        stack,
+      ))
       break
     }
-    let discovered = ()
-    for neighbor in _neighbors(adjacency, current, directed) {
-      let next = neighbor.node
-      if next not in seen {
-        seen.insert(next, true)
-        previous.insert(next, current)
-        discovered.push(next)
+    let newly-discovered-node-ids = ()
+    for neighbor in _collect-graph-neighbors(
+      adjacency,
+      current-node-id,
+      directed,
+    ) {
+      let neighbor-node-id = neighbor.node
+      if neighbor-node-id not in discovered-node-ids {
+        discovered-node-ids.insert(neighbor-node-id, true)
+        previous-node-by-id.insert(neighbor-node-id, current-node-id)
+        newly-discovered-node-ids.push(neighbor-node-id)
       }
-      steps.push(make(msg(cat, "graph.inspect", current, next), visited, stack + discovered, current: current, active: (current, next)))
+      steps.push(create-step(
+        msg(
+          message-catalog,
+          "graph.inspect",
+          current-node-id,
+          neighbor-node-id,
+        ),
+        visited-node-ids,
+        stack + newly-discovered-node-ids,
+        current: current-node-id,
+        active: (current-node-id, neighbor-node-id),
+      ))
     }
-    stack += discovered.rev()
-    visited.push(current)
-    steps.push(make(msg(cat, "graph.finish", current), visited, stack))
+    stack += newly-discovered-node-ids.rev()
+    visited-node-ids.push(current-node-id)
+    steps.push(create-step(
+      msg(message-catalog, "graph.finish", current-node-id),
+      visited-node-ids,
+      stack,
+    ))
   }
-  let found = if target == none { none } else { target in seen }
-  _trace-result(steps, (order: order, found: found, path: _path(previous, source, target, found == true)), columns, row-gap)
+  let found-target = if target == none {
+    none
+  } else {
+    target in discovered-node-ids
+  }
+  _create-graph-trace-result(
+    steps,
+    (
+      order: traversal-order,
+      found: found-target,
+      path: _reconstruct-graph-path(
+        previous-node-by-id,
+        source,
+        target,
+        found-target == true,
+      ),
+    ),
+    columns,
+    row-gap,
+  )
 }
 
 #let dijkstra(
@@ -805,63 +1199,128 @@
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
   language: "en", messages: (:),
 ) = {
-  let cat = resolve-catalog(language: language, messages: messages)
-  let nodes = _validate-traversal(adjacency, source, target)
+  let message-catalog = resolve-catalog(language: language, messages: messages)
+  let node-ids = _validate-graph-traversal(adjacency, source, target)
   let distances = (:)
-  for node in nodes { distances.insert(node, if node == source { 0 } else { none }) }
-  let previous = (:)
-  let visited = ()
-  let order = ()
+  for node-id in node-ids {
+    distances.insert(node-id, if node-id == source { 0 } else { none })
+  }
+  let previous-node-by-id = (:)
+  let settled-node-ids = ()
+  let settlement-order = ()
   let steps = ()
-  let frontier(state-distances, state-visited, current: none) = nodes.filter(node => state-distances.at(node) != none and node not in state-visited and node != current)
-  let make(label, state-visited, state-distances, current: none, active: none, path: ()) = _algorithm-step(
+  let frontier-node-ids(state-distances, state-settled, current: none) = (
+    node-ids.filter(node-id => (
+      state-distances.at(node-id) != none
+        and node-id not in state-settled
+        and node-id != current
+    ))
+  )
+  let create-step(label, state-settled, state-distances, current: none, active: none, path: ()) = _create-graph-algorithm-step(
     label, adjacency, directed, labels, positions, layout, radius,
     edge-customizations, node-customizations, node-labels, style,
-    state-visited, current, frontier(state-distances, state-visited, current: current), active, captions, distances: state-distances, path: path, gap: gap, cat: cat,
+    state-settled,
+    current,
+    frontier-node-ids(state-distances, state-settled, current: current),
+    active,
+    captions,
+    distances: state-distances,
+    path: path,
+    gap: gap,
+    cat: message-catalog,
   )
-  steps.push(make(msg(cat, "graph.distance-init", source), visited, distances))
+  steps.push(create-step(
+    msg(message-catalog, "graph.distance-init", source),
+    settled-node-ids,
+    distances,
+  ))
   while true {
-    let current = none
-    for node in nodes {
-      if node not in visited and distances.at(node) != none and (current == none or distances.at(node) < distances.at(current)) {
-        current = node
-      }
-    }
-    if current == none { break }
-    steps.push(make(msg(cat, "graph.settle", current), visited, distances, current: current))
-    order.push(current)
-    if target != none and current == target {
-      visited.push(current)
-      steps.push(make(
-        msg(cat, "graph.shortest-path", target),
-        visited,
+    let current-node-id = _select-closest-unvisited-node(
+      node-ids,
+      distances,
+      settled-node-ids,
+    )
+    if current-node-id == none { break }
+    steps.push(create-step(
+      msg(message-catalog, "graph.settle", current-node-id),
+      settled-node-ids,
+      distances,
+      current: current-node-id,
+    ))
+    settlement-order.push(current-node-id)
+    if target != none and current-node-id == target {
+      settled-node-ids.push(current-node-id)
+      steps.push(create-step(
+        msg(message-catalog, "graph.shortest-path", target),
+        settled-node-ids,
         distances,
-        path: _path(previous, source, target, true),
+        path: _reconstruct-graph-path(
+          previous-node-by-id,
+          source,
+          target,
+          true,
+        ),
       ))
       break
     }
-    for neighbor in _neighbors(adjacency, current, directed) {
-      let next = neighbor.node
-      let weight = if neighbor.weight == none { 1 } else { neighbor.weight }
-      assert(type(weight) in (int, float) and weight >= 0, message: "dijkstra edge weights must be non-negative numbers")
-      if next not in visited {
-        let candidate = distances.at(current) + weight
-        if distances.at(next) == none or candidate < distances.at(next) {
-          distances.insert(next, candidate)
-          previous.insert(next, current)
+    for neighbor in _collect-graph-neighbors(
+      adjacency,
+      current-node-id,
+      directed,
+    ) {
+      let neighbor-node-id = neighbor.node
+      let edge-weight = if neighbor.weight == none { 1 } else { neighbor.weight }
+      assert(type(edge-weight) in (int, float) and edge-weight >= 0, message: "dijkstra edge weights must be non-negative numbers")
+      if neighbor-node-id not in settled-node-ids {
+        let current-distance = distances.at(current-node-id)
+        let neighbor-distance = distances.at(neighbor-node-id)
+        if _should-relax-edge(
+          current-distance,
+          edge-weight,
+          neighbor-distance,
+        ) {
+          distances.insert(
+            neighbor-node-id,
+            current-distance + edge-weight,
+          )
+          previous-node-by-id.insert(neighbor-node-id, current-node-id)
         }
       }
-      steps.push(make(msg(cat, "graph.relax", current, next), visited, distances, current: current, active: (current, next)))
+      steps.push(create-step(
+        msg(
+          message-catalog,
+          "graph.relax",
+          current-node-id,
+          neighbor-node-id,
+        ),
+        settled-node-ids,
+        distances,
+        current: current-node-id,
+        active: (current-node-id, neighbor-node-id),
+      ))
     }
-    visited.push(current)
-    steps.push(make(msg(cat, "graph.finish", current), visited, distances))
+    settled-node-ids.push(current-node-id)
+    steps.push(create-step(
+      msg(message-catalog, "graph.finish", current-node-id),
+      settled-node-ids,
+      distances,
+    ))
   }
-  let found = if target == none { none } else { distances.at(target) != none }
-  _trace-result(steps, (
+  let found-target = if target == none {
+    none
+  } else {
+    distances.at(target) != none
+  }
+  _create-graph-trace-result(steps, (
     distances: distances,
-    previous: previous,
-    order: order,
-    found: found,
-    path: _path(previous, source, target, found == true),
+    previous: previous-node-by-id,
+    order: settlement-order,
+    found: found-target,
+    path: _reconstruct-graph-path(
+      previous-node-by-id,
+      source,
+      target,
+      found-target == true,
+    ),
   ), columns, row-gap)
 }

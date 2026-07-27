@@ -1,74 +1,88 @@
 // Binary heaps (min and max), array-backed complete binary trees.
 //
-// A heap is stored as a plain array; index `i`'s children live at `2i+1` and
-// `2i+2`. Drawing reuses `tree.typ`'s node shape and `_place`/`_render`
-// pipeline, which lays out any binary tree by structure alone — converting
-// the array to that shape is all a heap needs to be drawable for free.
+// A heap is stored as an array; an entry at `heap-index` has children at
+// `2 * heap-index + 1` and `2 * heap-index + 2`. Rendering converts that array
+// into the binary-tree model shared with `tree.typ`.
 
 #import "style.typ": resolve
-#import "tree.typ": _node, _render, _marks, trans-view
+#import "tree.typ": _create-tree-node, _render-tree, _create-value-marks, trans-view
 #import "messages.typ": default-catalog, resolve-catalog, msg
 
-#let _array-to-tree(arr, i) = {
-  if i >= arr.len() { return none }
-  let n = _node(i)
-  n.label = arr.at(i)
-  n.left = _array-to-tree(arr, 2 * i + 1)
-  n.right = _array-to-tree(arr, 2 * i + 2)
-  n
+#let _convert-heap-array-to-tree(heap-values, heap-index) = {
+  if heap-index >= heap-values.len() { return none }
+  let tree-node = _create-tree-node(heap-index)
+  tree-node.label = heap-values.at(heap-index)
+  tree-node.left = _convert-heap-array-to-tree(heap-values, 2 * heap-index + 1)
+  tree-node.right = _convert-heap-array-to-tree(heap-values, 2 * heap-index + 2)
+  tree-node
 }
 
-#let _better(variant) = if variant == "max" { (a, b) => a > b } else { (a, b) => a < b }
+#let _heap-value-has-priority(variant) = if variant == "max" {
+  (node-value, parent-value) => node-value > parent-value
+} else {
+  (node-value, parent-value) => node-value < parent-value
+}
 
 // Sifts the last element up until the heap property holds. Returns the
 // indices visited, root first, so the caller can mark the swap path.
-#let _sift-up(arr, variant) = {
-  let better = _better(variant)
-  let i = arr.len() - 1
-  let path = (i,)
-  while i > 0 {
-    let p = calc.floor((i - 1) / 2)
-    if not better(arr.at(i), arr.at(p)) { break }
-    let tmp = arr.at(p)
-    arr.at(p) = arr.at(i)
-    arr.at(i) = tmp
-    i = p
-    path.push(i)
+#let _restore-heap-order-upward(heap-values, variant) = {
+  let has-priority = _heap-value-has-priority(variant)
+  let heap-index = heap-values.len() - 1
+  let visited-indices = (heap-index,)
+  while heap-index > 0 {
+    let parent-index = calc.floor((heap-index - 1) / 2)
+    let node-value = heap-values.at(heap-index)
+    let parent-value = heap-values.at(parent-index)
+    if not has-priority(node-value, parent-value) { break }
+    heap-values.at(parent-index) = node-value
+    heap-values.at(heap-index) = parent-value
+    heap-index = parent-index
+    visited-indices.push(heap-index)
   }
-  (arr, path)
+  (heap-values, visited-indices)
 }
 
 // Sifts the root down until the heap property holds. Returns the indices
 // visited, root first.
-#let _sift-down(arr, variant) = {
-  let better = _better(variant)
-  let n = arr.len()
-  let i = 0
-  let path = (0,)
+#let _restore-heap-order-downward(heap-values, variant) = {
+  let has-priority = _heap-value-has-priority(variant)
+  let heap-size = heap-values.len()
+  let heap-index = 0
+  let visited-indices = (0,)
   while true {
-    let l = 2 * i + 1
-    let r = 2 * i + 2
-    let m = i
-    if l < n and better(arr.at(l), arr.at(m)) { m = l }
-    if r < n and better(arr.at(r), arr.at(m)) { m = r }
-    if m == i { break }
-    let tmp = arr.at(i)
-    arr.at(i) = arr.at(m)
-    arr.at(m) = tmp
-    i = m
-    path.push(i)
+    let left-child-index = 2 * heap-index + 1
+    let right-child-index = 2 * heap-index + 2
+    let swap-child-index = heap-index
+    if left-child-index < heap-size and has-priority(
+      heap-values.at(left-child-index),
+      heap-values.at(swap-child-index),
+    ) {
+      swap-child-index = left-child-index
+    }
+    if right-child-index < heap-size and has-priority(
+      heap-values.at(right-child-index),
+      heap-values.at(swap-child-index),
+    ) {
+      swap-child-index = right-child-index
+    }
+    if swap-child-index == heap-index { break }
+    let node-value = heap-values.at(heap-index)
+    heap-values.at(heap-index) = heap-values.at(swap-child-index)
+    heap-values.at(swap-child-index) = node-value
+    heap-index = swap-child-index
+    visited-indices.push(heap-index)
   }
-  (arr, path)
+  (heap-values, visited-indices)
 }
 
-#let _build(variant, keys) = {
-  let arr = ()
-  for k in keys {
-    arr.push(k)
-    let (a, _) = _sift-up(arr, variant)
-    arr = a
+#let _build-heap(variant, keys) = {
+  let heap-values = ()
+  for key in keys {
+    heap-values.push(key)
+    let (heap-after-insertion, _) = _restore-heap-order-upward(heap-values, variant)
+    heap-values = heap-after-insertion
   }
-  arr
+  heap-values
 }
 
 // ── Operations ───────────────────────────────────────────────────────────────
@@ -78,72 +92,125 @@
 // Named `heap-insert`/`heap-extract` (rather than `insert`/`delete`) to avoid
 // colliding with the tree operations when both are imported.
 
-// `_marks` keys by node value, not position, so a swap path (a list of array
-// indices) has to be read back through the post-sift array to the keys now
-// sitting at those positions before it can be turned into a mark map. `kind`
-// is a highlight kind string, resolved against the caller's `style:` at draw
-// time (see `tree.typ`'s `mark-style`).
-#let _index-marks(path, kind) = _marks(path, kind)
+// Heap operation marks use array indices because the tree conversion uses each
+// index as node identity while displaying the corresponding heap value.
+#let _create-heap-index-marks(visited-indices, kind) = (
+  _create-value-marks(visited-indices, kind)
+)
 
 #let heap-insert(key, step-label: none, language: "en", messages: (:), catalog: none) = (variant, arr) => {
-  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
-  let a = arr + (key,)
-  let (after, path) = _sift-up(a, variant)
-  let inserted = path.last()
-  let ma = _index-marks(path, "path") + _index-marks((inserted,), "new")
-  (after, (:), ma, if step-label == none { msg(cat, "heap.insert", key) } else { step-label })
+  let heap-values = arr
+  let message-catalog = if catalog != none {
+    catalog
+  } else {
+    resolve-catalog(language: language, messages: messages)
+  }
+  let heap-with-new-value = heap-values + (key,)
+  let (heap-after-insertion, visited-indices) = _restore-heap-order-upward(
+    heap-with-new-value,
+    variant,
+  )
+  let inserted-index = visited-indices.last()
+  let after-marks = (
+    _create-heap-index-marks(visited-indices, "path")
+    + _create-heap-index-marks((inserted-index,), "new")
+  )
+  let label = if step-label == none {
+    msg(message-catalog, "heap.insert", key)
+  } else {
+    step-label
+  }
+  (heap-after-insertion, (:), after-marks, label)
 }
 
 // Removes and returns the root: the smallest key for a min-heap, largest for
 // a max-heap.
-#let _heap-extract-op(step-label: none, language: "en", messages: (:), catalog: none) = (variant, arr) => {
-  let cat = if catalog != none { catalog } else { resolve-catalog(language: language, messages: messages) }
-  let label = if step-label == none { msg(cat, "heap.extract") } else { step-label }
-  let mb = _index-marks((0,), "remove")
-  if arr.len() <= 1 { return ((), mb, (:), label) }
-  let a = arr
-  a.at(0) = a.at(a.len() - 1)
-  a = a.slice(0, a.len() - 1)
-  let (after, path) = _sift-down(a, variant)
-  (after, mb, _index-marks(path, "path"), label)
-}
-
-#let heap-extract = _heap-extract-op()
-
-// ── Public object ────────────────────────────────────────────────────────────
-
-#let _heap-obj(variant, arr, style: (:), catalog: default-catalog) = {
-  let draw(a, marks) = _render(_array-to-tree(a, 0), marks: marks, th: resolve(style))
-  let apply(op) = {
-    let (after, mb, ma, label) = op(variant, arr)
-    (
-      label: label,
-      before: draw(arr, mb),
-      after: draw(after, ma),
-      diagram: trans-view(draw(arr, mb), label, draw(after, ma), style: style),
-      result: _heap-obj(variant, after, style: style, catalog: catalog),
-    )
+#let _create-heap-extract-operation(step-label: none, language: "en", messages: (:), catalog: none) = (variant, heap-values) => {
+  let message-catalog = if catalog != none {
+    catalog
+  } else {
+    resolve-catalog(language: language, messages: messages)
   }
+  let label = if step-label == none {
+    msg(message-catalog, "heap.extract")
+  } else {
+    step-label
+  }
+  let before-marks = _create-heap-index-marks((0,), "remove")
+  if heap-values.len() <= 1 { return ((), before-marks, (:), label) }
+  let heap-without-root = heap-values
+  heap-without-root.at(0) = heap-without-root.at(heap-without-root.len() - 1)
+  heap-without-root = heap-without-root.slice(0, heap-without-root.len() - 1)
+  let (heap-after-extraction, visited-indices) = _restore-heap-order-downward(
+    heap-without-root,
+    variant,
+  )
   (
-    diagram: draw(arr, (:)),
-    insert: (key, step-label: none) => apply(heap-insert(key, step-label: step-label, catalog: catalog)),
-    extract: (step-label: none) => apply(_heap-extract-op(step-label: step-label, catalog: catalog)),
+    heap-after-extraction,
+    before-marks,
+    _create-heap-index-marks(visited-indices, "path"),
+    label,
   )
 }
 
-#let min-heap(style: (:), language: "en", messages: (:), ..keys) = _heap-obj("min", _build("min", keys.pos()), style: style, catalog: resolve-catalog(language: language, messages: messages))
-#let max-heap(style: (:), language: "en", messages: (:), ..keys) = _heap-obj("max", _build("max", keys.pos()), style: style, catalog: resolve-catalog(language: language, messages: messages))
+#let heap-extract = _create-heap-extract-operation()
+
+// ── Public object ────────────────────────────────────────────────────────────
+
+#let _create-heap-object(variant, heap-values, style: (:), catalog: default-catalog) = {
+  let render-heap(values, marks) = _render-tree(
+    _convert-heap-array-to-tree(values, 0),
+    marks: marks,
+    resolved-style: resolve(style),
+  )
+  let apply-operation(operation) = {
+    let (values-after-operation, before-marks, after-marks, label) = (
+      operation(variant, heap-values)
+    )
+    let before-diagram = render-heap(heap-values, before-marks)
+    let after-diagram = render-heap(values-after-operation, after-marks)
+    (
+      label: label,
+      before: before-diagram,
+      after: after-diagram,
+      diagram: trans-view(before-diagram, label, after-diagram, style: style),
+      result: _create-heap-object(variant, values-after-operation, style: style, catalog: catalog),
+    )
+  }
+  (
+    diagram: render-heap(heap-values, (:)),
+    insert: (key, step-label: none) => apply-operation(
+      heap-insert(key, step-label: step-label, catalog: catalog),
+    ),
+    extract: (step-label: none) => apply-operation(
+      _create-heap-extract-operation(step-label: step-label, catalog: catalog),
+    ),
+  )
+}
+
+#let min-heap(style: (:), language: "en", messages: (:), ..keys) = _create-heap-object("min", _build-heap("min", keys.pos()), style: style, catalog: resolve-catalog(language: language, messages: messages))
+#let max-heap(style: (:), language: "en", messages: (:), ..keys) = _create-heap-object("max", _build-heap("max", keys.pos()), style: style, catalog: resolve-catalog(language: language, messages: messages))
 
 // ── Transition ───────────────────────────────────────────────────────────────
 
 #let _transition(variant, keys, op, style: (:)) = {
-  let th = resolve(style)
-  let before = _build(variant, keys)
-  let (after, mb, ma, label) = op(variant, before)
+  let resolved-style = resolve(style)
+  let heap-before-operation = _build-heap(variant, keys)
+  let (heap-after-operation, before-marks, after-marks, label) = (
+    op(variant, heap-before-operation)
+  )
   trans-view(
-    _render(_array-to-tree(before, 0), marks: mb, th: th),
+    _render-tree(
+      _convert-heap-array-to-tree(heap-before-operation, 0),
+      marks: before-marks,
+      resolved-style: resolved-style,
+    ),
     label,
-    _render(_array-to-tree(after, 0), marks: ma, th: th),
+    _render-tree(
+      _convert-heap-array-to-tree(heap-after-operation, 0),
+      marks: after-marks,
+      resolved-style: resolved-style,
+    ),
     style: style,
   )
 }

@@ -6,7 +6,7 @@
 // the drawing (`diagram`) and the thing you operate on: operation fields
 // return a step `(label, before, after, diagram, result)`, like the trees.
 // `marks` maps `str(index)` to a highlight kind ("new"/"remove"), resolved
-// against `th`'s `<kind>-style` at draw time — so a per-call
+// against `resolved-style`'s `<kind>-style` at draw time — so a per-call
 // `style:` override actually reaches the mark, not just the theme default.
 
 #import "@preview/cetz:0.5.2"
@@ -15,18 +15,18 @@
 #import "messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, rect, content
 
-#let _ann(pos, body, th) = {
-  let text-style = th.pointer-text
+#let _render-linear-annotation(position, body, resolved-style) = {
+  let text-style = resolved-style.pointer-text
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  content(pos, text(..text-style)[#body], angle: rotation)
+  content(position, text(..text-style)[#body], angle: rotation)
 }
 
-#let _node-content(pos, body, th) = {
-  let text-style = th.value-text
+#let _render-linear-node-content(position, body, resolved-style) = {
+  let text-style = resolved-style.value-text
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  content(pos, text(..text-style)[#body], angle: rotation)
+  content(position, text(..text-style)[#body], angle: rotation)
 }
 
 // Shared terminator for linked structures and chained hash buckets.
@@ -35,40 +35,75 @@
 // A cell with its lower-left corner at `(x, y)`. `w` and `fill` default to
 // the theme's box width and fill; `mark`, when set, overrides fill/stroke via
 // `mark-style` and takes priority over a plain `fill:`.
-#let _cell(x, y, body, th, fill: auto, mark: none, w: auto) = {
-  let ww = if w == auto { th.box-w } else { w }
-  let base-fill = if fill == auto { th.box-fill } else { fill }
-  let m = if mark != none { resolve-mark-style(th, mark, base-fill: base-fill) } else { none }
-  let f = if m != none { m.fill } else { base-fill }
-  let s = if m != none { m.stroke } else { th.box-stroke }
-  let text-style = if m != none { m.text } else { th.value-text }
+#let _render-linear-cell(x, y, body, resolved-style, fill: auto, mark: none, w: auto) = {
+  let cell-width = if w == auto { resolved-style.box-w } else { w }
+  let base-fill = if fill == auto { resolved-style.box-fill } else { fill }
+  let mark-style = if mark != none {
+    resolve-mark-style(resolved-style, mark, base-fill: base-fill)
+  } else {
+    none
+  }
+  let cell-fill = if mark-style != none { mark-style.fill } else { base-fill }
+  let cell-stroke = if mark-style != none { mark-style.stroke } else { resolved-style.box-stroke }
+  let text-style = if mark-style != none { mark-style.text } else { resolved-style.value-text }
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
-  let radius = if th.box-shape == "rounded" { 20% } else if th.box-shape == "capsule" { 50% } else { 0% }
-  rect((x, y), (x + ww, y + th.box-h), radius: radius, stroke: s, fill: f)
-  content((x + ww / 2, y + th.box-h / 2), text(..text-style)[#body], angle: rotation)
+  let corner-radius = if resolved-style.box-shape == "rounded" {
+    20%
+  } else if resolved-style.box-shape == "capsule" {
+    50%
+  } else {
+    0%
+  }
+  rect(
+    (x, y),
+    (x + cell-width, y + resolved-style.box-h),
+    radius: corner-radius,
+    stroke: cell-stroke,
+    fill: cell-fill,
+  )
+  content(
+    (x + cell-width / 2, y + resolved-style.box-h / 2),
+    text(..text-style)[#body],
+    angle: rotation,
+  )
 }
 
-#let _mark(marks, i) = marks.at(str(i), default: none)
+#let _mark-at-index(marks, index) = marks.at(str(index), default: none)
 
-#let _insert-at(vs, index, value) = vs.slice(0, index) + (value,) + vs.slice(index)
-#let _delete-at(vs, index) = vs.slice(0, index) + vs.slice(index + 1)
-#let _addresses-insert(addresses, index) = if addresses == none { none } else { _insert-at(addresses, calc.min(index, addresses.len()), none) }
-#let _addresses-delete(addresses, index) = if addresses == none or index >= addresses.len() { addresses } else { _delete-at(addresses, index) }
-#let _path-marks(length) = {
+#let _insert-sequence-value(values, index, value) = (
+  values.slice(0, index) + (value,) + values.slice(index)
+)
+#let _delete-sequence-value(values, index) = (
+  values.slice(0, index) + values.slice(index + 1)
+)
+#let _insert-address-placeholder(addresses, index) = if addresses == none { none } else { _insert-sequence-value(addresses, calc.min(index, addresses.len()), none) }
+#let _delete-address(addresses, index) = if addresses == none or index >= addresses.len() { addresses } else { _delete-sequence-value(addresses, index) }
+#let _create-linear-path-marks(length) = {
   let marks = (:)
-  for i in range(length) { marks.insert(str(i), "path") }
+  for visited-index in range(length) {
+    marks.insert(str(visited-index), "path")
+  }
   marks
 }
 
-#let _head-arrow(th, x-right, cat) = {
-  let mid = th.box-h / 2
-  _ann((-th.box-gap - 1.0, mid), msg(cat, "list.head"), th)
-  line((-th.box-gap - 0.55, mid), (x-right, mid), mark: (end: ">"), stroke: th.box-stroke)
+#let _render-head-arrow(resolved-style, arrow-end-x, message-catalog) = {
+  let cell-midpoint-y = resolved-style.box-h / 2
+  _render-linear-annotation(
+    (-resolved-style.box-gap - 1.0, cell-midpoint-y),
+    msg(message-catalog, "list.head"),
+    resolved-style,
+  )
+  line(
+    (-resolved-style.box-gap - 0.55, cell-midpoint-y),
+    (arrow-end-x, cell-midpoint-y),
+    mark: (end: ">"),
+    stroke: resolved-style.box-stroke,
+  )
 }
 
 // Assemble an operation step from the rendered states and the next object.
-#let _step(label, before, after, result, style: (:)) = (
+#let _create-linear-operation-step(label, before, after, result, style: (:)) = (
   label: label,
   before: before,
   after: after,
@@ -78,247 +113,722 @@
 
 // ── Linked list ──────────────────────────────────────────────────────────────
 
-#let _linked-simple(vs, th, head, marks, cat) = {
-  let step = th.box-w + th.box-gap
+#let _render-simple-linked-list(values, resolved-style, should-render-head, marks, message-catalog) = {
+  let node-step = resolved-style.box-w + resolved-style.box-gap
   cetz.canvas({
-    for (i, v) in vs.enumerate() {
-      _cell(i * step, 0, v, th, mark: _mark(marks, i))
+    for (node-index, node-value) in values.enumerate() {
+      _render-linear-cell(
+        node-index * node-step,
+        0,
+        node-value,
+        resolved-style,
+        mark: _mark-at-index(marks, node-index),
+      )
       line(
-        (i * step + th.box-w, th.box-h / 2),
-        ((i + 1) * step, th.box-h / 2),
+        (
+          node-index * node-step + resolved-style.box-w,
+          resolved-style.box-h / 2,
+        ),
+        ((node-index + 1) * node-step, resolved-style.box-h / 2),
         mark: (end: ">"),
-        stroke: th.box-stroke,
+        stroke: resolved-style.box-stroke,
       )
     }
-    _ann((vs.len() * step + 0.18, th.box-h / 2), _null, th)
-    if head and vs.len() > 0 { _head-arrow(th, -0.05, cat) }
+    _render-linear-annotation(
+      (values.len() * node-step + 0.18, resolved-style.box-h / 2),
+      _null,
+      resolved-style,
+    )
+    if should-render-head and values.len() > 0 {
+      _render-head-arrow(resolved-style, -0.05, message-catalog)
+    }
   })
 }
 
 // Each node is a data cell plus a tinted next-pointer cell. Optional per-node
 // `addresses` are drawn underneath.
-#let _linked-pointer(vs, th, addresses, head, marks, cat) = {
-  let dw = th.box-w
-  let nw = th.box-w * 0.85
-  let nodew = dw + nw
-  let step = nodew + th.box-gap
+#let _render-pointer-linked-list(values, resolved-style, addresses, should-render-head, marks, message-catalog) = {
+  let data-cell-width = resolved-style.box-w
+  let pointer-cell-width = resolved-style.box-w * 0.85
+  let node-width = data-cell-width + pointer-cell-width
+  let node-step = node-width + resolved-style.box-gap
   cetz.canvas({
-    for (i, v) in vs.enumerate() {
-      let x = i * step
-      _cell(x, 0, v, th, mark: _mark(marks, i))
-      _cell(x + dw, 0, if i == vs.len() - 1 { text(size: 0.72em)[NULL] } else { [] }, th, fill: th.ptr-fill, w: nw)
-      if i < vs.len() - 1 {
-        line((x + nodew, th.box-h / 2), (x + step, th.box-h / 2), mark: (end: ">"), stroke: th.box-stroke)
+    for (node-index, node-value) in values.enumerate() {
+      let node-x = node-index * node-step
+      _render-linear-cell(
+        node-x,
+        0,
+        node-value,
+        resolved-style,
+        mark: _mark-at-index(marks, node-index),
+      )
+      let pointer-body = if node-index == values.len() - 1 {
+        text(size: 0.72em)[NULL]
+      } else {
+        []
       }
-      if addresses != none and i < addresses.len() {
-        _ann((x + nodew / 2, -0.32), addresses.at(i), th)
+      _render-linear-cell(
+        node-x + data-cell-width,
+        0,
+        pointer-body,
+        resolved-style,
+        fill: resolved-style.ptr-fill,
+        w: pointer-cell-width,
+      )
+      if node-index < values.len() - 1 {
+        line(
+          (node-x + node-width, resolved-style.box-h / 2),
+          (node-x + node-step, resolved-style.box-h / 2),
+          mark: (end: ">"),
+          stroke: resolved-style.box-stroke,
+        )
+      }
+      if addresses != none and node-index < addresses.len() {
+        _render-linear-annotation(
+          (node-x + node-width / 2, -0.32),
+          addresses.at(node-index),
+          resolved-style,
+        )
       }
     }
-    if head and vs.len() > 0 { _head-arrow(th, -0.05, cat) }
+    if should-render-head and values.len() > 0 {
+      _render-head-arrow(resolved-style, -0.05, message-catalog)
+    }
   })
 }
 
-#let _linked-render(vs, th, pointer, addresses, head, marks, cat: default-catalog) = scaled(th,
-  if pointer { _linked-pointer(vs, th, addresses, head, marks, cat) } else { _linked-simple(vs, th, head, marks, cat) }
+#let _render-linked-list(values, resolved-style, uses-pointer-cells, addresses, should-render-head, marks, cat: default-catalog) = scaled(resolved-style,
+  if uses-pointer-cells {
+    _render-pointer-linked-list(
+      values,
+      resolved-style,
+      addresses,
+      should-render-head,
+      marks,
+      cat,
+    )
+  } else {
+    _render-simple-linked-list(
+      values,
+      resolved-style,
+      should-render-head,
+      marks,
+      cat,
+    )
+  }
 )
 
 // `insert` appends by default or inserts at `index`; `delete` removes the first
 // matching value. `prepend`, `delete-at`, and `search` cover the other common
 // teaching operations without changing the original call shapes.
-#let _linked-obj(vs, style, pointer, addresses, head, cat) = {
-  let th = resolve(style)
-  let draw(vals, marks) = _linked-render(vals, th, pointer, addresses, head, marks, cat: cat)
+#let _create-linked-list-object(values, style, pointer, addresses, head, message-catalog) = {
+  let resolved-style = resolve(style)
+  let render-values(current-values, marks) = _render-linked-list(
+    current-values,
+    resolved-style,
+    pointer,
+    addresses,
+    head,
+    marks,
+    cat: message-catalog,
+  )
   (
-    diagram: draw(vs, (:)),
+    diagram: render-values(values, (:)),
     insert: (v, index: none, step-label: none) => {
-      let i = if index == none { vs.len() } else { index }
-      assert(type(i) == int and i >= 0 and i <= vs.len(), message: "linked-list insert index must be between 0 and the list length")
-      let after = _insert-at(vs, i, v)
-      let next-addresses = _addresses-insert(addresses, i)
-      _step(
-      if step-label == none { if index == none { msg(cat, "list.insert", v) } else { msg(cat, "list.insert-at", v, i) } } else { step-label },
-      draw(vs, (:)),
-      _linked-render(after, th, pointer, next-addresses, head, (str(i): "new"), cat: cat),
-      _linked-obj(after, style, pointer, next-addresses, head, cat),
-      style: style,
-    )
+      let insertion-index = if index == none { values.len() } else { index }
+      assert(type(insertion-index) == int and insertion-index >= 0 and insertion-index <= values.len(), message: "linked-list insert index must be between 0 and the list length")
+      let values-after-insertion = _insert-sequence-value(values, insertion-index, v)
+      let addresses-after-insertion = _insert-address-placeholder(addresses, insertion-index)
+      _create-linear-operation-step(
+        if step-label == none {
+          if index == none {
+            msg(message-catalog, "list.insert", v)
+          } else {
+            msg(message-catalog, "list.insert-at", v, insertion-index)
+          }
+        } else {
+          step-label
+        },
+        render-values(values, (:)),
+        _render-linked-list(
+          values-after-insertion,
+          resolved-style,
+          pointer,
+          addresses-after-insertion,
+          head,
+          (str(insertion-index): "new"),
+          cat: message-catalog,
+        ),
+        _create-linked-list-object(
+          values-after-insertion,
+          style,
+          pointer,
+          addresses-after-insertion,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      )
     },
     prepend: (v, step-label: none) => {
-      let after = (v,) + vs
-      let next-addresses = _addresses-insert(addresses, 0)
-      _step(if step-label == none { msg(cat, "list.prepend", v) } else { step-label }, draw(vs, (:)),
-        _linked-render(after, th, pointer, next-addresses, head, ("0": "new"), cat: cat),
-        _linked-obj(after, style, pointer, next-addresses, head, cat), style: style)
+      let values-after-prepend = (v,) + values
+      let addresses-after-prepend = _insert-address-placeholder(addresses, 0)
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "list.prepend", v)
+        } else {
+          step-label
+        },
+        render-values(values, (:)),
+        _render-linked-list(
+          values-after-prepend,
+          resolved-style,
+          pointer,
+          addresses-after-prepend,
+          head,
+          ("0": "new"),
+          cat: message-catalog,
+        ),
+        _create-linked-list-object(
+          values-after-prepend,
+          style,
+          pointer,
+          addresses-after-prepend,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      )
     },
     delete: (v, step-label: none) => {
-      let i = vs.position(x => x == v)
-      let rest = if i == none { vs } else { vs.slice(0, i) + vs.slice(i + 1) }
-      let mb = if i == none { (:) } else { (str(i): "remove") }
-      let next-addresses = if i == none { addresses } else { _addresses-delete(addresses, i) }
-      _step(if step-label == none { msg(cat, "list.delete", v) } else { step-label }, draw(vs, mb),
-        _linked-render(rest, th, pointer, next-addresses, head, (:), cat: cat),
-        _linked-obj(rest, style, pointer, next-addresses, head, cat), style: style)
+      let deletion-index = values.position(node-value => node-value == v)
+      let values-after-deletion = if deletion-index == none {
+        values
+      } else {
+        _delete-sequence-value(values, deletion-index)
+      }
+      let before-marks = if deletion-index == none {
+        (:)
+      } else {
+        (str(deletion-index): "remove")
+      }
+      let addresses-after-deletion = if deletion-index == none {
+        addresses
+      } else {
+        _delete-address(addresses, deletion-index)
+      }
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "list.delete", v)
+        } else {
+          step-label
+        },
+        render-values(values, before-marks),
+        _render-linked-list(
+          values-after-deletion,
+          resolved-style,
+          pointer,
+          addresses-after-deletion,
+          head,
+          (:),
+          cat: message-catalog,
+        ),
+        _create-linked-list-object(
+          values-after-deletion,
+          style,
+          pointer,
+          addresses-after-deletion,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      )
     },
     delete-at: (index, step-label: none) => {
-      assert(type(index) == int and index >= 0 and index < vs.len(), message: "linked-list delete-at index must identify an existing node")
-      let after = _delete-at(vs, index)
-      let next-addresses = _addresses-delete(addresses, index)
-      _step(if step-label == none { msg(cat, "list.delete-at", index) } else { step-label }, draw(vs, (str(index): "remove")),
-        _linked-render(after, th, pointer, next-addresses, head, (:), cat: cat),
-        _linked-obj(after, style, pointer, next-addresses, head, cat), style: style)
+      assert(type(index) == int and index >= 0 and index < values.len(), message: "linked-list delete-at index must identify an existing node")
+      let values-after-deletion = _delete-sequence-value(values, index)
+      let addresses-after-deletion = _delete-address(addresses, index)
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "list.delete-at", index)
+        } else {
+          step-label
+        },
+        render-values(values, (str(index): "remove")),
+        _render-linked-list(
+          values-after-deletion,
+          resolved-style,
+          pointer,
+          addresses-after-deletion,
+          head,
+          (:),
+          cat: message-catalog,
+        ),
+        _create-linked-list-object(
+          values-after-deletion,
+          style,
+          pointer,
+          addresses-after-deletion,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      )
     },
     search: (v, step-label: none) => {
-      let i = vs.position(x => x == v)
-      let count = if i == none { vs.len() } else { i + 1 }
-      _step(if step-label == none { msg(cat, "list.search", v) } else { step-label }, draw(vs, (:)), draw(vs, _path-marks(count)),
-        _linked-obj(vs, style, pointer, addresses, head, cat), style: style) + (found: i != none, index: i)
+      let found-index = values.position(node-value => node-value == v)
+      let visited-count = if found-index == none {
+        values.len()
+      } else {
+        found-index + 1
+      }
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "list.search", v)
+        } else {
+          step-label
+        },
+        render-values(values, (:)),
+        render-values(values, _create-linear-path-marks(visited-count)),
+        _create-linked-list-object(
+          values,
+          style,
+          pointer,
+          addresses,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      ) + (found: found-index != none, index: found-index)
     },
   )
 }
 
 #let linked-list(style: (:), pointer: false, addresses: none, head: false, language: "en", messages: (:), ..vals) = {
-  _linked-obj(vals.pos(), style, pointer, addresses, head, resolve-catalog(language: language, messages: messages))
+  _create-linked-list-object(vals.pos(), style, pointer, addresses, head, resolve-catalog(language: language, messages: messages))
 }
 
 // ── Doubly linked list ───────────────────────────────────────────────────────
 
-#let _double-arrows(a, b, th) = {
-  let y1 = th.box-h * 0.68
-  let y2 = th.box-h * 0.32
-  line((a, y1), (b, y1), mark: (end: ">"), stroke: th.box-stroke)
-  line((b, y2), (a, y2), mark: (end: ">"), stroke: th.box-stroke)
+#let _render-doubly-linked-arrows(left-x, right-x, resolved-style) = {
+  let forward-arrow-y = resolved-style.box-h * 0.68
+  let backward-arrow-y = resolved-style.box-h * 0.32
+  line(
+    (left-x, forward-arrow-y),
+    (right-x, forward-arrow-y),
+    mark: (end: ">"),
+    stroke: resolved-style.box-stroke,
+  )
+  line(
+    (right-x, backward-arrow-y),
+    (left-x, backward-arrow-y),
+    mark: (end: ">"),
+    stroke: resolved-style.box-stroke,
+  )
 }
 
-#let _doubly-simple(vs, th, head, marks, cat) = {
-  let step = th.box-w + th.box-gap
+#let _render-simple-doubly-linked-list(values, resolved-style, should-render-head, marks, message-catalog) = {
+  let node-step = resolved-style.box-w + resolved-style.box-gap
   cetz.canvas({
-    for (i, v) in vs.enumerate() {
-      let x = i * step
-      _cell(x, 0, v, th, mark: _mark(marks, i))
-      if i < vs.len() - 1 {
-        _double-arrows(x + th.box-w, (i + 1) * step, th)
+    for (node-index, node-value) in values.enumerate() {
+      let node-x = node-index * node-step
+      _render-linear-cell(
+        node-x,
+        0,
+        node-value,
+        resolved-style,
+        mark: _mark-at-index(marks, node-index),
+      )
+      if node-index < values.len() - 1 {
+        _render-doubly-linked-arrows(
+          node-x + resolved-style.box-w,
+          (node-index + 1) * node-step,
+          resolved-style,
+        )
       }
     }
-    if vs.len() > 0 {
-      let x = (vs.len() - 1) * step
-      line((x + th.box-w, th.box-h * 0.68), (x + step, th.box-h * 0.68), mark: (end: ">"), stroke: th.box-stroke)
-      _ann((x + step + 0.18, th.box-h / 2), _null, th)
-      if head { _head-arrow(th, -0.05, cat) }
+    if values.len() > 0 {
+      let last-node-x = (values.len() - 1) * node-step
+      line(
+        (
+          last-node-x + resolved-style.box-w,
+          resolved-style.box-h * 0.68,
+        ),
+        (
+          last-node-x + node-step,
+          resolved-style.box-h * 0.68,
+        ),
+        mark: (end: ">"),
+        stroke: resolved-style.box-stroke,
+      )
+      _render-linear-annotation(
+        (
+          last-node-x + node-step + 0.18,
+          resolved-style.box-h / 2,
+        ),
+        _null,
+        resolved-style,
+      )
+      if should-render-head {
+        _render-head-arrow(resolved-style, -0.05, message-catalog)
+      }
     } else {
-      _ann((th.box-w / 2, th.box-h / 2), _null, th)
+      _render-linear-annotation(
+        (resolved-style.box-w / 2, resolved-style.box-h / 2),
+        _null,
+        resolved-style,
+      )
     }
   })
 }
 
-#let _doubly-pointer(vs, th, addresses, head, marks, cat) = {
-  let pw = th.box-w * 0.72
-  let dw = th.box-w
-  let nodew = pw + dw + pw
-  let step = nodew + th.box-gap
+#let _render-pointer-doubly-linked-list(values, resolved-style, addresses, should-render-head, marks, message-catalog) = {
+  let pointer-cell-width = resolved-style.box-w * 0.72
+  let data-cell-width = resolved-style.box-w
+  let node-width = pointer-cell-width + data-cell-width + pointer-cell-width
+  let node-step = node-width + resolved-style.box-gap
   cetz.canvas({
-    for (i, v) in vs.enumerate() {
-      let x = i * step
-      _cell(x, 0, if i == 0 { text(size: 0.62em)[NULL] } else { [] }, th, fill: th.prev-ptr-fill, w: pw)
-      _cell(x + pw, 0, v, th, mark: _mark(marks, i), w: dw)
-      _cell(x + pw + dw, 0, if i == vs.len() - 1 { text(size: 0.62em)[NULL] } else { [] }, th, fill: th.next-ptr-fill, w: pw)
-      if i < vs.len() - 1 {
-        _double-arrows(x + nodew, (i + 1) * step, th)
+    for (node-index, node-value) in values.enumerate() {
+      let node-x = node-index * node-step
+      _render-linear-cell(
+        node-x,
+        0,
+        if node-index == 0 { text(size: 0.62em)[NULL] } else { [] },
+        resolved-style,
+        fill: resolved-style.prev-ptr-fill,
+        w: pointer-cell-width,
+      )
+      _render-linear-cell(
+        node-x + pointer-cell-width,
+        0,
+        node-value,
+        resolved-style,
+        mark: _mark-at-index(marks, node-index),
+        w: data-cell-width,
+      )
+      _render-linear-cell(
+        node-x + pointer-cell-width + data-cell-width,
+        0,
+        if node-index == values.len() - 1 {
+          text(size: 0.62em)[NULL]
+        } else {
+          []
+        },
+        resolved-style,
+        fill: resolved-style.next-ptr-fill,
+        w: pointer-cell-width,
+      )
+      if node-index < values.len() - 1 {
+        _render-doubly-linked-arrows(
+          node-x + node-width,
+          (node-index + 1) * node-step,
+          resolved-style,
+        )
       }
-      if addresses != none and i < addresses.len() {
-        _ann((x + nodew / 2, -0.32), addresses.at(i), th)
+      if addresses != none and node-index < addresses.len() {
+        _render-linear-annotation(
+          (node-x + node-width / 2, -0.32),
+          addresses.at(node-index),
+          resolved-style,
+        )
       }
     }
-    if head and vs.len() > 0 { _head-arrow(th, -0.05, cat) }
+    if should-render-head and values.len() > 0 {
+      _render-head-arrow(resolved-style, -0.05, message-catalog)
+    }
   })
 }
 
-#let _doubly-render(vs, th, pointer, addresses, head, marks, cat: default-catalog) = scaled(th,
-  if pointer { _doubly-pointer(vs, th, addresses, head, marks, cat) } else { _doubly-simple(vs, th, head, marks, cat) }
+#let _render-doubly-linked-list(
+  values,
+  resolved-style,
+  uses-pointer-cells,
+  addresses,
+  should-render-head,
+  marks,
+  cat: default-catalog,
+) = scaled(resolved-style,
+  if uses-pointer-cells {
+    _render-pointer-doubly-linked-list(
+      values,
+      resolved-style,
+      addresses,
+      should-render-head,
+      marks,
+      cat,
+    )
+  } else {
+    _render-simple-doubly-linked-list(
+      values,
+      resolved-style,
+      should-render-head,
+      marks,
+      cat,
+    )
+  }
 )
 
-#let _doubly-obj(vs, style, pointer, addresses, head, cat) = {
-  let th = resolve(style)
-  let draw(vals, marks) = _doubly-render(vals, th, pointer, addresses, head, marks, cat: cat)
+#let _create-doubly-linked-list-object(values, style, pointer, addresses, head, message-catalog) = {
+  let resolved-style = resolve(style)
+  let render-values(current-values, marks) = _render-doubly-linked-list(
+    current-values,
+    resolved-style,
+    pointer,
+    addresses,
+    head,
+    marks,
+    cat: message-catalog,
+  )
   (
-    diagram: draw(vs, (:)),
+    diagram: render-values(values, (:)),
     insert: (v, index: none, step-label: none) => {
-      let i = if index == none { vs.len() } else { index }
-      assert(type(i) == int and i >= 0 and i <= vs.len(), message: "doubly-linked-list insert index must be between 0 and the list length")
-      let after = _insert-at(vs, i, v)
-      let next-addresses = _addresses-insert(addresses, i)
-      _step(
-      if step-label == none { if index == none { msg(cat, "list.insert", v) } else { msg(cat, "list.insert-at", v, i) } } else { step-label },
-      draw(vs, (:)),
-      _doubly-render(after, th, pointer, next-addresses, head, (str(i): "new"), cat: cat),
-      _doubly-obj(after, style, pointer, next-addresses, head, cat),
-      style: style,
-    )
+      let insertion-index = if index == none { values.len() } else { index }
+      assert(type(insertion-index) == int and insertion-index >= 0 and insertion-index <= values.len(), message: "doubly-linked-list insert index must be between 0 and the list length")
+      let values-after-insertion = _insert-sequence-value(
+        values,
+        insertion-index,
+        v,
+      )
+      let addresses-after-insertion = _insert-address-placeholder(
+        addresses,
+        insertion-index,
+      )
+      _create-linear-operation-step(
+        if step-label == none {
+          if index == none {
+            msg(message-catalog, "list.insert", v)
+          } else {
+            msg(message-catalog, "list.insert-at", v, insertion-index)
+          }
+        } else {
+          step-label
+        },
+        render-values(values, (:)),
+        _render-doubly-linked-list(
+          values-after-insertion,
+          resolved-style,
+          pointer,
+          addresses-after-insertion,
+          head,
+          (str(insertion-index): "new"),
+          cat: message-catalog,
+        ),
+        _create-doubly-linked-list-object(
+          values-after-insertion,
+          style,
+          pointer,
+          addresses-after-insertion,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      )
     },
     prepend: (v, step-label: none) => {
-      let after = (v,) + vs
-      let next-addresses = _addresses-insert(addresses, 0)
-      _step(if step-label == none { msg(cat, "list.prepend", v) } else { step-label }, draw(vs, (:)),
-        _doubly-render(after, th, pointer, next-addresses, head, ("0": "new"), cat: cat),
-        _doubly-obj(after, style, pointer, next-addresses, head, cat), style: style)
+      let values-after-prepend = (v,) + values
+      let addresses-after-prepend = _insert-address-placeholder(addresses, 0)
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "list.prepend", v)
+        } else {
+          step-label
+        },
+        render-values(values, (:)),
+        _render-doubly-linked-list(
+          values-after-prepend,
+          resolved-style,
+          pointer,
+          addresses-after-prepend,
+          head,
+          ("0": "new"),
+          cat: message-catalog,
+        ),
+        _create-doubly-linked-list-object(
+          values-after-prepend,
+          style,
+          pointer,
+          addresses-after-prepend,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      )
     },
     delete: (v, step-label: none) => {
-      let i = vs.position(x => x == v)
-      let rest = if i == none { vs } else { vs.slice(0, i) + vs.slice(i + 1) }
-      let mb = if i == none { (:) } else { (str(i): "remove") }
-      let next-addresses = if i == none { addresses } else { _addresses-delete(addresses, i) }
-      _step(if step-label == none { msg(cat, "list.delete", v) } else { step-label }, draw(vs, mb),
-        _doubly-render(rest, th, pointer, next-addresses, head, (:), cat: cat),
-        _doubly-obj(rest, style, pointer, next-addresses, head, cat), style: style)
+      let deletion-index = values.position(node-value => node-value == v)
+      let values-after-deletion = if deletion-index == none {
+        values
+      } else {
+        _delete-sequence-value(values, deletion-index)
+      }
+      let before-marks = if deletion-index == none {
+        (:)
+      } else {
+        (str(deletion-index): "remove")
+      }
+      let addresses-after-deletion = if deletion-index == none {
+        addresses
+      } else {
+        _delete-address(addresses, deletion-index)
+      }
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "list.delete", v)
+        } else {
+          step-label
+        },
+        render-values(values, before-marks),
+        _render-doubly-linked-list(
+          values-after-deletion,
+          resolved-style,
+          pointer,
+          addresses-after-deletion,
+          head,
+          (:),
+          cat: message-catalog,
+        ),
+        _create-doubly-linked-list-object(
+          values-after-deletion,
+          style,
+          pointer,
+          addresses-after-deletion,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      )
     },
     delete-at: (index, step-label: none) => {
-      assert(type(index) == int and index >= 0 and index < vs.len(), message: "doubly-linked-list delete-at index must identify an existing node")
-      let after = _delete-at(vs, index)
-      let next-addresses = _addresses-delete(addresses, index)
-      _step(if step-label == none { msg(cat, "list.delete-at", index) } else { step-label }, draw(vs, (str(index): "remove")),
-        _doubly-render(after, th, pointer, next-addresses, head, (:), cat: cat),
-        _doubly-obj(after, style, pointer, next-addresses, head, cat), style: style)
+      assert(type(index) == int and index >= 0 and index < values.len(), message: "doubly-linked-list delete-at index must identify an existing node")
+      let values-after-deletion = _delete-sequence-value(values, index)
+      let addresses-after-deletion = _delete-address(addresses, index)
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "list.delete-at", index)
+        } else {
+          step-label
+        },
+        render-values(values, (str(index): "remove")),
+        _render-doubly-linked-list(
+          values-after-deletion,
+          resolved-style,
+          pointer,
+          addresses-after-deletion,
+          head,
+          (:),
+          cat: message-catalog,
+        ),
+        _create-doubly-linked-list-object(
+          values-after-deletion,
+          style,
+          pointer,
+          addresses-after-deletion,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      )
     },
     search: (v, step-label: none) => {
-      let i = vs.position(x => x == v)
-      let count = if i == none { vs.len() } else { i + 1 }
-      _step(if step-label == none { msg(cat, "list.search", v) } else { step-label }, draw(vs, (:)), draw(vs, _path-marks(count)),
-        _doubly-obj(vs, style, pointer, addresses, head, cat), style: style) + (found: i != none, index: i)
+      let found-index = values.position(node-value => node-value == v)
+      let visited-count = if found-index == none {
+        values.len()
+      } else {
+        found-index + 1
+      }
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "list.search", v)
+        } else {
+          step-label
+        },
+        render-values(values, (:)),
+        render-values(values, _create-linear-path-marks(visited-count)),
+        _create-doubly-linked-list-object(
+          values,
+          style,
+          pointer,
+          addresses,
+          head,
+          message-catalog,
+        ),
+        style: style,
+      ) + (found: found-index != none, index: found-index)
     },
   )
 }
 
 #let doubly-linked-list(style: (:), pointer: false, addresses: none, head: false, language: "en", messages: (:), ..vals) = {
-  _doubly-obj(vals.pos(), style, pointer, addresses, head, resolve-catalog(language: language, messages: messages))
+  _create-doubly-linked-list-object(vals.pos(), style, pointer, addresses, head, resolve-catalog(language: language, messages: messages))
 }
 
 // ── Stack ────────────────────────────────────────────────────────────────────
 
 // First value is the top of the stack.
-#let _stack-render(vs, th, marks, top-label) = {
-  let step = th.box-h + th.box-gap * 0.35
-  let label-gap = if th.box-gap > 0.45 { th.box-gap } else { 0.45 }
-  scaled(th, cetz.canvas({
-    for (i, v) in vs.enumerate() { _cell(0, -i * step, v, th, mark: _mark(marks, i)) }
-    if vs.len() > 0 { _ann((th.box-w + label-gap, th.box-h / 2), top-label, th) }
+#let _render-stack(values, resolved-style, marks, top-label) = {
+  let cell-step = resolved-style.box-h + resolved-style.box-gap * 0.35
+  let label-gap = if resolved-style.box-gap > 0.45 {
+    resolved-style.box-gap
+  } else {
+    0.45
+  }
+  scaled(resolved-style, cetz.canvas({
+    for (cell-index, cell-value) in values.enumerate() {
+      _render-linear-cell(
+        0,
+        -cell-index * cell-step,
+        cell-value,
+        resolved-style,
+        mark: _mark-at-index(marks, cell-index),
+      )
+    }
+    if values.len() > 0 {
+      _render-linear-annotation(
+        (
+          resolved-style.box-w + label-gap,
+          resolved-style.box-h / 2,
+        ),
+        top-label,
+        resolved-style,
+      )
+    }
   }))
 }
 
-#let _stack-obj(vs, style, top-label, cat) = {
-  let th = resolve((box-gap: 0) + style)
+#let _create-stack-object(values, style, top-label, message-catalog) = {
+  let resolved-style = resolve((box-gap: 0) + style)
   (
-    diagram: _stack-render(vs, th, (:), top-label),
-    push: (v, step-label: none) => _step(
-      if step-label == none { msg(cat, "stack.push", v) } else { step-label },
-      _stack-render(vs, th, (:), top-label),
-      _stack-render((v,) + vs, th, ("0": "new"), top-label),
-      _stack-obj((v,) + vs, style, top-label, cat),
+    diagram: _render-stack(values, resolved-style, (:), top-label),
+    push: (v, step-label: none) => _create-linear-operation-step(
+      if step-label == none {
+        msg(message-catalog, "stack.push", v)
+      } else {
+        step-label
+      },
+      _render-stack(values, resolved-style, (:), top-label),
+      _render-stack((v,) + values, resolved-style, ("0": "new"), top-label),
+      _create-stack-object(
+        (v,) + values,
+        style,
+        top-label,
+        message-catalog,
+      ),
       style: style,
     ),
-    pop: (step-label: none) => _step(
-      if step-label == none { msg(cat, "stack.pop") } else { step-label },
-      _stack-render(vs, th, ("0": "remove"), top-label),
-      _stack-render(vs.slice(1), th, (:), top-label),
-      _stack-obj(vs.slice(1), style, top-label, cat),
+    pop: (step-label: none) => _create-linear-operation-step(
+      if step-label == none {
+        msg(message-catalog, "stack.pop")
+      } else {
+        step-label
+      },
+      _render-stack(values, resolved-style, ("0": "remove"), top-label),
+      _render-stack(values.slice(1), resolved-style, (:), top-label),
+      _create-stack-object(
+        values.slice(1),
+        style,
+        top-label,
+        message-catalog,
+      ),
       style: style,
     ),
   )
@@ -326,9 +836,18 @@
 
 // `top-label: auto` uses the localized default; pass any content to override it.
 #let stack(style: (:), top-label: auto, language: "en", messages: (:), ..vals) = {
-  let cat = resolve-catalog(language: language, messages: messages)
-  let label = if top-label == auto { msg(cat, "stack.top") } else { top-label }
-  _stack-obj(vals.pos(), style, label, cat)
+  let message-catalog = resolve-catalog(language: language, messages: messages)
+  let resolved-top-label = if top-label == auto {
+    msg(message-catalog, "stack.top")
+  } else {
+    top-label
+  }
+  _create-stack-object(
+    vals.pos(),
+    style,
+    resolved-top-label,
+    message-catalog,
+  )
 }
 
 // ── Queue ────────────────────────────────────────────────────────────────────
@@ -336,54 +855,147 @@
 // Cells are contiguous (array view). The `enqueue`/`dequeue` builder arguments
 // draw an external element entering at the rear or leaving the front in a
 // single frame; the object's operations render a before → after step instead.
-#let _queue-render(vs, th, marks, enq, deq, front-label, rear-label, cat) = {
-  let bw = th.box-w
-  let n = vs.len()
-  let w = n * bw
-  let op-fill = rgb("#DCE5FB")
-  scaled(th, cetz.canvas({
-    for (i, v) in vs.enumerate() { _cell(i * bw, 0, v, th, mark: _mark(marks, i)) }
-    if n == 1 {
-      _ann((bw / 2, th.box-h + 0.38), [#front-label, #rear-label], th)
-    } else if n > 1 {
-      _ann((bw / 2, th.box-h + 0.38), front-label, th)
-      _ann((w - bw / 2, th.box-h + 0.38), rear-label, th)
+#let _render-queue(values, resolved-style, marks, enqueue-value, dequeue-value, front-label, rear-label, message-catalog) = {
+  let cell-width = resolved-style.box-w
+  let cell-count = values.len()
+  let queue-width = cell-count * cell-width
+  let operation-fill = rgb("#DCE5FB")
+  scaled(resolved-style, cetz.canvas({
+    for (cell-index, cell-value) in values.enumerate() {
+      _render-linear-cell(
+        cell-index * cell-width,
+        0,
+        cell-value,
+        resolved-style,
+        mark: _mark-at-index(marks, cell-index),
+      )
     }
-    let mid = th.box-h / 2
-    if enq != none {
-      // External element to the right, entering the rear with a horizontal arrow.
-      let ex = w + 0.95
-      _cell(ex, 0, enq, th, fill: op-fill)
-      line((ex, mid), (w, mid), mark: (end: ">"), stroke: th.box-stroke)
-      _ann((ex + bw / 2, -0.42), msg(cat, "queue.enqueue-label"), th)
+    if cell-count == 1 {
+      _render-linear-annotation(
+        (cell-width / 2, resolved-style.box-h + 0.38),
+        [#front-label, #rear-label],
+        resolved-style,
+      )
+    } else if cell-count > 1 {
+      _render-linear-annotation(
+        (cell-width / 2, resolved-style.box-h + 0.38),
+        front-label,
+        resolved-style,
+      )
+      _render-linear-annotation(
+        (
+          queue-width - cell-width / 2,
+          resolved-style.box-h + 0.38,
+        ),
+        rear-label,
+        resolved-style,
+      )
     }
-    if deq != none {
-      // Front element leaving to the left with a horizontal arrow.
-      let dx = -0.95 - bw
-      _cell(dx, 0, deq, th, fill: op-fill)
-      line((0, mid), (dx + bw, mid), mark: (end: ">"), stroke: th.box-stroke)
-      _ann((dx + bw / 2, -0.42), msg(cat, "queue.dequeue-label"), th)
+    let cell-midpoint-y = resolved-style.box-h / 2
+    if enqueue-value != none {
+      let external-cell-x = queue-width + 0.95
+      _render-linear-cell(
+        external-cell-x,
+        0,
+        enqueue-value,
+        resolved-style,
+        fill: operation-fill,
+      )
+      line(
+        (external-cell-x, cell-midpoint-y),
+        (queue-width, cell-midpoint-y),
+        mark: (end: ">"),
+        stroke: resolved-style.box-stroke,
+      )
+      _render-linear-annotation(
+        (external-cell-x + cell-width / 2, -0.42),
+        msg(message-catalog, "queue.enqueue-label"),
+        resolved-style,
+      )
+    }
+    if dequeue-value != none {
+      let external-cell-x = -0.95 - cell-width
+      _render-linear-cell(
+        external-cell-x,
+        0,
+        dequeue-value,
+        resolved-style,
+        fill: operation-fill,
+      )
+      line(
+        (0, cell-midpoint-y),
+        (external-cell-x + cell-width, cell-midpoint-y),
+        mark: (end: ">"),
+        stroke: resolved-style.box-stroke,
+      )
+      _render-linear-annotation(
+        (external-cell-x + cell-width / 2, -0.42),
+        msg(message-catalog, "queue.dequeue-label"),
+        resolved-style,
+      )
     }
   }))
 }
 
-#let _queue-obj(vs, style, enq, deq, front-label, rear-label, cat) = {
-  let th = resolve(style)
-  let draw(vals, marks) = _queue-render(vals, th, marks, none, none, front-label, rear-label, cat)
+#let _create-queue-object(values, style, enqueue-value, dequeue-value, front-label, rear-label, message-catalog) = {
+  let resolved-style = resolve(style)
+  let render-values(current-values, marks) = _render-queue(
+    current-values,
+    resolved-style,
+    marks,
+    none,
+    none,
+    front-label,
+    rear-label,
+    message-catalog,
+  )
   (
-    diagram: _queue-render(vs, th, (:), enq, deq, front-label, rear-label, cat),
-    enqueue: (v, step-label: none) => _step(
-      if step-label == none { msg(cat, "queue.enqueue", v) } else { step-label },
-      draw(vs, (:)),
-      draw(vs + (v,), (str(vs.len()): "new")),
-      _queue-obj(vs + (v,), style, enq, deq, front-label, rear-label, cat),
+    diagram: _render-queue(
+      values,
+      resolved-style,
+      (:),
+      enqueue-value,
+      dequeue-value,
+      front-label,
+      rear-label,
+      message-catalog,
+    ),
+    enqueue: (v, step-label: none) => _create-linear-operation-step(
+      if step-label == none {
+        msg(message-catalog, "queue.enqueue", v)
+      } else {
+        step-label
+      },
+      render-values(values, (:)),
+      render-values(values + (v,), (str(values.len()): "new")),
+      _create-queue-object(
+        values + (v,),
+        style,
+        enqueue-value,
+        dequeue-value,
+        front-label,
+        rear-label,
+        message-catalog,
+      ),
       style: style,
     ),
-    dequeue: (step-label: none) => _step(
-      if step-label == none { msg(cat, "queue.dequeue") } else { step-label },
-      draw(vs, ("0": "remove")),
-      draw(vs.slice(1), (:)),
-      _queue-obj(vs.slice(1), style, enq, deq, front-label, rear-label, cat),
+    dequeue: (step-label: none) => _create-linear-operation-step(
+      if step-label == none {
+        msg(message-catalog, "queue.dequeue")
+      } else {
+        step-label
+      },
+      render-values(values, ("0": "remove")),
+      render-values(values.slice(1), (:)),
+      _create-queue-object(
+        values.slice(1),
+        style,
+        enqueue-value,
+        dequeue-value,
+        front-label,
+        rear-label,
+        message-catalog,
+      ),
       style: style,
     ),
   )
@@ -401,60 +1013,112 @@
   messages: (:),
   ..vals,
 ) = {
-  let cat = resolve-catalog(language: language, messages: messages)
-  let front = if front-label == auto { msg(cat, "queue.front") } else { front-label }
-  let rear = if rear-label == auto { msg(cat, "queue.rear") } else { rear-label }
-  _queue-obj(vals.pos(), style, enqueue, dequeue, front, rear, cat)
+  let message-catalog = resolve-catalog(language: language, messages: messages)
+  let resolved-front-label = if front-label == auto {
+    msg(message-catalog, "queue.front")
+  } else {
+    front-label
+  }
+  let resolved-rear-label = if rear-label == auto {
+    msg(message-catalog, "queue.rear")
+  } else {
+    rear-label
+  }
+  _create-queue-object(
+    vals.pos(),
+    style,
+    enqueue,
+    dequeue,
+    resolved-front-label,
+    resolved-rear-label,
+    message-catalog,
+  )
 }
 
 // `marks` is an array of `(level, index, kind)` triples, so one physical
 // node can carry the same highlight kind across every level it appears at.
-#let _skip-list-mark-at(marks, level, i) = {
-  for m in marks {
-    if m.at(0) == level and m.at(1) == i { return m.at(2) }
+#let _skip-list-mark-at(marks, level, node-index) = {
+  for mark in marks {
+    let mark-matches-node = (
+      mark.at(0) == level and mark.at(1) == node-index
+    )
+    if mark-matches-node { return mark.at(2) }
   }
   none
 }
 
-#let _skip-list-row(vs, marks, th, level-filter, level, level-spacing) = {
-  let step = th.box-w + th.box-gap
+#let _skip-list-row(values, marks, resolved-style, level-filter, level, level-spacing) = {
+  let node-step = resolved-style.box-w + resolved-style.box-gap
   let level-offset = level-spacing * level
 
-  for (i, v) in vs.enumerate() {
-    if not level-filter.at(i) {
+  for (node-index, node-value) in values.enumerate() {
+    if not level-filter.at(node-index) {
       continue
     }
-    _cell(i * step, level-offset, v, th, mark: _skip-list-mark-at(marks, level, i))
+    _render-linear-cell(
+      node-index * node-step,
+      level-offset,
+      node-value,
+      resolved-style,
+      mark: _skip-list-mark-at(marks, level, node-index),
+    )
 
-    // line to item directly below
+    // Upper-level nodes link to the same node in the level below.
     if level != 0 {
       line(
-        (i * step + th.box-w / 2, level-offset),
-        (i * step + th.box-w / 2, th.box-h + (level-offset - level-spacing)),
+        (node-index * node-step + resolved-style.box-w / 2, level-offset),
+        (
+          node-index * node-step + resolved-style.box-w / 2,
+          resolved-style.box-h + (level-offset - level-spacing),
+        ),
         mark: (end: ">"),
-        stroke: th.box-stroke,
+        stroke: resolved-style.box-stroke,
       )
     }
 
-    // line to next node (left to right)
-    let next-visible-i = level-filter.enumerate().position(n => n.at(0) > i and n.at(1))
-    if next-visible-i == none {
-      next-visible-i = vs.len() // nothing element
+    let next-visible-index = level-filter.enumerate().position(
+      indexed-visibility => (
+        indexed-visibility.at(0) > node-index
+          and indexed-visibility.at(1)
+      ),
+    )
+    if next-visible-index == none {
+      next-visible-index = values.len()
     }
     line(
-      (i * step + th.box-w, th.box-h / 2 + level-offset),
-      (next-visible-i * step, th.box-h / 2 + level-offset),
+      (
+        node-index * node-step + resolved-style.box-w,
+        resolved-style.box-h / 2 + level-offset,
+      ),
+      (
+        next-visible-index * node-step,
+        resolved-style.box-h / 2 + level-offset,
+      ),
       mark: (end: ">"),
-      stroke: th.box-stroke,
+      stroke: resolved-style.box-stroke,
     )
   }
-  _node-content((vs.len() * step + th.box-w / 2, th.box-h / 2 + level-offset), $nothing$, th)
+  _render-linear-node-content(
+    (
+      values.len() * node-step + resolved-style.box-w / 2,
+      resolved-style.box-h / 2 + level-offset,
+    ),
+    $nothing$,
+    resolved-style,
+  )
 }
 
-#let _simple-skip-list(vs, marks, th, level-filters, level-spacing) = {
-  scaled(th, cetz.canvas({
+#let _render-skip-list(values, marks, resolved-style, level-filters, level-spacing) = {
+  scaled(resolved-style, cetz.canvas({
     for (level, level-filter) in level-filters.enumerate() {
-      _skip-list-row(vs, marks, th, level-filter, int(level), level-spacing)
+      _skip-list-row(
+        values,
+        marks,
+        resolved-style,
+        level-filter,
+        int(level),
+        level-spacing,
+      )
     }
   }))
 }
@@ -466,24 +1130,35 @@
 // "Implementation details"). This library has no separate head box, so the
 // first real value stands in for it and is always drawn at every level,
 // regardless of what its own height would otherwise be.
-#let _skip-list-top(nodes) = calc.max(0, ..nodes.map(n => n.level))
+#let _skip-list-top(nodes) = calc.max(
+  0,
+  ..nodes.map(skip-list-node => skip-list-node.level),
+)
 
-#let _skip-list-height(nodes, i) = if i == 0 { _skip-list-top(nodes) } else { nodes.at(i).level }
+#let _skip-list-height(nodes, node-index) = if node-index == 0 {
+  _skip-list-top(nodes)
+} else {
+  nodes.at(node-index).level
+}
 
 #let _skip-list-level-filters(nodes) = {
-  let top = _skip-list-top(nodes)
-  range(top + 1).map(level => nodes.enumerate().map(((i, n)) => i == 0 or n.level >= level))
+  let top-level = _skip-list-top(nodes)
+  range(top-level + 1).map(level => nodes.enumerate().map(
+    ((node-index, skip-list-node)) => (
+      node-index == 0 or skip-list-node.level >= level
+    ),
+  ))
 }
 
 // A cheap, deterministic stand-in for a coin flip: Typst has no RNG, and
 // diagrams need to stay reproducible across recompiles, so the same value
 // always hashes the same way regardless of how many other nodes exist.
 #let _skip-list-hash(value, salt) = {
-  let h = 0
-  for b in bytes(str(value) + "#" + str(salt)) {
-    h = calc.rem(h * 31 + b, 1000000007)
+  let hash-value = 0
+  for byte in bytes(str(value) + "#" + str(salt)) {
+    hash-value = calc.rem(hash-value * 31 + byte, 1000000007)
   }
-  h
+  hash-value
 }
 
 // Default `decision-fn`: promotes `value` to `level` about half the time.
@@ -497,9 +1172,9 @@
 #let _skip-list-node-level(value, decision-fn, max-level) = {
   let level = 0
   while level < max-level {
-    let promote = decision-fn(level + 1, value)
-    assert(type(promote) == bool, message: "skip-list decision-fn must return a boolean")
-    if not promote { break }
+    let should-promote = decision-fn(level + 1, value)
+    assert(type(should-promote) == bool, message: "skip-list decision-fn must return a boolean")
+    if not should-promote { break }
     level += 1
   }
   level
@@ -543,26 +1218,34 @@
 
 // Returns the list of `(level, column-index, "path")` marks tracing the
 // search path down to `key`, or to its predecessor when it is absent.
-#let _skip-list-search-marks(vs, level-filters, key) = {
-  let key-index = 0
-  for (i, value) in vs.enumerate() {
-    if value <= key { key-index = i } else { break }
+#let _skip-list-search-marks(values, level-filters, key) = {
+  let predecessor-index = 0
+  for (node-index, node-value) in values.enumerate() {
+    if node-value <= key {
+      predecessor-index = node-index
+    } else {
+      break
+    }
   }
 
   let marks = ()
-
   let current-column = 0
   for (current-level, level-filter) in level-filters.enumerate().rev() {
-    let next-entry-indices = level-filter.enumerate().filter(l => l.at(0) >= current-column and l.at(1)).map(l => l.at(0))
+    let next-entry-indices = level-filter.enumerate()
+      .filter(indexed-visibility => (
+        indexed-visibility.at(0) >= current-column
+          and indexed-visibility.at(1)
+      ))
+      .map(indexed-visibility => indexed-visibility.at(0))
     if next-entry-indices.len() == 0 { continue }
     let next-entry-index = next-entry-indices.remove(0)
 
-    while next-entry-index != none and next-entry-index <= key-index {
+    while next-entry-index != none and next-entry-index <= predecessor-index {
       marks.push((current-level, next-entry-index, "path"))
       current-column = next-entry-index
 
-      if key-index == next-entry-index or next-entry-indices.len() == 0 {
-          break
+      if predecessor-index == next-entry-index or next-entry-indices.len() == 0 {
+        break
       }
       next-entry-index = next-entry-indices.remove(0)
     }
@@ -575,50 +1258,117 @@
 // value. Keeping each node's assigned level explicit (rather than
 // re-deriving it from array position on every render) is what lets insert
 // and delete touch only the node that actually changed.
-#let _skip-list-obj(nodes, style, decision-fn, level-spacing, max-level, cat) = {
-  let th = resolve(style)
-  let draw(ns, marks) = _simple-skip-list(ns.map(n => n.value), marks, th, _skip-list-level-filters(ns), level-spacing)
+#let _create-skip-list-object(nodes, style, decision-fn, level-spacing, max-level, message-catalog) = {
+  let resolved-style = resolve(style)
+  let render-nodes(current-nodes, marks) = _render-skip-list(
+    current-nodes.map(skip-list-node => skip-list-node.value),
+    marks,
+    resolved-style,
+    _skip-list-level-filters(current-nodes),
+    level-spacing,
+  )
 
   (
-    diagram: draw(nodes, ()),
+    diagram: render-nodes(nodes, ()),
     search: (key, step-label: none) => {
       _validate-skip-list-key(nodes, key)
-      _step(
-        if step-label == none { msg(cat, "skip.search", key) } else { step-label },
-        draw(nodes, ()),
-        draw(nodes, _skip-list-search-marks(nodes.map(n => n.value), _skip-list-level-filters(nodes), key)),
-        _skip-list-obj(nodes, style, decision-fn, level-spacing, max-level, cat),
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "skip.search", key)
+        } else {
+          step-label
+        },
+        render-nodes(nodes, ()),
+        render-nodes(
+          nodes,
+          _skip-list-search-marks(
+            nodes.map(skip-list-node => skip-list-node.value),
+            _skip-list-level-filters(nodes),
+            key,
+          ),
+        ),
+        _create-skip-list-object(
+          nodes,
+          style,
+          decision-fn,
+          level-spacing,
+          max-level,
+          message-catalog,
+        ),
         style: style,
-      ) + (found: key in nodes.map(n => n.value), index: nodes.position(n => n.value == key))
+      ) + (
+        found: key in nodes.map(skip-list-node => skip-list-node.value),
+        index: nodes.position(skip-list-node => skip-list-node.value == key),
+      )
     },
     // `level: auto` assigns the new value's height with `decision-fn`;
     // pass an explicit level to force a specific tower height instead.
     insert: (value, level: auto, step-label: none) => {
       _validate-skip-list-insert(nodes, value, level)
-      let assigned = if level == auto { _skip-list-node-level(value, decision-fn, max-level) } else { level }
-      let i = 0
-      while i < nodes.len() and nodes.at(i).value < value { i += 1 }
-      let new-nodes = nodes.slice(0, i) + ((value: value, level: assigned),) + nodes.slice(i)
-      let marks = range(_skip-list-height(new-nodes, i) + 1).map(l => (l, i, "new"))
-      _step(
-        if step-label == none { msg(cat, "skip.insert", value) } else { step-label },
-        draw(nodes, ()),
-        draw(new-nodes, marks),
-        _skip-list-obj(new-nodes, style, decision-fn, level-spacing, max-level, cat),
+      let assigned-level = if level == auto {
+        _skip-list-node-level(value, decision-fn, max-level)
+      } else {
+        level
+      }
+      let insertion-index = 0
+      while insertion-index < nodes.len() and nodes.at(insertion-index).value < value {
+        insertion-index += 1
+      }
+      let nodes-after-insertion = (
+        nodes.slice(0, insertion-index)
+          + ((value: value, level: assigned-level),)
+          + nodes.slice(insertion-index)
+      )
+      let marks = range(
+        _skip-list-height(nodes-after-insertion, insertion-index) + 1,
+      ).map(level => (level, insertion-index, "new"))
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "skip.insert", value)
+        } else {
+          step-label
+        },
+        render-nodes(nodes, ()),
+        render-nodes(nodes-after-insertion, marks),
+        _create-skip-list-object(
+          nodes-after-insertion,
+          style,
+          decision-fn,
+          level-spacing,
+          max-level,
+          message-catalog,
+        ),
         style: style,
       )
     },
     delete: (value, step-label: none) => {
       _validate-skip-list-key(nodes, value)
-      let i = nodes.position(n => n.value == value)
-      assert(i != none, message: "delete key is not part of skip list")
-      let marks = range(_skip-list-height(nodes, i) + 1).map(l => (l, i, "remove"))
-      let rest = nodes.slice(0, i) + nodes.slice(i + 1)
-      _step(
-        if step-label == none { msg(cat, "skip.delete", value) } else { step-label },
-        draw(nodes, marks),
-        draw(rest, ()),
-        _skip-list-obj(rest, style, decision-fn, level-spacing, max-level, cat),
+      let deletion-index = nodes.position(
+        skip-list-node => skip-list-node.value == value,
+      )
+      assert(deletion-index != none, message: "delete key is not part of skip list")
+      let marks = range(
+        _skip-list-height(nodes, deletion-index) + 1,
+      ).map(level => (level, deletion-index, "remove"))
+      let nodes-after-deletion = (
+        nodes.slice(0, deletion-index) + nodes.slice(deletion-index + 1)
+      )
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "skip.delete", value)
+        } else {
+          step-label
+        },
+        render-nodes(nodes, marks),
+        render-nodes(nodes-after-deletion, ()),
+        _create-skip-list-object(
+          nodes-after-deletion,
+          style,
+          decision-fn,
+          level-spacing,
+          max-level,
+          message-catalog,
+        ),
         style: style,
       )
     },
@@ -631,5 +1381,5 @@
   assert((type(level-spacing) == int or type(level-spacing) == float) and level-spacing > 0, message: "skip-list level-spacing must be a positive number")
   _validate-skip-list-values(values)
   let nodes = values.map(v => (value: v, level: _skip-list-node-level(v, decision-fn, max-level)))
-  _skip-list-obj(nodes, style, decision-fn, level-spacing, max-level, resolve-catalog(language: language, messages: messages))
+  _create-skip-list-object(nodes, style, decision-fn, level-spacing, max-level, resolve-catalog(language: language, messages: messages))
 }

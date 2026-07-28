@@ -491,13 +491,13 @@ Import the package from the Typst preview namespace. A wildcard import gives
 you every public symbol:
 
 ```typ
-#import "@preview/typed-dsa:0.4.0": *
+#import "@preview/typed-dsa:0.5.0": *
 ```
 
 Or import only what you need:
 
 ```typ
-#import "@preview/typed-dsa:0.4.0": bst, avl, min-heap, max-heap
+#import "@preview/typed-dsa:0.5.0": bst, avl, min-heap, max-heap
 ```
 
 #warn[A wildcard import shadows Typst's built-in #c("stack") function. Use

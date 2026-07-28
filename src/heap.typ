@@ -4,8 +4,9 @@
 // `2 * heap-index + 1` and `2 * heap-index + 2`. Rendering converts that array
 // into the binary-tree model shared with `tree.typ`.
 
-#import "style.typ": resolve
+#import "style.typ": resolve, validate-style
 #import "tree.typ": _create-tree-node, _render-tree, _create-value-marks, trans-view
+#import "validate.typ": check-array, check-comparable, check-comparable-with, fail
 #import "messages.typ": default-catalog, resolve-catalog, msg
 
 #let _convert-heap-array-to-tree(heap-values, heap-index) = {
@@ -98,8 +99,15 @@
   _create-value-marks(visited-indices, kind)
 )
 
-#let heap-insert(key, step-label: none, language: "en", messages: (:), catalog: none) = (variant, arr) => {
+// Heap operations are tagged like tree operations so a transition can tell
+// which structure family an operation was built for.
+#let _heap-operation(apply) = (family: "heap", apply: apply)
+
+#let heap-insert(key, step-label: none, language: "en", messages: (:), catalog: none) = {
+  check-comparable("heap-insert()", "key", (key,), subject: "key")
+  _heap-operation((variant, arr) => {
   let heap-values = arr
+  check-comparable-with("heap-insert()", "key", key, heap-values)
   let message-catalog = if catalog != none {
     catalog
   } else {
@@ -121,11 +129,20 @@
     step-label
   }
   (heap-after-insertion, (:), after-marks, label)
+  })
 }
 
 // Removes and returns the root: the smallest key for a min-heap, largest for
 // a max-heap.
-#let _create-heap-extract-operation(step-label: none, language: "en", messages: (:), catalog: none) = (variant, heap-values) => {
+#let _create-heap-extract-operation(step-label: none, language: "en", messages: (:), catalog: none) = _heap-operation((variant, heap-values) => {
+  if heap-values.len() == 0 {
+    fail(
+      "heap-extract",
+      "the heap is empty, so there is no root to extract",
+      expected: "a heap with at least one key",
+      fix: "insert a key first, or drop this operation",
+    )
+  }
   let message-catalog = if catalog != none {
     catalog
   } else {
@@ -151,7 +168,7 @@
     _create-heap-index-marks(visited-indices, "path"),
     label,
   )
-}
+})
 
 #let heap-extract = _create-heap-extract-operation()
 
@@ -165,7 +182,7 @@
   )
   let apply-operation(operation) = {
     let (values-after-operation, before-marks, after-marks, label) = (
-      operation(variant, heap-values)
+      (operation.apply)(variant, heap-values)
     )
     let before-diagram = render-heap(heap-values, before-marks)
     let after-diagram = render-heap(values-after-operation, after-marks)
@@ -188,16 +205,28 @@
   )
 }
 
-#let min-heap(style: (:), language: "en", messages: (:), ..keys) = _create-heap-object("min", _build-heap("min", keys.pos()), style: style, catalog: resolve-catalog(language: language, messages: messages))
-#let max-heap(style: (:), language: "en", messages: (:), ..keys) = _create-heap-object("max", _build-heap("max", keys.pos()), style: style, catalog: resolve-catalog(language: language, messages: messages))
+// A heap orders its keys against each other, so they must be mutually
+// comparable. Duplicates are allowed: unlike a search tree, a heap stores them.
+#let _create-heap-values(where, variant, keys, style) = {
+  check-comparable(where, "keys", keys, subject: "key")
+  validate-style(where, style)
+  _build-heap(variant, keys)
+}
+
+#let min-heap(style: (:), language: "en", messages: (:), ..keys) = _create-heap-object("min", _create-heap-values("min-heap()", "min", keys.pos(), style), style: style, catalog: resolve-catalog(language: language, messages: messages))
+#let max-heap(style: (:), language: "en", messages: (:), ..keys) = _create-heap-object("max", _create-heap-values("max-heap()", "max", keys.pos(), style), style: style, catalog: resolve-catalog(language: language, messages: messages))
 
 // ── Transition ───────────────────────────────────────────────────────────────
 
 #let _transition(variant, keys, op, style: (:)) = {
+  check-array(
+    "transition()", "keys", keys,
+    fix: "pass the keys as an array, for example transition(\"min-heap\", (5, 3), heap-insert(1))",
+  )
   let resolved-style = resolve(style)
-  let heap-before-operation = _build-heap(variant, keys)
+  let heap-before-operation = _create-heap-values("transition()", variant, keys, style)
   let (heap-after-operation, before-marks, after-marks, label) = (
-    op(variant, heap-before-operation)
+    (op.apply)(variant, heap-before-operation)
   )
   trans-view(
     _render-tree(

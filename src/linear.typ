@@ -10,10 +10,59 @@
 // `style:` override actually reaches the mark, not just the theme default.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": resolve, scaled, resolve-mark-style
+#import "style.typ": resolve, scaled, resolve-mark-style, validate-style
 #import "tree.typ": trans-view
+#import "validate.typ": (
+  check-array, check-bool, check-callback-result, check-comparable,
+  check-comparable-with, check-function, check-index, check-integer,
+  check-positive, check-unique, fail, show-list, show-value,
+)
 #import "messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, rect, content
+
+// ── Validation ───────────────────────────────────────────────────────────────
+
+// Addresses annotate one cell each, so a mismatched array would silently
+// leave the trailing cells unlabelled or drop the extra entries.
+#let _validate-linear-list-arguments(where, values, style, pointer, addresses, head) = {
+  validate-style(where, style)
+  check-bool(where, "pointer:", pointer)
+  check-bool(where, "head:", head)
+  if addresses == none { return }
+  check-array(
+    where, "addresses:", addresses,
+    fix: "pass one address per value, or none",
+  )
+  if addresses.len() == values.len() { return }
+  fail(
+    where,
+    "addresses: has " + str(addresses.len()) + " entries but the list has " + str(values.len()) + " values",
+    expected: "one address per value",
+    fix: "pass " + str(values.len()) + " addresses, or none",
+  )
+}
+
+// Removing a value that is not in the list cannot be drawn as a before/after
+// step. An unsuccessful *search* is a different matter and stays legal.
+#let _check-deletable-value(where, values, value) = {
+  if values.contains(value) { return }
+  fail(
+    where,
+    "value " + show-value(value) + " is not in the list, so there is nothing to delete",
+    expected: "one of the values: " + show-list(values),
+    fix: "delete a value the list holds; use search(value) to show an unsuccessful lookup",
+  )
+}
+
+#let _check-non-empty-structure(where, values, operation, subject) = {
+  if values.len() > 0 { return }
+  fail(
+    where,
+    "the " + subject + " is empty, so " + operation + " has nothing to remove",
+    expected: "a " + subject + " with at least one value",
+    fix: "add a value first, or drop this operation",
+  )
+}
 
 #let _render-linear-annotation(position, body, resolved-style) = {
   let text-style = resolved-style.pointer-text
@@ -236,7 +285,10 @@
     diagram: render-values(values, (:)),
     insert: (v, index: none, step-label: none) => {
       let insertion-index = if index == none { values.len() } else { index }
-      assert(type(insertion-index) == int and insertion-index >= 0 and insertion-index <= values.len(), message: "linked-list insert index must be between 0 and the list length")
+      check-index(
+        "linked-list insert()", "index:", insertion-index, values.len(),
+        inclusive: true, subject: "list",
+      )
       let values-after-insertion = _insert-sequence-value(values, insertion-index, v)
       let addresses-after-insertion = _insert-address-placeholder(addresses, insertion-index)
       _create-linear-operation-step(
@@ -301,22 +353,11 @@
       )
     },
     delete: (v, step-label: none) => {
+      _check-deletable-value("linked-list delete()", values, v)
       let deletion-index = values.position(node-value => node-value == v)
-      let values-after-deletion = if deletion-index == none {
-        values
-      } else {
-        _delete-sequence-value(values, deletion-index)
-      }
-      let before-marks = if deletion-index == none {
-        (:)
-      } else {
-        (str(deletion-index): "remove")
-      }
-      let addresses-after-deletion = if deletion-index == none {
-        addresses
-      } else {
-        _delete-address(addresses, deletion-index)
-      }
+      let values-after-deletion = _delete-sequence-value(values, deletion-index)
+      let before-marks = (str(deletion-index): "remove")
+      let addresses-after-deletion = _delete-address(addresses, deletion-index)
       _create-linear-operation-step(
         if step-label == none {
           msg(message-catalog, "list.delete", v)
@@ -345,7 +386,7 @@
       )
     },
     delete-at: (index, step-label: none) => {
-      assert(type(index) == int and index >= 0 and index < values.len(), message: "linked-list delete-at index must identify an existing node")
+      check-index("linked-list delete-at()", "index", index, values.len(), subject: "list")
       let values-after-deletion = _delete-sequence-value(values, index)
       let addresses-after-deletion = _delete-address(addresses, index)
       _create-linear-operation-step(
@@ -405,6 +446,7 @@
 }
 
 #let linked-list(style: (:), pointer: false, addresses: none, head: false, language: "en", messages: (:), ..vals) = {
+  _validate-linear-list-arguments("linked-list()", vals.pos(), style, pointer, addresses, head)
   _create-linked-list-object(vals.pos(), style, pointer, addresses, head, resolve-catalog(language: language, messages: messages))
 }
 
@@ -583,7 +625,10 @@
     diagram: render-values(values, (:)),
     insert: (v, index: none, step-label: none) => {
       let insertion-index = if index == none { values.len() } else { index }
-      assert(type(insertion-index) == int and insertion-index >= 0 and insertion-index <= values.len(), message: "doubly-linked-list insert index must be between 0 and the list length")
+      check-index(
+        "doubly-linked-list insert()", "index:", insertion-index, values.len(),
+        inclusive: true, subject: "list",
+      )
       let values-after-insertion = _insert-sequence-value(
         values,
         insertion-index,
@@ -655,22 +700,11 @@
       )
     },
     delete: (v, step-label: none) => {
+      _check-deletable-value("doubly-linked-list delete()", values, v)
       let deletion-index = values.position(node-value => node-value == v)
-      let values-after-deletion = if deletion-index == none {
-        values
-      } else {
-        _delete-sequence-value(values, deletion-index)
-      }
-      let before-marks = if deletion-index == none {
-        (:)
-      } else {
-        (str(deletion-index): "remove")
-      }
-      let addresses-after-deletion = if deletion-index == none {
-        addresses
-      } else {
-        _delete-address(addresses, deletion-index)
-      }
+      let values-after-deletion = _delete-sequence-value(values, deletion-index)
+      let before-marks = (str(deletion-index): "remove")
+      let addresses-after-deletion = _delete-address(addresses, deletion-index)
       _create-linear-operation-step(
         if step-label == none {
           msg(message-catalog, "list.delete", v)
@@ -699,7 +733,7 @@
       )
     },
     delete-at: (index, step-label: none) => {
-      assert(type(index) == int and index >= 0 and index < values.len(), message: "doubly-linked-list delete-at index must identify an existing node")
+      check-index("doubly-linked-list delete-at()", "index", index, values.len(), subject: "list")
       let values-after-deletion = _delete-sequence-value(values, index)
       let addresses-after-deletion = _delete-address(addresses, index)
       _create-linear-operation-step(
@@ -759,6 +793,7 @@
 }
 
 #let doubly-linked-list(style: (:), pointer: false, addresses: none, head: false, language: "en", messages: (:), ..vals) = {
+  _validate-linear-list-arguments("doubly-linked-list()", vals.pos(), style, pointer, addresses, head)
   _create-doubly-linked-list-object(vals.pos(), style, pointer, addresses, head, resolve-catalog(language: language, messages: messages))
 }
 
@@ -815,27 +850,32 @@
       ),
       style: style,
     ),
-    pop: (step-label: none) => _create-linear-operation-step(
-      if step-label == none {
-        msg(message-catalog, "stack.pop")
-      } else {
-        step-label
-      },
-      _render-stack(values, resolved-style, ("0": "remove"), top-label),
-      _render-stack(values.slice(1), resolved-style, (:), top-label),
-      _create-stack-object(
-        values.slice(1),
-        style,
-        top-label,
-        message-catalog,
-      ),
-      style: style,
-    ),
+    pop: (step-label: none) => {
+      _check-non-empty-structure("stack pop()", values, "pop()", "stack")
+      let values-after-pop = values.slice(1)
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "stack.pop")
+        } else {
+          step-label
+        },
+        _render-stack(values, resolved-style, ("0": "remove"), top-label),
+        _render-stack(values-after-pop, resolved-style, (:), top-label),
+        _create-stack-object(
+          values-after-pop,
+          style,
+          top-label,
+          message-catalog,
+        ),
+        style: style,
+      )
+    },
   )
 }
 
 // `top-label: auto` uses the localized default; pass any content to override it.
 #let stack(style: (:), top-label: auto, language: "en", messages: (:), ..vals) = {
+  validate-style("stack()", style)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let resolved-top-label = if top-label == auto {
     msg(message-catalog, "stack.top")
@@ -979,25 +1019,29 @@
       ),
       style: style,
     ),
-    dequeue: (step-label: none) => _create-linear-operation-step(
-      if step-label == none {
-        msg(message-catalog, "queue.dequeue")
-      } else {
-        step-label
-      },
-      render-values(values, ("0": "remove")),
-      render-values(values.slice(1), (:)),
-      _create-queue-object(
-        values.slice(1),
-        style,
-        enqueue-value,
-        dequeue-value,
-        front-label,
-        rear-label,
-        message-catalog,
-      ),
-      style: style,
-    ),
+    dequeue: (step-label: none) => {
+      _check-non-empty-structure("queue dequeue()", values, "dequeue()", "queue")
+      let values-after-dequeue = values.slice(1)
+      _create-linear-operation-step(
+        if step-label == none {
+          msg(message-catalog, "queue.dequeue")
+        } else {
+          step-label
+        },
+        render-values(values, ("0": "remove")),
+        render-values(values-after-dequeue, (:)),
+        _create-queue-object(
+          values-after-dequeue,
+          style,
+          enqueue-value,
+          dequeue-value,
+          front-label,
+          rear-label,
+          message-catalog,
+        ),
+        style: style,
+      )
+    },
   )
 }
 
@@ -1013,6 +1057,7 @@
   messages: (:),
   ..vals,
 ) = {
+  validate-style("queue()", style)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let resolved-front-label = if front-label == auto {
     msg(message-catalog, "queue.front")
@@ -1173,47 +1218,51 @@
   let level = 0
   while level < max-level {
     let should-promote = decision-fn(level + 1, value)
-    assert(type(should-promote) == bool, message: "skip-list decision-fn must return a boolean")
+    check-callback-result("skip-list()", "decision-fn:", should-promote, (bool,))
     if not should-promote { break }
     level += 1
   }
   level
 }
 
-#let _skip-list-is-number(value) = type(value) == int or type(value) == float
-#let _skip-list-is-value(value) = _skip-list-is-number(value) or type(value) == str
-#let _skip-list-compatible(a, b) = (_skip-list-is-number(a) and _skip-list-is-number(b)) or (type(a) == str and type(b) == str)
+#let _skip-list-values(nodes) = nodes.map(skip-list-node => skip-list-node.value)
 
-#let _validate-skip-list-values(vs) = {
-  for value in vs {
-    assert(_skip-list-is-value(value), message: "skip-list values must be int, float, or str")
-  }
-  let i = 1
-  while i < vs.len() {
-    let previous = vs.at(i - 1)
-    let value = vs.at(i)
-    assert(_skip-list-compatible(previous, value), message: "skip-list values must all be numbers or all be strings")
-    assert(previous < value, message: "skip-list values must be strictly ascending with no duplicates")
-    i += 1
+// A skip list searches by comparing keys, so its values must be mutually
+// comparable, unique, and already in ascending order — the invariant the
+// levels are built on.
+#let _validate-skip-list-values(where, values) = {
+  check-comparable(where, "values", values, subject: "value")
+  check-unique(where, "values", values, subject: "value")
+  for value-index in range(1, values.len()) {
+    let previous-value = values.at(value-index - 1)
+    let value = values.at(value-index)
+    if previous-value < value { continue }
+    fail(
+      where,
+      "value " + show-value(value) + " comes after " + show-value(previous-value) + ", so the values are not ascending",
+      expected: "strictly ascending values",
+      fix: "sort the values before passing them",
+    )
   }
 }
 
-#let _validate-skip-list-insert(nodes, value, level) = {
-  assert(_skip-list-is-value(value), message: "skip-list values must be int, float, or str")
-  if nodes.len() > 0 {
-    assert(_skip-list-compatible(nodes.first().value, value), message: "skip-list values must all be numbers or all be strings")
+#let _validate-skip-list-insert(where, nodes, value, level, max-level) = {
+  let existing-values = _skip-list-values(nodes)
+  check-comparable-with(where, "value", value, existing-values, subject: "value")
+  if value in existing-values {
+    fail(
+      where,
+      "value " + show-value(value) + " is already in the skip list",
+      expected: "a value that is not present yet",
+      fix: "insert a different value; a skip list holds each value once",
+    )
   }
-  assert(not (value in nodes.map(n => n.value)), message: "skip-list insert value must not already be present")
-  if level != auto {
-    assert(type(level) == int and level >= 0, message: "skip-list insert level must be a non-negative integer")
-  }
+  if level == auto { return }
+  check-integer(where, "level:", level, min: 0, max: max-level)
 }
 
-#let _validate-skip-list-key(nodes, key) = {
-  assert(_skip-list-is-value(key), message: "skip-list keys must be int, float, or str")
-  if nodes.len() > 0 {
-    assert(_skip-list-compatible(nodes.first().value, key), message: "skip-list keys must be compatible with the list values")
-  }
+#let _validate-skip-list-key(where, nodes, key) = {
+  check-comparable-with(where, "key", key, _skip-list-values(nodes), subject: "value")
 }
 
 // Returns the list of `(level, column-index, "path")` marks tracing the
@@ -1271,7 +1320,7 @@
   (
     diagram: render-nodes(nodes, ()),
     search: (key, step-label: none) => {
-      _validate-skip-list-key(nodes, key)
+      _validate-skip-list-key("skip-list search()", nodes, key)
       _create-linear-operation-step(
         if step-label == none {
           msg(message-catalog, "skip.search", key)
@@ -1304,7 +1353,7 @@
     // `level: auto` assigns the new value's height with `decision-fn`;
     // pass an explicit level to force a specific tower height instead.
     insert: (value, level: auto, step-label: none) => {
-      _validate-skip-list-insert(nodes, value, level)
+      _validate-skip-list-insert("skip-list insert()", nodes, value, level, max-level)
       let assigned-level = if level == auto {
         _skip-list-node-level(value, decision-fn, max-level)
       } else {
@@ -1342,11 +1391,18 @@
       )
     },
     delete: (value, step-label: none) => {
-      _validate-skip-list-key(nodes, value)
+      _validate-skip-list-key("skip-list delete()", nodes, value)
       let deletion-index = nodes.position(
         skip-list-node => skip-list-node.value == value,
       )
-      assert(deletion-index != none, message: "delete key is not part of skip list")
+      if deletion-index == none {
+        fail(
+          "skip-list delete()",
+          "value " + show-value(value) + " is not in the skip list, so there is nothing to delete",
+          expected: "one of the values: " + show-list(_skip-list-values(nodes)),
+          fix: "delete a value the list holds; use search(value) to show an unsuccessful lookup",
+        )
+      }
       let marks = range(
         _skip-list-height(nodes, deletion-index) + 1,
       ).map(level => (level, deletion-index, "remove"))
@@ -1377,9 +1433,11 @@
 
 #let skip-list(style: (:), decision-fn: default-decision-fn, level-spacing: 1.4, max-level: 4, language: "en", messages: (:), ..vals) = {
   let values = vals.pos()
-  assert(type(max-level) == int and max-level >= 0, message: "skip-list max-level must be a non-negative integer")
-  assert((type(level-spacing) == int or type(level-spacing) == float) and level-spacing > 0, message: "skip-list level-spacing must be a positive number")
-  _validate-skip-list-values(values)
+  validate-style("skip-list()", style)
+  check-function("skip-list()", "decision-fn:", decision-fn)
+  check-integer("skip-list()", "max-level:", max-level, min: 0)
+  check-positive("skip-list()", "level-spacing:", level-spacing)
+  _validate-skip-list-values("skip-list()", values)
   let nodes = values.map(v => (value: v, level: _skip-list-node-level(v, decision-fn, max-level)))
   _create-skip-list-object(nodes, style, decision-fn, level-spacing, max-level, resolve-catalog(language: language, messages: messages))
 }

@@ -2,18 +2,32 @@
 
 #import "@preview/cetz:0.5.2"
 #import cetz.draw: line
-#import "style.typ": resolve, scaled, resolve-mark-style, array-style, indices-style
+#import "style.typ": resolve, scaled, resolve-mark-style, array-style, indices-style, validate-style
+#import "validate.typ": (
+  check-callback-result, check-enum, check-function, check-integer, fail,
+  show-value,
+)
 #import "grid.typ": array-view
 #import "linear.typ": _render-linked-list, _null
 #import "tree.typ": trans-view
 #import "messages.typ": default-catalog, resolve-catalog, msg
 
-#let _normalize-hash-entry(entry-value, value: none) = {
+// An entry is a bare key, a `(key, value)` pair, or a key with a separate
+// `value:`. Any other array shape would silently be stored as one opaque key.
+#let _normalize-hash-entry(where, entry-value, value: none) = {
   if value != none {
     return (key: entry-value, value: value, pair: true)
   }
-  if type(entry-value) == array and entry-value.len() == 2 {
-    return (key: entry-value.at(0), value: entry-value.at(1), pair: true)
+  if type(entry-value) == array {
+    if entry-value.len() == 2 {
+      return (key: entry-value.at(0), value: entry-value.at(1), pair: true)
+    }
+    fail(
+      where,
+      "entry " + show-value(entry-value) + " has " + str(entry-value.len()) + " elements",
+      expected: "a key, or a (key, value) pair",
+      fix: "write it as (\"k\", \"v\")",
+    )
   }
   (key: entry-value, value: none, pair: false)
 }
@@ -33,17 +47,21 @@
   hash-value
 }
 
+// A custom hash must land inside the table on its own: silently folding an
+// out-of-range result would hide the bug in the hash function being taught.
 #let _calculate-hash-index(key, size, hash) = {
-  let raw-hash = if hash == auto {
-    _calculate-default-hash(key, size)
-  } else {
-    hash(key)
+  if hash == auto { return _calculate-default-hash(key, size) }
+  let raw-hash = hash(key)
+  check-callback-result("hash-table()", "hash:", raw-hash, (int,))
+  if raw-hash >= 0 and raw-hash < size {
+    return raw-hash
   }
-  assert(
-    type(raw-hash) == int,
-    message: "hash-table hash functions must return an integer",
+  fail(
+    "hash-table()",
+    "hash: returned " + str(raw-hash) + " for key " + show-value(key) + ", which is not a slot in this table",
+    expected: "0 to " + str(size - 1) + ", for a table of size " + str(size),
+    fix: "reduce the hash modulo the table size, for example key => calc.rem(key, " + str(size) + ")",
   )
-  calc.rem(calc.rem(raw-hash, size) + size, size)
 }
 
 #let _create-empty-chain-buckets(size) = range(size).map(_ => ())
@@ -72,12 +90,12 @@
   )
 }
 
-#let _build-chained-hash-table(entries, size, hash) = {
+#let _build-chained-hash-table(where, entries, size, hash) = {
   let buckets = _create-empty-chain-buckets(size)
   for entry-value in entries {
     buckets = _put-chained-entry(
       buckets,
-      _normalize-hash-entry(entry-value),
+      _normalize-hash-entry(where, entry-value),
       hash,
     ).model
   }
@@ -118,7 +136,14 @@
 
 #let _put-linear-probe-entry(slots, entry, hash) = {
   let probe-result = _find-linear-probe-slot(slots, entry.key, hash)
-  assert(probe-result.index != none, message: "hash-table is full")
+  if probe-result.index == none {
+    fail(
+      "hash-table insert()",
+      "every slot is occupied, so key " + show-value(entry.key) + " cannot be placed",
+      expected: "a free slot; linear probing cannot grow the table",
+      fix: "raise size: above " + str(slots.len()) + ", or use collision: \"chaining\"",
+    )
+  }
   slots.at(probe-result.index) = entry
   (
     model: slots,
@@ -128,12 +153,12 @@
   )
 }
 
-#let _build-linear-probing-table(entries, size, hash) = {
+#let _build-linear-probing-table(where, entries, size, hash) = {
   let slots = range(size).map(_ => none)
   for entry-value in entries {
     slots = _put-linear-probe-entry(
       slots,
-      _normalize-hash-entry(entry-value),
+      _normalize-hash-entry(where, entry-value),
       hash,
     ).model
   }
@@ -249,7 +274,7 @@
     diagram: render-model(model),
     collision: collision,
     insert: (key, value: none, step-label: none) => {
-      let entry = _normalize-hash-entry(key, value: value)
+      let entry = _normalize-hash-entry("hash-table insert()", key, value: value)
       if collision == "chaining" {
         let insertion = _put-chained-entry(model, entry, hash)
         let after-marks = (
@@ -431,16 +456,15 @@
 }
 
 #let hash-table(size: 7, collision: "chaining", hash: auto, style: (:), language: "en", messages: (:), ..entries) = {
-  assert(type(size) == int and size > 0, message: "hash-table size must be a positive integer")
+  check-integer("hash-table()", "size:", size, min: 1)
+  check-enum("hash-table()", "collision:", collision, ("chaining", "chain", "linear"))
+  validate-style("hash-table()", style)
+  if hash != auto { check-function("hash-table()", "hash:", hash) }
   let collision-strategy = if collision == "chain" { "chaining" } else { collision }
-  assert(
-    collision-strategy in ("chaining", "linear"),
-    message: "hash-table collision must be \"chaining\" or \"linear\"",
-  )
   let model = if collision-strategy == "chaining" {
-    _build-chained-hash-table(entries.pos(), size, hash)
+    _build-chained-hash-table("hash-table()", entries.pos(), size, hash)
   } else {
-    _build-linear-probing-table(entries.pos(), size, hash)
+    _build-linear-probing-table("hash-table()", entries.pos(), size, hash)
   }
   _create-hash-table-object(
     model,

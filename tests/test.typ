@@ -1277,3 +1277,32 @@
   //   bst(1, messages: messages(tree: (nope: k => [x])))
   [Invalid language and unknown message keys fail with a clear assertion message.]
 })
+
+#section("Unsuccessful lookups stay legitimate results, not errors", {
+  let missing-bst-key = (bst(50, 30, 70, 20, 40).search)(45)
+  let missing-list-value = (linked-list(3, 1, 4, 1, 5).search)(9)
+  let missing-hash-key = (hash-table("apple", "kiwi", size: 5).search)("pear")
+  assert(not missing-bst-key.found)
+  assert(not missing-list-value.found and missing-list-value.index == none)
+  assert(not missing-hash-key.found)
+  std.stack(
+    spacing: 1em,
+    missing-bst-key.diagram,
+    missing-list-value.diagram,
+    missing-hash-key.diagram,
+  )
+})
+
+#section("Invalid input is refused at the public boundary, with an actionable diagram-free error", {
+  // Every line below is a compile error by design; tests/negative.typ compiles
+  // each of them in isolation and checks the wording of the diagnostic.
+  //   bst(1, "two")                                   incomparable keys
+  //   bst(5, 3, edge-customizations: ((3, 5, (:)),))  edge that does not exist
+  //   transition("bst", (5,), heap-insert(1))         operation from another family
+  //   (stack().pop)()                                 pop on an empty stack
+  //   graph(("a": ()), layout: "manual")              manual layout with no position
+  //   array-view(1, 2, pointers: ((index: 9,),))      pointer outside the array
+  [Run #raw("scripts/negative-tests.sh") to compile the invalid-input suite.]
+})
+
+

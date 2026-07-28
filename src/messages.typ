@@ -19,6 +19,8 @@
 // operations and its chained `.result` objects, so the language and any
 // overrides persist for the lifetime of an object.
 
+#import "validate.typ": check-dictionary, check-enum, check-type, fail
+
 #let supported-languages = ("en", "de", "es")
 
 // ── English catalog (source of truth) ────────────────────────────────────────
@@ -307,10 +309,20 @@
 // builder's `messages:` argument. Each value is content or a callback, exactly
 // like a catalog entry.
 #let messages(..groups) = {
-  assert(groups.pos().len() == 0, message: "typed-dsa messages() takes only named groups, e.g. messages(tree: (...))")
+  if groups.pos().len() > 0 {
+    fail(
+      "messages()",
+      str(groups.pos().len()) + " positional argument(s) were given",
+      expected: "named structure groups only",
+      fix: "write it as messages(tree: (insert: key => [insert #key]))",
+    )
+  }
   let message-catalog = (:)
   for (group-name, group-messages) in groups.named() {
-    assert(type(group-messages) == dictionary, message: "typed-dsa messages() group \"" + group-name + "\" must be a dictionary of key: value entries")
+    check-dictionary(
+      "messages()", "group \"" + group-name + "\"", group-messages,
+      fix: "write it as " + group-name + ": (insert: key => [...])",
+    )
     for (message-key, message-value) in group-messages {
       message-catalog.insert(
         group-name + "." + message-key,
@@ -328,7 +340,10 @@
 // dictionary value can only mean a group.
 #let _normalize-message-overrides(overrides) = {
   if overrides == none { return (:) }
-  assert(type(overrides) == dictionary, message: "typed-dsa messages: must be a dictionary (build one with messages(...))")
+  check-dictionary(
+    "messages:", "messages:", overrides,
+    fix: "build one with messages(...), or pass a \"group.key\" dictionary",
+  )
   let normalized-overrides = (:)
   for (message-key, message-value) in overrides {
     let is-grouped-entry = (
@@ -354,14 +369,26 @@
 // catalog. `language` selects the base; `messages` layers on top. Unknown
 // languages and unknown override keys both fail with a clear message.
 #let resolve-catalog(language: "en", messages: (:)) = {
-  assert(
-    language in supported-languages,
-    message: "typed-dsa language must be one of " + supported-languages.map(l => "\"" + l + "\"").join(", ") + ", got \"" + str(language) + "\"",
+  check-enum(
+    "language:", "language:", language, supported-languages,
+    fix: "use a supported language, or override individual captions with messages:",
   )
   let base-catalog = catalogs.at(language)
   let message-overrides = _normalize-message-overrides(messages)
-  for (message-key, _) in message-overrides {
-    assert(message-key in base-catalog, message: "typed-dsa messages: unknown message key \"" + message-key + "\" (see the message-key reference in the documentation)")
+  for (message-key, message-value) in message-overrides {
+    if message-key not in base-catalog {
+      fail(
+        "messages:",
+        "unknown message key \"" + message-key + "\"",
+        expected: "a \"group.key\" the package can request; see the message-key reference in the documentation",
+        fix: "check the group name and the key, for example tree.insert",
+      )
+    }
+    check-type(
+      "messages:", "message \"" + message-key + "\"", message-value,
+      (content, str, function),
+      fix: "pass content, or a function returning content",
+    )
   }
   base-catalog + message-overrides
 }
@@ -371,7 +398,9 @@
 // returned as-is. Callbacks receive whatever Typst values the caller passes —
 // integers, strings, math, or arbitrary content — untouched.
 #let msg(catalog, key, ..args) = {
-  assert(key in catalog, message: "typed-dsa: unknown message key \"" + key + "\"")
+  if key not in catalog {
+    fail("messages", "unknown message key \"" + key + "\"", expected: "a key present in the resolved catalog")
+  }
   let message-value = catalog.at(key)
   if type(message-value) == function {
     message-value(..args.pos())

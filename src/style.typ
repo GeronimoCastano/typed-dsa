@@ -4,6 +4,16 @@
 // and linear structures. Every builder takes a `style:` dict that is merged
 // over these defaults with `resolve`, so colors, size, and shape can be
 // overridden per call or, via `.with(style: ...)`, document-wide.
+//
+// This module also owns the schemas for every customization dictionary the
+// package accepts, since a customization is resolved into the same drawing
+// properties a style key sets. `validate-style` runs at the public boundary;
+// `resolve` then assumes a valid dictionary.
+
+#import "validate.typ": (
+  check-bool, check-dictionary, check-enum, check-known-keys, check-non-negative,
+  check-number, check-positive, check-type, fail, is-number, show-value,
+)
 
 #let theme = (
   // Trees
@@ -97,8 +107,273 @@
 )
 
 #let theme-preset(name) = {
-  assert(name in themes, message: "unknown typed-dsa theme: " + name)
+  check-enum("theme-preset()", "theme name", name, themes.keys())
   themes.at(name)
+}
+
+// ── Style and customization schemas ──────────────────────────────────────────
+//
+// One place naming every key the package understands, so a typo in a style
+// dictionary or a customization option is reported instead of silently
+// dropped. Each list is also the "accepted values" text of its diagnostic.
+
+#let node-shapes = ("circle", "square", "rounded", "capsule", "diamond", "hexagon")
+#let box-shapes = ("square", "rounded", "capsule")
+#let edge-patterns = (
+  "normal", "solid", "dashed", "dotted", "wavy", "wave", "dash", "dot", "dots",
+)
+#let edge-arrows = (none, false, true, "start", "end", "both")
+// `true` is the shorthand spelling of `"right"` that the bend renderer has
+// always accepted.
+#let bend-directions = (none, false, true, "left", "right")
+#let label-positions = ("left", "right", "top", "bottom")
+
+// Typography roles all accept the same `text()` parameters, plus the `color`
+// alias `resolve` folds into `fill`.
+#let text-style-keys = (
+  "size", "color", "fill", "font", "weight", "style", "rotation", "tracking",
+  "spacing", "baseline", "stretch", "features", "fallback", "lang", "region",
+  "dir", "hyphenate", "number-type", "number-width", "slashed-zero",
+  "top-edge", "bottom-edge",
+)
+
+#let text-style-roles = (
+  "node-text", "value-text", "label-text", "index-text", "pointer-text",
+  "operation-text", "edge-label-text", "algorithm-label-text",
+)
+
+#let mark-style-roles = (
+  "new-style", "path-style", "remove-style", "rotate-style",
+  "visited-style", "current-style", "queued-style", "active-edge-style",
+)
+
+#let mark-style-keys = ("fill", "shape", "stroke", "node-radius", "text", "stripe-fill")
+#let node-customization-keys = ("shape", "fill", "stroke", "node-radius", "text")
+#let edge-customization-keys = (
+  "stroke", "color", "pattern", "dash", "wave", "arrow", "bend", "angle", "label",
+)
+#let cell-customization-keys = ("fill", "stroke", "text", "stripe-fill")
+#let node-label-keys = ("content", "body", "position", "offset", "gap") + text-style-keys
+#let indices-keys = ("enabled", "labels", "offset", "text") + text-style-keys
+
+#let _positive-style-keys = (
+  "node-radius", "x-gap", "y-gap", "tri-w", "tri-h", "box-w", "box-h",
+  "scale", "edge-wave-step",
+)
+#let _non-negative-style-keys = ("box-gap", "edge-wave-amplitude")
+#let _fill-style-keys = (
+  "node-fill", "box-fill", "ptr-fill", "prev-ptr-fill", "next-ptr-fill",
+  "edge-arrow-fill",
+)
+#let _stroke-style-keys = ("node-stroke", "edge-stroke", "box-stroke")
+
+// `edge-dash` and `edge-wave` are legacy spellings `_resolve-edge-pattern`
+// still honours; `node-labels` and `indices` are sub-dictionaries with their
+// own schema rather than plain theme defaults.
+#let style-keys = theme.keys() + ("node-labels", "indices", "edge-dash", "edge-wave")
+
+#let _fill-types = (color, gradient, tiling, type(none))
+#let _stroke-types = (stroke, length, color, gradient, dictionary, type(none))
+
+#let check-text-style(where, what, value) = {
+  check-known-keys(where, what, value, text-style-keys)
+}
+
+#let check-fill(where, what, value) = check-type(
+  where, what, value, _fill-types,
+  fix: "pass a color, for example " + what + ": rgb(\"#C8E6C9\")",
+)
+
+#let check-stroke(where, what, value) = check-type(
+  where, what, value, _stroke-types,
+  fix: "pass a stroke, for example " + what + ": 1pt + black",
+)
+
+// A highlight role is either a plain color (shorthand for `(fill: color)`) or
+// a dictionary of drawing overrides for the marked node or cell.
+#let check-mark-style(where, what, value) = {
+  if type(value) in (color, gradient, tiling) { return }
+  if type(value) != dictionary {
+    fail(
+      where,
+      what + " is " + show-value(value),
+      expected: "a color, or a dictionary of " + mark-style-keys.map(key => "\"" + key + "\"").join(", "),
+      fix: "pass a color, or build one with node-mark-style(...) / cell-mark-style(...)",
+    )
+  }
+  check-known-keys(where, what, value, mark-style-keys)
+  if "fill" in value { check-fill(where, what + ".fill", value.fill) }
+  if "stroke" in value { check-stroke(where, what + ".stroke", value.stroke) }
+  if "shape" in value { check-enum(where, what + ".shape", value.shape, node-shapes) }
+  if "node-radius" in value { check-positive(where, what + ".node-radius", value.node-radius) }
+  if "text" in value { check-text-style(where, what + ".text", value.text) }
+}
+
+#let check-label-position(where, what, value) = {
+  if type(value) == angle { return }
+  check-enum(
+    where, what, value, label-positions,
+    fix: "use a side name or an angle, for example " + what + ": 45deg",
+  )
+}
+
+// An `(x, y)` pair in diagram units, used by label offsets and graph positions.
+#let check-coordinate-pair(where, what, value) = {
+  let is-pair = type(value) == array and value.len() == 2
+  if not is-pair {
+    fail(
+      where,
+      what + " is " + show-value(value),
+      expected: "an (x, y) pair of numbers",
+      fix: "write it as " + what + ": (0, 0)",
+    )
+  }
+  for (axis-index, component) in value.enumerate() {
+    if not is-number(component) {
+      fail(
+        where,
+        what + " component " + str(axis-index) + " is " + show-value(component),
+        expected: "a number",
+      )
+    }
+  }
+}
+
+#let check-node-label-defaults(where, what, value) = {
+  check-known-keys(where, what, value, node-label-keys + ("enabled",))
+  if "position" in value { check-label-position(where, what + ".position", value.position) }
+  if "offset" in value { check-coordinate-pair(where, what + ".offset", value.offset) }
+  if "gap" in value { check-number(where, what + ".gap", value.gap) }
+}
+
+#let check-indices(where, what, value) = {
+  if value in (true, false, none) { return }
+  check-dictionary(
+    where, what, value,
+    fix: "pass true/false, or a dictionary built with indices-style(...)",
+  )
+  check-known-keys(where, what, value, indices-keys)
+  if "enabled" in value { check-bool(where, what + ".enabled", value.enabled) }
+  if "offset" in value { check-coordinate-pair(where, what + ".offset", value.offset) }
+  if "labels" in value and value.labels != auto {
+    check-type(
+      where, what + ".labels", value.labels, (array,),
+      fix: "pass auto, or one label per cell",
+    )
+  }
+}
+
+#let _check-edge-pattern(where, what, value) = {
+  if type(value) == str { return check-enum(where, what, value, edge-patterns) }
+  check-type(
+    where, what, value, (array, type(none), bool),
+    fix: "use a pattern name, or a dash array such as (2pt, 2pt)",
+  )
+}
+
+// An edge label is either content or a dictionary carrying that content plus
+// typography overrides, so both spellings are checked the same way. A graph
+// edge may already carry a label from its adjacency entry, so there a
+// content-less dictionary legitimately means "restyle the existing label".
+#let check-label-override(where, what, value, require-content: false) = {
+  if type(value) != dictionary { return }
+  check-known-keys(where, what, value, ("content", "body") + text-style-keys)
+  if not require-content { return }
+  let has-body = "content" in value or "body" in value
+  if not has-body {
+    fail(
+      where,
+      what + " sets label typography but no label content, so nothing would be drawn",
+      expected: "a \"content\" (or \"body\") entry",
+      fix: "write it as " + what + ": (content: [w], color: blue)",
+    )
+  }
+}
+
+// Shared by tree and graph edges: both resolve the same option dictionary.
+#let check-edge-customization-options(where, what, options, require-label-content: false) = {
+  check-known-keys(where, what, options, edge-customization-keys)
+  if "stroke" in options { check-stroke(where, what + ".stroke", options.stroke) }
+  if "color" in options { check-fill(where, what + ".color", options.color) }
+  if "arrow" in options { check-enum(where, what + ".arrow", options.arrow, edge-arrows) }
+  if "bend" in options { check-enum(where, what + ".bend", options.bend, bend-directions) }
+  if "wave" in options { check-bool(where, what + ".wave", options.wave) }
+  if "pattern" in options { _check-edge-pattern(where, what + ".pattern", options.pattern) }
+  if "dash" in options { _check-edge-pattern(where, what + ".dash", options.dash) }
+  if "angle" in options {
+    check-type(
+      where, what + ".angle", options.angle, (angle,),
+      fix: "pass an angle, for example angle: 25deg",
+    )
+  }
+  if "label" in options {
+    check-label-override(
+      where, what + ".label", options.label,
+      require-content: require-label-content,
+    )
+  }
+}
+
+#let check-node-customization-options(where, what, options) = {
+  check-known-keys(where, what, options, node-customization-keys)
+  if "shape" in options { check-enum(where, what + ".shape", options.shape, node-shapes) }
+  if "fill" in options { check-fill(where, what + ".fill", options.fill) }
+  if "stroke" in options { check-stroke(where, what + ".stroke", options.stroke) }
+  if "node-radius" in options { check-positive(where, what + ".node-radius", options.node-radius) }
+  if "text" in options { check-text-style(where, what + ".text", options.text) }
+}
+
+#let check-cell-customization-options(where, what, options) = {
+  check-known-keys(where, what, options, cell-customization-keys)
+  if "fill" in options { check-fill(where, what + ".fill", options.fill) }
+  if "stroke" in options { check-stroke(where, what + ".stroke", options.stroke) }
+  if "stripe-fill" in options { check-fill(where, what + ".stripe-fill", options.stripe-fill) }
+  if "text" in options { check-text-style(where, what + ".text", options.text) }
+}
+
+// A per-node annotation: content, or that content plus placement overrides.
+#let check-node-label-override(where, what, value) = {
+  if type(value) != dictionary { return }
+  check-known-keys(where, what, value, node-label-keys)
+  if "position" in value { check-label-position(where, what + ".position", value.position) }
+  if "offset" in value { check-coordinate-pair(where, what + ".offset", value.offset) }
+  if "gap" in value { check-number(where, what + ".gap", value.gap) }
+}
+
+#let _check-style-entry(where, key, value) = {
+  let what = "style." + key
+  if key in _positive-style-keys { return check-positive(where, what, value) }
+  if key in _non-negative-style-keys { return check-non-negative(where, what, value) }
+  if key in _fill-style-keys { return check-fill(where, what, value) }
+  if key in _stroke-style-keys { return check-stroke(where, what, value) }
+  if key in text-style-roles { return check-text-style(where, what, value) }
+  if key in mark-style-roles { return check-mark-style(where, what, value) }
+  if key == "node-shape" { return check-enum(where, what, value, node-shapes) }
+  if key == "box-shape" { return check-enum(where, what, value, box-shapes) }
+  if key == "edge-arrow" { return check-enum(where, what, value, edge-arrows) }
+  if key == "diff-colors" { return check-bool(where, what, value) }
+  if key == "node-labels" { return check-node-label-defaults(where, what, value) }
+  if key == "indices" { return check-indices(where, what, value) }
+  if key in ("edge-pattern", "edge-dash") {
+    if type(value) == str { return check-enum(where, what, value, edge-patterns) }
+    return check-type(
+      where, what, value, (array, type(none), bool),
+      fix: "use a pattern name, or a dash array such as (2pt, 2pt)",
+    )
+  }
+  if key == "edge-wave" { return check-bool(where, what, value) }
+}
+
+// The single entry point every public builder calls before touching `style:`.
+#let validate-style(where, style) = {
+  check-dictionary(
+    where, "style:", style,
+    fix: "pass a dictionary, for example style: (node-radius: 0.4)",
+  )
+  check-known-keys(where, "style:", style, style-keys)
+  for (key, value) in style {
+    _check-style-entry(where, key, value)
+  }
 }
 
 // Named-argument style builders provide editor completion while returning the

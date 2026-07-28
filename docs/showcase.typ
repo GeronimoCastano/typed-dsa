@@ -204,8 +204,8 @@
       50, 30, 70, 20, 40,
       style: tree-style,
       edge-customizations: (
-        (30, 10, (pattern: "dashed", color: purple)),
-        (10, 20, (pattern: "wavy", color: blue)),
+        (50, 30, (pattern: "dashed", color: purple)),
+        (30, 20, (pattern: "wavy", color: blue)),
       ),
     )
     let b = bst(

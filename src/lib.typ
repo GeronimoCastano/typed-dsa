@@ -13,8 +13,51 @@
 #import "hash.typ": hash-table
 #import "style.typ": theme, themes, theme-preset, resolve, tree-style, heap-style, graph-style, list-style, stack-style, queue-style, array-style, matrix-style, text-style, label-style, node-mark-style, cell-mark-style, node-label-style, indices-style
 #import "messages.typ": messages, supported-languages
+#import "validate.typ": check-enum, fail, show-list, show-value
+
+// The variants `transition` understands, and the operation family each one
+// needs. An operation carries its family, so a heap operation aimed at a tree
+// (or the reverse) is refused here instead of misreading the model further in.
+#let _transition-variants = (
+  "bst": "tree",
+  "avl": "tree",
+  "min-heap": "heap",
+  "max-heap": "heap",
+)
+
+#let _transition-operation-builders = (
+  "tree": "tree-insert(key), tree-delete(key), or tree-search(key)",
+  "heap": "heap-insert(key) or heap-extract",
+)
+
+#let _check-transition-operation(variant, op) = {
+  let required-family = _transition-variants.at(variant)
+  let is-operation = (
+    type(op) == dictionary and "family" in op and "apply" in op
+  )
+  if not is-operation {
+    fail(
+      "transition()",
+      "op is " + show-value(op) + ", which is not an operation",
+      expected: "an operation built with " + _transition-operation-builders.at(required-family),
+      fix: "call the operation builder, for example transition(\"" + variant + "\", keys, " + _transition-operation-builders.at(required-family).split(",").first() + ")",
+    )
+  }
+  if op.family == required-family { return }
+  fail(
+    "transition()",
+    "variant \"" + variant + "\" was given a " + op.family + " operation",
+    expected: "a " + required-family + " operation: " + _transition-operation-builders.at(required-family),
+    fix: "use an operation from the same structure family as the variant",
+  )
+}
 
 #let transition(variant, keys, op, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
+  check-enum(
+    "transition()", "variant", variant, _transition-variants.keys(),
+    fix: "pass one of " + show-list(_transition-variants.keys()),
+  )
+  _check-transition-operation(variant, op)
   if variant == "min-heap" {
     return _heap-transition("min", keys, op, style: style)
   }

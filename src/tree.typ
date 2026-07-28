@@ -8,7 +8,18 @@
 // written onto the nodes, so labels can be any content.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": theme, resolve, scaled, resolve-mark-style, edge-mark, edge-stroke, edge-wave, wavy-parts
+#import "style.typ": (
+  theme, resolve, scaled, resolve-mark-style, edge-mark, edge-stroke, edge-wave,
+  wavy-parts, validate-style, check-fill, check-edge-customization-options,
+  check-node-customization-options, check-node-label-override,
+)
+#import "validate.typ": (
+  check-array, check-bool, check-comparable, check-comparable-with,
+  check-customization-entries, check-dictionary, check-enum,
+  check-id-value-references, check-known-keys, check-positive, check-reference,
+  check-type, check-unique, fail, normalize-id-value-entries, show-list,
+  show-value,
+)
 #import "messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, circle, rect, content, bezier-through
 
@@ -339,22 +350,68 @@
 
 // ── Model: hand-composed trees ────────────────────────────────────────────────
 
-// A node with an arbitrary content `label`, optional children, and an optional fill tint.
-#let node(label, left: none, right: none, children: none, fill: none) = (
-  kind: "node", label: label, left: left, right: right,
-  children: children,
-  fill: fill,
-  height: 1,
+#let _tree-node-kinds = ("node", "subtree")
+
+#let _is-tree-node(candidate) = (
+  type(candidate) == dictionary
+    and candidate.at("kind", default: none) in _tree-node-kinds
 )
+
+// A child slot holds a `node(...)`, a `subtree(...)`, or nothing. Checking the
+// shape here means layout and rendering never meet a bare value where they
+// expect a node dictionary.
+#let _check-tree-node(where, what, candidate) = {
+  if candidate == none or _is-tree-node(candidate) { return }
+  fail(
+    where,
+    what + " is " + show-value(candidate),
+    expected: "a node(...) value, a subtree(...) value, or none",
+    fix: "wrap it, for example " + what + ": node(" + show-value(candidate) + ")",
+  )
+}
+
+// A node with an arbitrary content `label`, optional children, and an optional fill tint.
+#let node(label, left: none, right: none, children: none, fill: none) = {
+  _check-tree-node("node()", "left:", left)
+  _check-tree-node("node()", "right:", right)
+  if fill != none { check-fill("node()", "fill:", fill) }
+  if children != none {
+    check-array(
+      "node()", "children:", children,
+      fix: "pass an array of node(...) values",
+    )
+    for (child-index, child) in children.enumerate() {
+      _check-tree-node("node()", "children: entry " + str(child-index), child)
+    }
+    if left != none or right != none {
+      fail(
+        "node()",
+        "children: was given together with left:/right:",
+        expected: "either children: for an n-ary node, or left:/right: for a binary node",
+        fix: "drop one of the two spellings",
+      )
+    }
+  }
+  (
+    kind: "node", label: label, left: left, right: right,
+    children: children,
+    fill: fill,
+    height: 1,
+  )
+}
 
 // A triangle leaf standing in for an elided subtree. `height` is an optional
 // content label drawn as a side bracket; `scale` resizes the triangle; `fill`
 // tints the outline and labels.
-#let subtree(label, fill: none, height: none, scale: 1) = (
-  kind: "subtree", label: label,
-  fill: fill,
-  h-label: height, tscale: scale,
-)
+#let subtree(label, fill: none, height: none, scale: 1) = {
+  if fill != none { check-fill("subtree()", "fill:", fill) }
+  check-positive("subtree()", "scale:", scale)
+  (
+    kind: "subtree", label: label,
+    fill: fill,
+    h-label: height, tscale: scale,
+  )
+}
 
 // ── Layout ───────────────────────────────────────────────────────────────────
 
@@ -1040,10 +1097,134 @@
   }))
 }
 
+// ── Validation ───────────────────────────────────────────────────────────────
+//
+// Customizations are checked against the structure the caller described, at
+// the call that described it. Objects derived by an operation inherit the
+// same customizations without re-checking, because a rotation or a deletion
+// may legitimately remove an edge the caller styled on the original tree.
+
+#let _collect-tree-node-ids(tree-node) = {
+  if tree-node == none { return () }
+  let node-ids = (_tree-node-id(tree-node),)
+  if tree-node.kind == "subtree" { return node-ids }
+  for child-node in _visible-tree-children(tree-node) {
+    node-ids += _collect-tree-node-ids(child-node)
+  }
+  node-ids
+}
+
+#let _collect-tree-edges(tree-node) = {
+  if tree-node == none or tree-node.kind == "subtree" { return () }
+  let edges = ()
+  for child-node in _visible-tree-children(tree-node) {
+    edges.push((_tree-node-id(tree-node), _tree-node-id(child-node)))
+    edges += _collect-tree-edges(child-node)
+  }
+  edges
+}
+
+#let _show-tree-edges(edges) = if edges.len() == 0 {
+  "(the tree has no edges)"
+} else {
+  edges.map(
+    edge => show-value(edge.at(0)) + " -> " + show-value(edge.at(1)),
+  ).join(", ")
+}
+
+#let _validate-tree-references(
+  where,
+  root,
+  edge-customizations,
+  node-customizations,
+  node-labels,
+) = {
+  let node-ids = _collect-tree-node-ids(root)
+  check-customization-entries(
+    where,
+    "node-customizations:",
+    node-customizations,
+    2,
+    check-node-customization-options,
+  )
+  for (node-id, _) in node-customizations {
+    check-reference(where, "node-customizations:", node-id, node-ids)
+  }
+  check-customization-entries(
+    where,
+    "edge-customizations:",
+    edge-customizations,
+    3,
+    check-edge-customization-options.with(require-label-content: true),
+  )
+  let tree-edges = _collect-tree-edges(root)
+  for (from-node-id, to-node-id, _) in edge-customizations {
+    if (from-node-id, to-node-id) in tree-edges { continue }
+    fail(
+      where,
+      "edge-customizations: refers to edge "
+        + show-value(from-node-id) + " -> " + show-value(to-node-id)
+        + ", which is not a parent/child pair in this tree",
+      expected: "one of the edges: " + _show-tree-edges(tree-edges),
+      fix: "name the parent first and its direct child second",
+    )
+  }
+  check-id-value-references(where, "node-labels:", node-labels, node-ids)
+  for (_, label-value) in normalize-id-value-entries(
+    where,
+    "node-labels:",
+    node-labels,
+  ) {
+    check-node-label-override(where, "node-labels: entry", label-value)
+  }
+}
+
+// Shared by every tree builder: the arguments that do not depend on the
+// structure are checked first, then the structure, then the references into it.
+#let _validate-tree-arguments(
+  where,
+  style,
+  edge-customizations,
+  node-customizations,
+  node-labels,
+  root,
+) = {
+  validate-style(where, style)
+  _validate-tree-references(
+    where,
+    root,
+    edge-customizations,
+    node-customizations,
+    node-labels,
+  )
+}
+
+#let _validate-search-tree-keys(where, keys) = {
+  check-comparable(where, "keys", keys, subject: "key")
+  check-unique(where, "keys", keys, subject: "key")
+}
+
+#let _collect-tree-keys(tree-node) = if tree-node == none {
+  ()
+} else {
+  _collect-tree-keys(tree-node.left) + (tree-node.key,) + _collect-tree-keys(tree-node.right)
+}
+
 // ── Public structure builders ────────────────────────────────────────────────
 
 // Render a hand-composed tree built from `node(...)` and `subtree(...)`.
-#let tree(root, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = _render-tree(root, resolved-style: resolve(style), edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
+#let tree(root, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
+  _check-tree-node("tree()", "root", root)
+  _validate-tree-arguments(
+    "tree()",
+    style,
+    edge-customizations,
+    node-customizations,
+    node-labels,
+    root,
+  )
+  _render-tree(root, resolved-style: resolve(style), edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
+}
 
 // ── Operations ───────────────────────────────────────────────────────────────
 //
@@ -1092,7 +1273,28 @@
 // (left-right / right-left) into its own inner-then-outer steps instead of
 // collapsing straight from the unrotated tree to the final one; it has no
 // effect on a single rotation, since there's only one step to show either way.
-#let tree-insert(key, rebalance: (:), step-label: none, language: "en", messages: (:), catalog: none) = (variant, root) => {
+// Operations are tagged with the structure family they apply to, so
+// `transition` can reject a heap operation aimed at a tree before it reaches
+// code that would misread the model.
+#let _tree-operation(apply) = (family: "tree", apply: apply)
+
+#let tree-insert(key, rebalance: (:), step-label: none, language: "en", messages: (:), catalog: none) = {
+  check-comparable("tree-insert()", "key", (key,), subject: "key")
+  check-known-keys("tree-insert()", "rebalance:", rebalance, ("enabled", "all-steps"))
+  for (option-name, option-value) in rebalance {
+    check-bool("tree-insert()", "rebalance." + option-name, option-value)
+  }
+  _tree-operation((variant, root) => {
+  let existing-keys = _collect-tree-keys(root)
+  check-comparable-with("tree-insert()", "key", key, existing-keys)
+  if key in existing-keys {
+    fail(
+      "tree-insert()",
+      "key " + show-value(key) + " is already in the tree, so the insert would change nothing",
+      expected: "a key that is not present yet",
+      fix: "insert a different key, or drop this operation",
+    )
+  }
   let message-catalog = if catalog != none {
     catalog
   } else {
@@ -1188,9 +1390,22 @@
       (),
     )
   }
+  })
 }
 
-#let tree-delete(key, step-label: none, language: "en", messages: (:), catalog: none) = (variant, root) => {
+#let tree-delete(key, step-label: none, language: "en", messages: (:), catalog: none) = {
+  check-comparable("tree-delete()", "key", (key,), subject: "key")
+  _tree-operation((variant, root) => {
+  let existing-keys = _collect-tree-keys(root)
+  check-comparable-with("tree-delete()", "key", key, existing-keys)
+  if key not in existing-keys {
+    fail(
+      "tree-delete()",
+      "key " + show-value(key) + " is not in the tree, so there is nothing to delete",
+      expected: "one of the keys in the tree: " + show-list(existing-keys),
+      fix: "delete a key the tree holds; use tree-search(key) to show an unsuccessful lookup",
+    )
+  }
   let message-catalog = if catalog != none {
     catalog
   } else {
@@ -1216,9 +1431,15 @@
     )
   }
   (_remove-bst-node(root, key), before-marks, (:), label, ())
+  })
 }
 
-#let tree-search(key, step-label: none, language: "en", messages: (:), catalog: none) = (variant, root) => {
+// A search that finds nothing is a legitimate result, not an error: the step
+// reports it through `found:` and still draws the path that was walked.
+#let tree-search(key, step-label: none, language: "en", messages: (:), catalog: none) = {
+  check-comparable("tree-search()", "key", (key,), subject: "key")
+  _tree-operation((variant, root) => {
+  check-comparable-with("tree-search()", "key", key, _collect-tree-keys(root))
   let message-catalog = if catalog != none {
     catalog
   } else {
@@ -1234,11 +1455,13 @@
     step-label
   }
   (root, (:), search-path-marks, label, ())
+  })
 }
 
 // ── Composable operation views ───────────────────────────────────────────────
 
 #let op-arrow(label, symbol: $arrow.r$, style: (:)) = align(horizon)[
+  #validate-style("op-arrow()", style)
   #let resolved-style = resolve(style)
   #set align(center)
   #if label != none [
@@ -1355,7 +1578,7 @@
       after-marks,
       label,
       intermediate-panels,
-    ) = operation(variant, root)
+    ) = (operation.apply)(variant, root)
     let rendered-step = _render-tree-operation-step(
       root,
       before-marks,
@@ -1400,24 +1623,50 @@
     ),
     search: (key, step-label: none) => apply-operation(
       tree-search(key, step-label: step-label, catalog: catalog),
-    ),
+    ) + (found: key in _collect-tree-keys(root)),
   )
 }
 
-#let bst(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _create-tree-object("bst", _build-search-tree("bst", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
-#let avl(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _create-tree-object("avl", _build-search-tree("avl", keys.pos()), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
+#let _create-search-tree(where, variant, keys, style, edge-customizations, node-customizations, node-labels) = {
+  _validate-search-tree-keys(where, keys)
+  let root = _build-search-tree(variant, keys)
+  _validate-tree-arguments(
+    where,
+    style,
+    edge-customizations,
+    node-customizations,
+    node-labels,
+    root,
+  )
+  root
+}
+
+#let bst(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _create-tree-object("bst", _create-search-tree("bst()", "bst", keys.pos(), style, edge-customizations, node-customizations, node-labels), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
+#let avl(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _create-tree-object("avl", _create-search-tree("avl()", "avl", keys.pos(), style, edge-customizations, node-customizations, node-labels), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
 
 // ── Transition ───────────────────────────────────────────────────────────────
 
 #let transition(variant, keys, op, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
-  let tree-before-operation = _build-search-tree(variant, keys)
+  check-array(
+    "transition()", "keys", keys,
+    fix: "pass the keys as an array, for example transition(\"bst\", (50, 30), tree-insert(40))",
+  )
+  let tree-before-operation = _create-search-tree(
+    "transition()",
+    variant,
+    keys,
+    style,
+    edge-customizations,
+    node-customizations,
+    node-labels,
+  )
   let (
     tree-after-operation,
     before-marks,
     after-marks,
     label,
     intermediate-panels,
-  ) = op(variant, tree-before-operation)
+  ) = (op.apply)(variant, tree-before-operation)
   _render-tree-operation-step(
     tree-before-operation,
     before-marks,

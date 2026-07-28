@@ -2,9 +2,27 @@
 
 #import "grid.typ": array-view
 #import "@preview/cetz:0.5.2"
-#import "style.typ": array-style, indices-style, cell-mark-style, resolve, scaled
+#import "style.typ": (
+  array-style, indices-style, cell-mark-style, resolve, scaled, validate-style,
+  check-cell-customization-options,
+)
+#import "validate.typ": (
+  check-bool, check-comparable, check-enum, check-index, check-integer,
+  check-non-empty, check-type, fail, show-value,
+)
 #import "messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, rect, content
+
+// ── Validation ───────────────────────────────────────────────────────────────
+
+#let sort-orders = ("asc", "desc")
+
+// Role overrides restyle the cells an algorithm marks, so they take the same
+// options as any other cell customization.
+#let _check-sort-role-override(where, what, override) = {
+  if override == none { return }
+  check-cell-customization-options(where, what, override)
+}
 
 #let _active = cell-mark-style(fill: rgb("#FFF3BF"), stroke: 1pt + rgb("#F08C00"))
 #let _changed = cell-mark-style(fill: rgb("#E7F5FF"), stroke: 1pt + rgb("#1971C2"))
@@ -44,18 +62,32 @@
 
 // Accepts either a plain array of values or an `array-view(...)` object and
 // returns the values together with the style to carry through every step.
-#let _resolve-array-input(array-input) = {
+#let _resolve-array-input(where, array-input) = {
   if type(array-input) == dictionary and "values" in array-input {
     return (
       array-input.values,
       array-input.at("style", default: (:)),
     )
   }
-  assert(
-    type(array-input) == array,
-    message: "expects an array or an array-view()",
-  )
+  if type(array-input) != array {
+    fail(
+      where,
+      "input is " + show-value(array-input),
+      expected: "an array of values, or an array-view(...)",
+      fix: "pass the values as an array, for example (5, 3, 8)",
+    )
+  }
   (array-input, (:))
+}
+
+// A sorting trace orders values against each other and needs something to
+// order, so both preconditions are checked before any step is generated.
+#let _resolve-sorting-input(where, array-input) = {
+  let (values, style) = _resolve-array-input(where, array-input)
+  check-non-empty(where, "values", values, fix: "pass at least one value to sort")
+  check-comparable(where, "values", values)
+  validate-style(where, style)
+  (values, style)
 }
 
 #let _create-cell-marks(indices, mark-style) = {
@@ -186,6 +218,22 @@
   merged-values
 }
 
+// Merging assumes both inputs are already ordered; merging unsorted input
+// would draw a "merged" array that is not in fact sorted.
+#let _check-merge-input-sorted(where, what, values, order) = {
+  for value-index in range(1, values.len()) {
+    let value = values.at(value-index)
+    let previous-value = values.at(value-index - 1)
+    if not _value-precedes(value, previous-value, order) { continue }
+    fail(
+      where,
+      what + " is not sorted: " + show-value(value) + " comes after " + show-value(previous-value),
+      expected: "an array already sorted in \"" + order + "\" order",
+      fix: "sort " + what + " before merging, or pass order: \"" + (if order == "asc" { "desc" } else { "asc" }) + "\"",
+    )
+  }
+}
+
 #let _values-are-sorted-for-merge(values, order) = {
   for value-index in range(1, values.len()) {
     if _value-precedes(
@@ -289,12 +337,15 @@
 }
 
 #let partition-step(arr, order: "asc", pivot: "middle", pointers: false, labels: true, language: "en", messages: (:)) = {
-  assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
-  assert(pivot in ("middle", "last"), message: "pivot must be \"middle\" or \"last\"")
+  let _where = "partition-step()"
+  check-enum(_where, "order:", order, sort-orders)
+  check-enum(_where, "pivot:", pivot, ("middle", "last"))
+  check-bool(_where, "pointers:", pointers)
+  check-bool(_where, "labels:", labels)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let _create-partition-step = _create-partition-step.with(message-catalog: message-catalog)
   let pivot-mode = pivot
-  let (values, style) = _resolve-array-input(arr)
+  let (values, style) = _resolve-sorting-input(_where, arr)
   let show-indices = true
   let partition-values = values.map(value => value)
   let pivot = calc.floor(partition-values.len() / 2)
@@ -302,10 +353,6 @@
   let left = 0
   let right = partition-values.len() - 1
   let steps = ()
-  if partition-values.len() == 0 {
-    steps.push(_create-sorting-step(msg(message-catalog, "sort.partitioned"), partition-values, (), style, show-indices, labels: labels))
-    return (steps: steps, result: partition-values, left: left, right: right, pivot: none, diagram: grid(columns: 1, row-gutter: 0.8em, ..steps.map(step => step.diagram)))
-  }
   if pivot-mode == "last" {
     let pivot = partition-values.len() - 1
     let pivot-value = partition-values.at(pivot)
@@ -367,15 +414,21 @@
 }
 
 #let merge-operation(left, right, order: "asc", pointers: true, labels: true, language: "en", messages: (:)) = {
-  assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let _where = "merge-operation()"
+  check-enum(_where, "order:", order, sort-orders)
+  check-bool(_where, "pointers:", pointers)
+  check-bool(_where, "labels:", labels)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let _create-merge-operation-step = _create-merge-operation-step.with(message-catalog: message-catalog)
-  let (left, left-style) = _resolve-array-input(left)
-  let (right, right-style) = _resolve-array-input(right)
+  let (left, left-style) = _resolve-array-input(_where, left)
+  let (right, right-style) = _resolve-array-input(_where, right)
   let style = if left-style != (:) { left-style } else { right-style }
+  validate-style(_where, style)
   let show-indices = true
-  assert(_values-are-sorted-for-merge(left, order), message: "left array must already be sorted")
-  assert(_values-are-sorted-for-merge(right, order), message: "right array must already be sorted")
+  check-non-empty(_where, "left and right", left + right, fix: "pass at least one value to merge")
+  check-comparable(_where, "left and right values", left + right)
+  _check-merge-input-sorted(_where, "left", left, order)
+  _check-merge-input-sorted(_where, "right", right, order)
   let output = ()
   for _ in range(left.len() + right.len()) { output.push([]) }
   let i = 0
@@ -572,6 +625,11 @@
 }
 
 #let sort-sequence(steps, columns: 3, gap: 1em, row-gap: 1em) = {
+  check-type(
+    "sort-sequence()", "steps", steps, (array,),
+    fix: "pass the steps array of a sorting result, for example merge-sort(values).steps",
+  )
+  check-integer("sort-sequence()", "columns:", columns, min: 1)
   let cells = ()
   for step in steps {
     cells.push(if type(step) == dictionary and "diagram" in step { step.diagram } else { step })
@@ -626,11 +684,13 @@
 }
 
 #let merge-sort(arr, order: "asc", labels: true, language: "en", messages: (:)) = {
-  assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let _where = "merge-sort()"
+  check-enum(_where, "order:", order, sort-orders)
+  check-bool(_where, "labels:", labels)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let _render-merge-divide-tree = _render-merge-divide-tree.with(message-catalog: message-catalog)
   let _render-merge-tree-diagram = _render-merge-tree-diagram.with(message-catalog: message-catalog)
-  let (values, style) = _resolve-array-input(arr)
+  let (values, style) = _resolve-sorting-input(_where, arr)
   let (result, divide-levels, merge-levels) = _build-merge-sort-levels(values, order)
   let steps = (
     (label: msg(message-catalog, "sort.original"), values: values, diagram: _render-sorting-panel(msg(message-catalog, "sort.original"), values, (), style, true, labels: labels)),
@@ -829,18 +889,18 @@
 }
 
 #let quick-sort(arr, order: "asc", pivot: "last", labels: true, language: "en", messages: (:)) = {
-  assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let _where = "quick-sort()"
+  check-enum(_where, "order:", order, sort-orders)
+  check-bool(_where, "labels:", labels)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let _sort-quick-range = _sort-quick-range.with(message-catalog: message-catalog)
-  let (values, style) = _resolve-array-input(arr)
-  assert(
-    pivot in ("first", "last") or type(pivot) == int,
-    message: "pivot must be \"first\", \"last\", or an index",
-  )
+  let (values, style) = _resolve-sorting-input(_where, arr)
   if type(pivot) == int {
-    assert(
-      pivot >= 0 and pivot < values.len(),
-      message: "pivot index " + str(pivot) + " is out of bounds for an array of length " + str(values.len()),
+    check-index(_where, "pivot:", pivot, values.len(), subject: "array")
+  } else {
+    check-enum(
+      _where, "pivot:", pivot, ("first", "last"),
+      fix: "use \"first\", \"last\", or an index into the array",
     )
   }
   let steps = (_create-sorting-step(msg(message-catalog, "sort.start"), values, (), style, true, labels: labels),)
@@ -860,9 +920,14 @@
 }
 
 #let bubble-sort(arr, order: "asc", pointers: true, labels: true, compare: none, swap: none, language: "en", messages: (:)) = {
-  assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let _where = "bubble-sort()"
+  check-enum(_where, "order:", order, sort-orders)
+  check-bool(_where, "pointers:", pointers)
+  check-bool(_where, "labels:", labels)
+  _check-sort-role-override(_where, "compare:", compare)
+  _check-sort-role-override(_where, "swap:", swap)
   let message-catalog = resolve-catalog(language: language, messages: messages)
-  let (values, style) = _resolve-array-input(arr)
+  let (values, style) = _resolve-sorting-input(_where, arr)
   let sorted-values = values.map(value => value)
   let comparison-style = _resolve-sort-role-style(_active, compare)
   let swap-style = _resolve-sort-role-style(_changed, swap)
@@ -946,9 +1011,14 @@
 }
 
 #let insertion-sort(arr, order: "asc", pointers: true, labels: true, compare: none, swap: none, language: "en", messages: (:)) = {
-  assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let _where = "insertion-sort()"
+  check-enum(_where, "order:", order, sort-orders)
+  check-bool(_where, "pointers:", pointers)
+  check-bool(_where, "labels:", labels)
+  _check-sort-role-override(_where, "compare:", compare)
+  _check-sort-role-override(_where, "swap:", swap)
   let message-catalog = resolve-catalog(language: language, messages: messages)
-  let (values, style) = _resolve-array-input(arr)
+  let (values, style) = _resolve-sorting-input(_where, arr)
   let sorted-values = values.map(value => value)
   let comparison-style = _resolve-sort-role-style(_active, compare)
   let swap-style = _resolve-sort-role-style(_changed, swap)
@@ -1008,9 +1078,16 @@
 }
 
 #let selection-sort(arr, order: "asc", pointers: true, labels: true, compare: none, current: none, minimum: none, swap: none, language: "en", messages: (:)) = {
-  assert(order in ("asc", "desc"), message: "order must be \"asc\" or \"desc\"")
+  let _where = "selection-sort()"
+  check-enum(_where, "order:", order, sort-orders)
+  check-bool(_where, "pointers:", pointers)
+  check-bool(_where, "labels:", labels)
+  _check-sort-role-override(_where, "compare:", compare)
+  _check-sort-role-override(_where, "current:", current)
+  _check-sort-role-override(_where, "minimum:", minimum)
+  _check-sort-role-override(_where, "swap:", swap)
   let message-catalog = resolve-catalog(language: language, messages: messages)
-  let (values, style) = _resolve-array-input(arr)
+  let (values, style) = _resolve-sorting-input(_where, arr)
   let sorted-values = values.map(value => value)
   let current-style = _resolve-sort-role-style(_current, current)
   let minimum-style = _resolve-sort-role-style(_minimum, minimum)

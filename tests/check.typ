@@ -79,5 +79,62 @@
   _insert-bst-node(_build-search-tree("bst", (5, 3, 8)), 3),
 ).len() == 3)
 
+// ── Valid input stays valid ──────────────────────────────────────────────────
+//
+// The counterpart to tests/negative.typ: a lookup that finds nothing is a
+// legitimate result reported through `found:`, not an error, and the optional
+// spellings of every style value keep working. Anything asserted here must
+// never become a diagnostic.
+
+#import "../src/lib.typ": (
+  array-view, bfs, bst, dijkstra, doubly-linked-list, graph, hash-table,
+  linked-list, matrix, min-heap, skip-list, stack, theme-preset, transition,
+  tree, node, subtree, queue, tree-search, quick-sort,
+)
+
+// An unsuccessful search reports itself instead of failing.
+#let bst-search = (bst(50, 30, 70).search)(99)
+#assert(not bst-search.found, message: "absent BST key should report found: false")
+#assert((bst(50, 30, 70).search)(30).found, message: "present BST key should be found")
+
+#let list-search = (linked-list(3, 1, 4).search)(9)
+#assert(not list-search.found, message: "absent list value should report found: false")
+#assert(list-search.index == none, message: "absent list value has no index")
+#assert.eq((linked-list(3, 1, 4).search)(4).index, 2)
+#assert(not (doubly-linked-list(3, 1).search)(9).found)
+#assert(not (skip-list(1, 3, 5).search)(4).found)
+#assert((skip-list(1, 3, 5).search)(3).found)
+
+// Hash tables report unsuccessful lookups and deletions the same way, under
+// both collision strategies.
+#assert(not (hash-table("a", "b", size: 5).search)("z").found)
+#assert((hash-table("a", "b", size: 5).search)("a").found)
+#assert(not (hash-table("a", "b", size: 5).delete)("z").found)
+#assert(not (hash-table("a", "b", size: 5, collision: "linear").search)("z").found)
+#assert((hash-table("a", "b", size: 5, collision: "linear").search)("b").found)
+
+// A target the traversal cannot reach is a result, not an error.
+#let unreachable = ("a": ("b",), "b": (), "c": ())
+#assert(not bfs(unreachable, "a", target: "c").result.found)
+#assert(bfs(unreachable, "a", target: "b").result.found)
+#assert(not dijkstra(("a": (("b", 2),), "b": (), "c": ()), "a", target: "c").result.found)
+
+// Optional and alternative spellings of style values stay accepted.
+#let _ = bst(5, 3, style: (node-fill: none, edge-arrow: none, edge-pattern: none)).diagram
+#let _ = bst(5, 3, style: theme-preset("dark")).diagram
+#let _ = bst(5, 3, style: (node-text: (color: red), new-style: (fill: red, shape: "square"))).diagram
+#let _ = linked-list(1, 2, style: (box-gap: 0)).diagram
+#let _ = graph(("a": ("b",), "b": ()), positions: ("a": (rel: "b", offset: (0, 1)))).diagram
+#let _ = graph(("a": ("b",), "b": ()), layout: "linear", gap: 2).diagram
+#let _ = array-view(1, 2, 3, style: (indices: true)).diagram
+#let _ = array-view().diagram
+#let _ = matrix(((1, 2), (3, 4)), row-labels: ([r],)).diagram
+#let _ = tree(node("a", left: node("b"), right: subtree("T")))
+#let _ = min-heap(5, 5, 3).diagram
+#let _ = stack(1, 2).diagram
+#let _ = queue(1, 2, enqueue: 3).diagram
+#let _ = quick-sort((3, 1, 2)).result
+#let _ = transition("bst", (50, 30), tree-search(99))
+
 #set page(width: auto, height: auto, margin: 4pt)
 All invariant checks passed.

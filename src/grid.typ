@@ -4,7 +4,11 @@
 // keys as the rest of the package.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": resolve, scaled
+#import "style.typ": resolve, scaled, validate-style, check-cell-customization-options, check-text-style
+#import "validate.typ": (
+  check-array, check-bool, check-dictionary, check-enum, check-function,
+  check-index, check-integer, check-known-keys, fail, show-value,
+)
 #import cetz.draw: rect, content, line
 
 #let _cell-customization-key(key) = if type(key) == array {
@@ -202,11 +206,78 @@
   }
 }))
 
-#let array-view(style: (:), cell-customizations: (), pointers: (), reserve-pointers: false, ..vals) = (
-  diagram: _render-array(vals.pos(), resolve(style), cell-customizations, pointers: pointers, reserve-pointers: reserve-pointers),
-  values: vals.pos(),
-  style: style,
+// ── Validation ───────────────────────────────────────────────────────────────
+//
+// A cell customization or a pointer that names a cell outside the sequence
+// would simply never be drawn, so its target is checked against the actual
+// cell count.
+
+#let _check-cell-index(where, what, cell-index, cell-count) = check-index(
+  where, what, cell-index, cell-count, subject: "array",
 )
+
+#let _validate-array-cell-customizations(where, cell-customizations, cell-count) = {
+  if type(cell-customizations) == dictionary {
+    for (cell-key, options) in cell-customizations {
+      let cell-index = int(cell-key)
+      _check-cell-index(where, "cell-customizations: key \"" + cell-key + "\"", cell-index, cell-count)
+      check-cell-customization-options(where, "cell-customizations.\"" + cell-key + "\"", options)
+    }
+    return
+  }
+  check-array(
+    where, "cell-customizations:", cell-customizations,
+    fix: "pass an array of (index, options) pairs",
+  )
+  for (entry-index, entry) in cell-customizations.enumerate() {
+    let entry-name = "cell-customizations: entry " + str(entry-index)
+    if type(entry) != array or entry.len() != 2 {
+      fail(
+        where,
+        entry-name + " is " + show-value(entry),
+        expected: "an (index, options) pair",
+        fix: "write it as (0, (fill: rgb(\"#E7F5FF\")))",
+      )
+    }
+    _check-cell-index(where, entry-name + " index", entry.at(0), cell-count)
+    check-cell-customization-options(where, entry-name + " options", entry.at(1))
+  }
+}
+
+#let _validate-array-pointers(where, pointers, cell-count) = {
+  check-array(
+    where, "pointers:", pointers,
+    fix: "pass an array of (index: 0, label: [i], color: blue) dictionaries",
+  )
+  for (pointer-index, pointer) in pointers.enumerate() {
+    let pointer-name = "pointers: entry " + str(pointer-index)
+    check-dictionary(where, pointer-name, pointer)
+    check-known-keys(where, pointer-name, pointer, ("index", "label", "color", "text"))
+    for required-key in ("index", "label", "color") {
+      if required-key in pointer { continue }
+      fail(
+        where,
+        pointer-name + " has no \"" + required-key + "\" entry",
+        expected: "index:, label:, and color: on every pointer",
+        fix: "write it as (index: 0, label: [i], color: blue)",
+      )
+    }
+    _check-cell-index(where, pointer-name + " index", pointer.index, cell-count)
+    if "text" in pointer { check-text-style(where, pointer-name + " text", pointer.text) }
+  }
+}
+
+#let array-view(style: (:), cell-customizations: (), pointers: (), reserve-pointers: false, ..vals) = {
+  validate-style("array-view()", style)
+  check-bool("array-view()", "reserve-pointers:", reserve-pointers)
+  _validate-array-cell-customizations("array-view()", cell-customizations, vals.pos().len())
+  _validate-array-pointers("array-view()", pointers, vals.pos().len())
+  (
+    diagram: _render-array(vals.pos(), resolve(style), cell-customizations, pointers: pointers, reserve-pointers: reserve-pointers),
+    values: vals.pos(),
+    style: style,
+  )
+}
 
 #let _render-matrix(rows, resolved-style, cell-customizations, row-labels, column-labels) = {
   let row-count = rows.len()
@@ -258,9 +329,85 @@
   }))
 }
 
-#let matrix(rows, style: (:), cell-customizations: (), row-labels: none, column-labels: none) = (
-  diagram: _render-matrix(rows, resolve(style), cell-customizations, row-labels, column-labels),
-)
+// A matrix is drawn as a rectangular grid, so a ragged row would silently gain
+// blank cells it never declared.
+#let _validate-matrix-rows(where, rows) = {
+  check-array(
+    where, "rows", rows,
+    fix: "pass an array of equal-length rows, for example ((1, 2), (3, 4))",
+  )
+  if rows.len() == 0 {
+    fail(
+      where,
+      "rows is empty",
+      expected: "at least one row",
+      fix: "pass ((1, 2), (3, 4)) or similar",
+    )
+  }
+  let column-count = none
+  for (row-index, row) in rows.enumerate() {
+    check-array(where, "rows entry " + str(row-index), row)
+    if column-count == none { column-count = row.len() }
+    if row.len() == column-count { continue }
+    fail(
+      where,
+      "row " + str(row-index) + " has " + str(row.len()) + " cells but row 0 has " + str(column-count),
+      expected: "every row to have the same number of cells",
+      fix: "pad the short rows, or draw them as separate matrices",
+    )
+  }
+  (rows: rows.len(), columns: column-count)
+}
+
+#let _validate-matrix-cell-customizations(where, cell-customizations, size) = {
+  check-array(
+    where, "cell-customizations:", cell-customizations,
+    fix: "pass an array of ((row, column), options) pairs",
+  )
+  for (entry-index, entry) in cell-customizations.enumerate() {
+    let entry-name = "cell-customizations: entry " + str(entry-index)
+    let has-cell-key = (
+      type(entry) == array
+        and entry.len() == 2
+        and type(entry.at(0)) == array
+        and entry.at(0).len() == 2
+    )
+    if not has-cell-key {
+      fail(
+        where,
+        entry-name + " is " + show-value(entry),
+        expected: "a ((row, column), options) pair",
+        fix: "write it as ((0, 1), (fill: rgb(\"#E7F5FF\")))",
+      )
+    }
+    check-index(where, entry-name + " row", entry.at(0).at(0), size.rows, subject: "matrix")
+    check-index(where, entry-name + " column", entry.at(0).at(1), size.columns, subject: "matrix row")
+    check-cell-customization-options(where, entry-name + " options", entry.at(1))
+  }
+}
+
+#let _validate-matrix-labels(where, what, labels, count, subject) = {
+  if labels == none { return }
+  check-array(where, what, labels, fix: "pass one label per " + subject + ", or none")
+  if labels.len() <= count { return }
+  fail(
+    where,
+    what + " has " + str(labels.len()) + " labels but the matrix has " + str(count) + " " + subject + "s",
+    expected: "at most one label per " + subject,
+    fix: "remove the extra labels",
+  )
+}
+
+#let matrix(rows, style: (:), cell-customizations: (), row-labels: none, column-labels: none) = {
+  validate-style("matrix()", style)
+  let size = _validate-matrix-rows("matrix()", rows)
+  _validate-matrix-cell-customizations("matrix()", cell-customizations, size)
+  _validate-matrix-labels("matrix()", "row-labels:", row-labels, size.rows, "row")
+  _validate-matrix-labels("matrix()", "column-labels:", column-labels, size.columns, "column")
+  (
+    diagram: _render-matrix(rows, resolve(style), cell-customizations, row-labels, column-labels),
+  )
+}
 
 #let _render-sequence-arrow(label, style) = align(horizon)[
   #let resolved-style = resolve(style)
@@ -287,8 +434,12 @@
   step
 }
 
+#let sequence-modes = ("all", "diagram", "before", "after", "result")
+
 #let sequence(columns: 1, gap: 1em, row-gap: 1em, mode: "all", style: (:), ..steps) = {
-  assert(mode in ("all", "diagram", "before", "after", "result"), message: "sequence mode must be \"all\", \"before\", \"after\", or \"result\"")
+  check-enum("sequence()", "mode:", mode, sequence-modes)
+  check-integer("sequence()", "columns:", columns, min: 1)
+  validate-style("sequence()", style)
   let cells = ()
   for step in steps.pos() {
     let is-step = type(step) == dictionary and ("before" in step or "after" in step or "result" in step)
@@ -310,11 +461,23 @@
 // operation step, so this works across trees, heaps, lists, stacks, queues,
 // and hash tables without a second operation-description language.
 #let operation-sequence(initial, columns: 1, gap: 1em, row-gap: 1em, mode: "after", style: (:), ..operations) = {
+  check-enum("operation-sequence()", "mode:", mode, sequence-modes)
+  check-integer("operation-sequence()", "columns:", columns, min: 1)
+  validate-style("operation-sequence()", style)
   let current = initial
   let steps = ()
-  for operation in operations.pos() {
+  for (operation-index, operation) in operations.pos().enumerate() {
+    check-function("operation-sequence()", "operation " + str(operation-index), operation)
     let step = operation(current)
-    assert(type(step) == dictionary and "result" in step, message: "operation-sequence closures must return an operation step")
+    let is-operation-step = type(step) == dictionary and "result" in step
+    if not is-operation-step {
+      fail(
+        "operation-sequence()",
+        "operation " + str(operation-index) + " returned " + show-value(step),
+        expected: "an operation step, the value an object's operation field returns",
+        fix: "return the step, for example object => (object.insert)(5)",
+      )
+    }
     steps.push(step)
     current = step.result
   }

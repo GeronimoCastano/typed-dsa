@@ -9,7 +9,7 @@
 )
 #import "grid.typ": array-view
 #import "linear.typ": _render-linked-list, _null
-#import "tree.typ": trans-view
+#import "transition-view.typ": trans-view
 #import "messages.typ": default-catalog, resolve-catalog, msg
 
 // An entry is a bare key, a `(key, value)` pair, or a key with a separate

@@ -5,7 +5,8 @@
 // into the binary-tree model shared with `tree.typ`.
 
 #import "style.typ": resolve, validate-style
-#import "tree.typ": _create-tree-node, _render-tree, _create-value-marks, trans-view
+#import "tree.typ": _create-tree-node, _render-tree, _create-value-marks
+#import "transition-view.typ": trans-view
 #import "validate.typ": check-array, check-comparable, check-comparable-with, fail
 #import "messages.typ": default-catalog, resolve-catalog, msg
 

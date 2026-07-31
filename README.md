@@ -13,7 +13,7 @@ consistent styling. It is built on top of
 
 For the complete argument reference, including all nested `style:` and
 `edge-customizations:` options, see the
-[documentation PDF](https://github.com/GeronimoCastano/typed-dsa/blob/main/docs/documentation.pdf).
+[documentation PDF](https://github.com/GeronimoCastano/typed-dsa/blob/f5a212ee8e4cc6164957e169b0ee64e9e0df746f/docs/documentation.pdf).
 
 Use it for lecture notes, problem sets, and explanations where the shape of a
 tree, heap, list, queue, stack, hash table, array, matrix, or graph matters more than

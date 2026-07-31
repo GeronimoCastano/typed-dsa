@@ -62,3 +62,80 @@
   }
   graph-edges
 }
+
+// Connected components ignore arrow direction because layout treats every
+// declared edge as a physical connection between its endpoints.
+#let _collect-graph-connected-components(adjacency) = {
+  let node-ids = _collect-graph-node-ids(adjacency)
+  let graph-edges = _collect-graph-edges(adjacency, false)
+  let discovered-node-ids = (:)
+  let components = ()
+  for start-node-id in node-ids {
+    if start-node-id in discovered-node-ids { continue }
+    let component-node-ids = ()
+    let frontier-node-ids = (start-node-id,)
+    discovered-node-ids.insert(start-node-id, true)
+    while frontier-node-ids.len() > 0 {
+      let current-node-id = frontier-node-ids.first()
+      frontier-node-ids = frontier-node-ids.slice(1)
+      component-node-ids.push(current-node-id)
+      for (from-node-id, to-node-id, _) in graph-edges {
+        let neighbor-node-id = if from-node-id == current-node-id {
+          to-node-id
+        } else if to-node-id == current-node-id {
+          from-node-id
+        } else {
+          none
+        }
+        if neighbor-node-id != none and neighbor-node-id not in discovered-node-ids {
+          discovered-node-ids.insert(neighbor-node-id, true)
+          frontier-node-ids.push(neighbor-node-id)
+        }
+      }
+    }
+    components.push(component-node-ids)
+  }
+  components
+}
+
+// Kahn's algorithm uses declared node order whenever several nodes are ready.
+// A cyclic graph returns `none` because no complete topological order exists.
+#let _topologically-order-graph-nodes(adjacency) = {
+  let node-ids = _collect-graph-node-ids(adjacency)
+  let incoming-edge-counts = (:)
+  for node-id in node-ids { incoming-edge-counts.insert(node-id, 0) }
+  for from-node-id in adjacency.keys() {
+    for edge-entry in adjacency.at(from-node-id) {
+      let to-node-id = _edge-target-id(edge-entry)
+      incoming-edge-counts.insert(
+        to-node-id,
+        incoming-edge-counts.at(to-node-id) + 1,
+      )
+    }
+  }
+
+  let ordered-node-ids = ()
+  let emitted-node-ids = (:)
+  while ordered-node-ids.len() < node-ids.len() {
+    let next-node-id = none
+    for node-id in node-ids {
+      if node-id not in emitted-node-ids and incoming-edge-counts.at(node-id) == 0 {
+        next-node-id = node-id
+        break
+      }
+    }
+    if next-node-id == none { return none }
+    ordered-node-ids.push(next-node-id)
+    emitted-node-ids.insert(next-node-id, true)
+    if next-node-id in adjacency {
+      for edge-entry in adjacency.at(next-node-id) {
+        let to-node-id = _edge-target-id(edge-entry)
+        incoming-edge-counts.insert(
+          to-node-id,
+          incoming-edge-counts.at(to-node-id) - 1,
+        )
+      }
+    }
+  }
+  ordered-node-ids
+}

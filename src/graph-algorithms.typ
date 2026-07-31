@@ -12,9 +12,10 @@
 #import "graph-model.typ": (
   _collect-graph-node-ids, _edge-display-label, _edge-target-id,
 )
+#import "graph-layout.typ": _resolve-graph-layout
 #import "graph-render.typ": (
-  _lookup-graph-node-value, _render-graph, _resolve-graph-edge-customization,
-  _resolve-graph-node-customization,
+  _lookup-graph-node-value, _render-graph-at-positions,
+  _resolve-graph-edge-customization, _resolve-graph-node-customization,
 )
 #import "graph-validation.typ": _validate-graph-arguments
 
@@ -192,12 +193,11 @@
 }
 
 #let _create-graph-algorithm-step(
-  label, adjacency, directed, labels, positions, layout, radius,
-  edge-customizations, node-customizations, node-labels, style,
+  label, adjacency, directed, labels, node-positions,
+  edge-customizations, node-customizations, node-labels, resolved-style,
   visited, current, queued, active,
-  captions, distances: none, path: (), gap: auto, cat: default-catalog,
+  captions, distances: none, path: (), cat: default-catalog,
 ) = {
-  let resolved-style = resolve(style)
   let node-ids = _collect-graph-node-ids(adjacency)
   let state-node-customizations = _build-graph-state-node-customizations(
     node-customizations,
@@ -225,14 +225,11 @@
       cat,
     )
   }
-  let graph-diagram = _render-graph(
+  let graph-diagram = _render-graph-at-positions(
     adjacency,
     directed,
     labels,
-    positions,
-    layout,
-    radius,
-    gap,
+    node-positions,
     state-edge-customizations,
     state-node-customizations,
     state-node-labels,
@@ -245,6 +242,7 @@
     queued: queued,
     active-edge: active,
     path: path,
+    node-positions: node-positions,
     diagram: align(center)[
       #if captions [#text(..resolved-style.algorithm-label-text)[#label] #v(0.25em)]
       #graph-diagram
@@ -274,11 +272,12 @@
 // endpoints and presentation options.
 #let _validate-graph-traversal(
   where, adjacency, source, target, directed, labels, positions, layout, radius,
-  gap, edge-customizations, node-customizations, node-labels, style, columns,
-  captions,
+  gap, layout-options, edge-customizations, node-customizations, node-labels,
+  style, columns, captions,
 ) = {
   let node-ids = _validate-graph-arguments(
     where, adjacency, directed, labels, positions, layout, radius, gap,
+    layout-options,
     edge-customizations, node-customizations, node-labels, style,
   )
   check-integer(where, "columns:", columns, min: 1)
@@ -342,7 +341,8 @@
 
 #let bfs(
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
-  layout: "auto", radius: auto, gap: auto, edge-customizations: (), node-customizations: (),
+  layout: "auto", layout-options: (:), radius: auto, gap: auto,
+  edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
   goal-test: "discovery", language: "en", messages: (:),
 ) = {
@@ -350,8 +350,13 @@
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let node-ids = _validate-graph-traversal(
     "bfs()", adjacency, source, target, directed, labels, positions, layout,
-    radius, gap, edge-customizations, node-customizations, node-labels, style,
-    columns, captions,
+    radius, gap, layout-options, edge-customizations, node-customizations,
+    node-labels, style, columns, captions,
+  )
+  let resolved-style = resolve(style)
+  let node-positions = _resolve-graph-layout(
+    adjacency, positions, layout, radius, gap, layout-options, resolved-style,
+    node-customizations,
   )
   let queue = (source,)
   let discovered-node-ids = (:)
@@ -361,10 +366,10 @@
   let previous-node-by-id = (:)
   let steps = ()
   let create-step(label, state-visited, state-queued, current: none, active: none) = _create-graph-algorithm-step(
-    label, adjacency, directed, labels, positions, layout, radius,
-    edge-customizations, node-customizations, node-labels, style,
+    label, adjacency, directed, labels, node-positions,
+    edge-customizations, node-customizations, node-labels, resolved-style,
     state-visited, current, state-queued, active, captions,
-    gap: gap, cat: message-catalog,
+    cat: message-catalog,
   )
   steps.push(create-step(
     msg(message-catalog, "graph.queue", source),
@@ -485,15 +490,21 @@
 
 #let dfs(
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
-  layout: "auto", radius: auto, gap: auto, edge-customizations: (), node-customizations: (),
+  layout: "auto", layout-options: (:), radius: auto, gap: auto,
+  edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
   language: "en", messages: (:),
 ) = {
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let node-ids = _validate-graph-traversal(
     "dfs()", adjacency, source, target, directed, labels, positions, layout,
-    radius, gap, edge-customizations, node-customizations, node-labels, style,
-    columns, captions,
+    radius, gap, layout-options, edge-customizations, node-customizations,
+    node-labels, style, columns, captions,
+  )
+  let resolved-style = resolve(style)
+  let node-positions = _resolve-graph-layout(
+    adjacency, positions, layout, radius, gap, layout-options, resolved-style,
+    node-customizations,
   )
   let stack = (source,)
   let discovered-node-ids = (:)
@@ -503,10 +514,10 @@
   let previous-node-by-id = (:)
   let steps = ()
   let create-step(label, state-visited, state-frontier, current: none, active: none) = _create-graph-algorithm-step(
-    label, adjacency, directed, labels, positions, layout, radius,
-    edge-customizations, node-customizations, node-labels, style,
+    label, adjacency, directed, labels, node-positions,
+    edge-customizations, node-customizations, node-labels, resolved-style,
     state-visited, current, state-frontier, active, captions,
-    gap: gap, cat: message-catalog,
+    cat: message-catalog,
   )
   steps.push(create-step(
     msg(message-catalog, "graph.stack", source),
@@ -589,17 +600,23 @@
 
 #let dijkstra(
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
-  layout: "auto", radius: auto, gap: auto, edge-customizations: (), node-customizations: (),
+  layout: "auto", layout-options: (:), radius: auto, gap: auto,
+  edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
   language: "en", messages: (:),
 ) = {
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let node-ids = _validate-graph-traversal(
     "dijkstra()", adjacency, source, target, directed, labels, positions, layout,
-    radius, gap, edge-customizations, node-customizations, node-labels, style,
-    columns, captions,
+    radius, gap, layout-options, edge-customizations, node-customizations,
+    node-labels, style, columns, captions,
   )
   _validate-dijkstra-weights("dijkstra()", adjacency)
+  let resolved-style = resolve(style)
+  let node-positions = _resolve-graph-layout(
+    adjacency, positions, layout, radius, gap, layout-options, resolved-style,
+    node-customizations,
+  )
   let distances = (:)
   for node-id in node-ids {
     distances.insert(node-id, if node-id == source { 0 } else { none })
@@ -616,8 +633,8 @@
     ))
   )
   let create-step(label, state-settled, state-distances, current: none, active: none, path: ()) = _create-graph-algorithm-step(
-    label, adjacency, directed, labels, positions, layout, radius,
-    edge-customizations, node-customizations, node-labels, style,
+    label, adjacency, directed, labels, node-positions,
+    edge-customizations, node-customizations, node-labels, resolved-style,
     state-settled,
     current,
     frontier-node-ids(state-distances, state-settled, current: current),
@@ -625,7 +642,6 @@
     captions,
     distances: state-distances,
     path: path,
-    gap: gap,
     cat: message-catalog,
   )
   steps.push(create-step(

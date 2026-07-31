@@ -10,9 +10,8 @@
   _normalize-undirected-edge-key,
 )
 #import "graph-layout.typ": (
-  _calculate-circular-graph-layout, _calculate-graph-edge-bend-point,
-  _calculate-linear-graph-layout, _calculate-node-boundary-radius,
-  _resolve-graph-node-positions, _resolve-graph-node-radius,
+  _calculate-graph-edge-bend-point, _calculate-node-boundary-radius,
+  _resolve-graph-node-radius,
   _resolve-graph-node-shape, _trim-edge-to-node-boundary,
 )
 
@@ -310,24 +309,17 @@
   content(p, text(..text-style, label), angle: rotation)
 }
 
-#let _render-graph(adjacency, directed, labels, positions, layout, radius, gap, edge-customizations, node-customizations, node-labels, resolved-style) = {
+#let _render-graph-at-positions(
+  adjacency,
+  directed,
+  labels,
+  node-positions,
+  edge-customizations,
+  node-customizations,
+  node-labels,
+  resolved-style,
+) = {
   let node-ids = _collect-graph-node-ids(adjacency)
-  let initial-node-positions = if layout == "auto" {
-    _calculate-circular-graph-layout(node-ids, resolved-style, radius)
-  } else if layout == "linear" {
-    _calculate-linear-graph-layout(
-      node-ids,
-      if gap == auto { 1.5 } else { gap },
-    )
-  } else {
-    (:)
-  }
-  let node-positions = _resolve-graph-node-positions(
-    initial-node-positions,
-    positions,
-    node-ids,
-    layout == "manual",
-  )
   let graph-edges = _collect-graph-edges(adjacency, directed)
 
   scaled(resolved-style, cetz.canvas({

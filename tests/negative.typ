@@ -337,6 +337,121 @@
     code: "#graph((\"a\": (\"b\",), \"b\": ()), gap: 2).diagram",
   ),
   (
+    name: "graph: layout options with a layout that does not use them",
+    expect: "layout-options: was given with layout",
+    code: "#graph((\"a\": ()), layout-options: (node-gap: 2)).diagram",
+  ),
+  (
+    name: "graph: layout options that are not a dictionary",
+    expect: "layout-options: must be dictionary",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (1, 2)).diagram",
+  ),
+  (
+    name: "graph: layered layout on an undirected graph",
+    expect: "was given directed: false",
+    code: "#graph((\"a\": (\"b\",), \"b\": ()), directed: false, layout: \"layered\").diagram",
+  ),
+  (
+    name: "graph: layered layout on a directed cycle",
+    expect: "found a directed cycle",
+    code: "#graph((\"a\": (\"b\",), \"b\": (\"a\",)), layout: \"layered\").diagram",
+  ),
+  (
+    name: "graph: unknown force layout option",
+    expect: "unknown key \"edge-lenght\"",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (edge-lenght: 2)).diagram",
+  ),
+  (
+    name: "graph: layered option with force layout",
+    expect: "unknown key \"node-gap\"",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (node-gap: 2)).diagram",
+  ),
+  (
+    name: "graph: force option with layered layout",
+    expect: "unknown key \"repulsion\"",
+    code: "#graph((\"a\": ()), layout: \"layered\", layout-options: (repulsion: 2)).diagram",
+  ),
+  (
+    name: "graph: invalid layered direction",
+    expect: "not a supported value",
+    code: "#graph((\"a\": ()), layout: \"layered\", layout-options: (direction: \"sideways\")).diagram",
+  ),
+  (
+    name: "graph: non-positive force edge length",
+    expect: "layout-options.edge-length is 0",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (edge-length: 0)).diagram",
+  ),
+  (
+    name: "graph: non-positive force repulsion",
+    expect: "layout-options.repulsion is 0",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (repulsion: 0)).diagram",
+  ),
+  (
+    name: "graph: non-positive force attraction",
+    expect: "layout-options.attraction is 0",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (attraction: 0)).diagram",
+  ),
+  (
+    name: "graph: non-positive force node-edge repulsion",
+    expect: "layout-options.node-edge-repulsion is 0",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (node-edge-repulsion: 0)).diagram",
+  ),
+  (
+    name: "graph: negative force node-edge clearance",
+    expect: "layout-options.node-edge-clearance is -0.1",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (node-edge-clearance: -0.1)).diagram",
+  ),
+  (
+    name: "graph: force node-edge clearance that is not numeric",
+    expect: "layout-options.node-edge-clearance is \"wide\"",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (node-edge-clearance: \"wide\")).diagram",
+  ),
+  (
+    name: "graph: non-positive force component gap",
+    expect: "layout-options.component-gap is 0",
+    code: "#graph((\"a\": (), \"b\": ()), layout: \"force\", layout-options: (component-gap: 0)).diagram",
+  ),
+  (
+    name: "graph: non-positive layered layer gap",
+    expect: "layout-options.layer-gap is 0",
+    code: "#graph((\"a\": ()), layout: \"layered\", layout-options: (layer-gap: 0)).diagram",
+  ),
+  (
+    name: "graph: non-positive layered node gap",
+    expect: "layout-options.node-gap is 0",
+    code: "#graph((\"a\": ()), layout: \"layered\", layout-options: (node-gap: 0)).diagram",
+  ),
+  (
+    name: "graph: force iterations below one",
+    expect: "layout-options.iterations is 0",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (iterations: 0)).diagram",
+  ),
+  (
+    name: "graph: force iterations that are not an integer",
+    expect: "layout-options.iterations must be integer",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (iterations: 2.5)).diagram",
+  ),
+  (
+    name: "graph: force iterations above the limit",
+    expect: "layout-options.iterations is 501",
+    code: "#graph((\"a\": ()), layout: \"force\", layout-options: (iterations: 501)).diagram",
+  ),
+  (
+    name: "graph: layered crossing sweeps below zero",
+    expect: "layout-options.crossing-sweeps is -1",
+    code: "#graph((\"a\": ()), layout: \"layered\", layout-options: (crossing-sweeps: -1)).diagram",
+  ),
+  (
+    name: "graph: layered crossing sweeps that are not an integer",
+    expect: "layout-options.crossing-sweeps must be integer",
+    code: "#graph((\"a\": ()), layout: \"layered\", layout-options: (crossing-sweeps: 1.5)).diagram",
+  ),
+  (
+    name: "graph: layered crossing sweeps above the limit",
+    expect: "layout-options.crossing-sweeps is 21",
+    code: "#graph((\"a\": ()), layout: \"layered\", layout-options: (crossing-sweeps: 21)).diagram",
+  ),
+  (
     name: "graph: a directed flag that is not a boolean",
     expect: "must be boolean",
     code: "#graph((\"a\": ()), directed: \"yes\").diagram",

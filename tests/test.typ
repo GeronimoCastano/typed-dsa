@@ -1305,4 +1305,189 @@
   [Run #raw("scripts/negative-tests.sh") to compile the invalid-input suite.]
 })
 
+#pagebreak()
+#section("Graph force layout: connected and disconnected components", {
+  let connected = (
+    "A": ("B", "C"),
+    "B": ("C", "D"),
+    "C": ("D", "E"),
+    "D": ("E",),
+    "E": ("A",),
+  )
+  let disconnected = connected + (
+    "X": ("Y",),
+    "Y": (),
+    "isolated": (),
+  )
+  std.stack(
+    dir: ltr,
+    spacing: 2em,
+    graph(connected, directed: false, layout: "force").diagram,
+    graph(
+      disconnected,
+      directed: false,
+      layout: "force",
+      layout-options: (component-gap: 2.8),
+    ).diagram,
+  )
+})
 
+#section("Graph force layout: edgeless, one-node, two-node, and explicit override", {
+  std.stack(
+    dir: ltr,
+    spacing: 2em,
+    graph(("solo": ()), layout: "force").diagram,
+    graph(("one": (), "two": ()), layout: "force").diagram,
+    graph(("A": ("B",), "B": ()), directed: false, layout: "force").diagram,
+    graph(
+      ("A": ("B", "C"), "B": ("C",), "C": ()),
+      layout: "force",
+      positions: ("A": (0, 2.5)),
+    ).diagram,
+  )
+})
+
+#section("Graph layered layout: multi-source DAG in all four directions", {
+  let dag = (
+    "S1": ("M",),
+    "S2": ("M", "X"),
+    "M": ("T",),
+    "X": ("T",),
+    "T": (),
+  )
+  table(
+    columns: 2,
+    column-gutter: 2em,
+    row-gutter: 1.5em,
+    [Right #graph(dag, layout: "layered").diagram],
+    [Left #graph(dag, layout: "layered", layout-options: (direction: "left")).diagram],
+    [Down #graph(dag, layout: "layered", layout-options: (direction: "down")).diagram],
+    [Up #graph(dag, layout: "layered", layout-options: (direction: "up")).diagram],
+  )
+})
+
+#section("Graph layered layout: explicit position overrides automatic rank placement", {
+  graph(
+    ("S1": ("M",), "S2": ("M",), "M": ("T",), "T": ()),
+    layout: "layered",
+    positions: ("M": (3.2, 1.8)),
+  ).diagram
+})
+
+#pagebreak()
+#v(0.8em)
+#section("Graph algorithm traces reuse deterministic force and layered coordinates", {
+  let force-trace = bfs(
+    ("S": ("A", "B"), "A": ("T",), "B": ("T",), "T": ()),
+    "S",
+    target: "T",
+    directed: false,
+    layout: "force",
+    columns: 3,
+    style: graph-style(scale: 0.65),
+  )
+  let layered-trace = dijkstra(
+    (
+      "S": (("A", 2), ("B", 1)),
+      "A": (("T", 2),),
+      "B": (("T", 4),),
+      "T": (),
+    ),
+    "S",
+    target: "T",
+    layout: "layered",
+    columns: 3,
+    style: graph-style(scale: 0.65),
+  )
+  assert(force-trace.steps.all(
+    step => step.node-positions == force-trace.steps.first().node-positions,
+  ))
+  assert(layered-trace.steps.all(
+    step => step.node-positions == layered-trace.steps.first().node-positions,
+  ))
+  std.stack(spacing: 1.2em, force-trace.diagram, layered-trace.diagram)
+})
+
+#pagebreak()
+#section("Graph force layout keeps edges clear of non-endpoint nodes", {
+  let connected = (
+    "A": ("B", "C"),
+    "B": ("C", "D"),
+    "C": ("D", "E"),
+    "D": ("E",),
+    "E": ("A",),
+  )
+  std.stack(
+    dir: ltr,
+    spacing: 2.2em,
+    graph(connected, directed: false, layout: "force").diagram,
+    graph(
+      connected,
+      directed: false,
+      layout: "force",
+      node-customizations: (("C", (node-radius: 0.6)),),
+    ).diagram,
+  )
+})
+
+#pagebreak()
+#section("Graph force layout stress: dense eight-node mesh", {
+  let dense-mesh = (
+    "A": ("B", "C", "D"),
+    "B": ("C", "E", "F"),
+    "C": ("D", "F", "G"),
+    "D": ("G", "H"),
+    "E": ("F", "H"),
+    "F": ("G",),
+    "G": ("H",),
+    "H": ("A",),
+  )
+  graph(
+    dense-mesh,
+    directed: false,
+    layout: "force",
+    layout-options: (edge-length: 2.5, node-edge-clearance: 0.5),
+  ).diagram
+})
+
+
+
+#section("Graph force layout stress: twelve nodes with long-range edges", {
+  let long-range = (
+    "N1": ("N2", "N3", "N7"),
+    "N2": ("N3", "N4", "N9"),
+    "N3": ("N5", "N8"),
+    "N4": ("N5", "N6", "N10"),
+    "N5": ("N6", "N11"),
+    "N6": ("N12",),
+    "N7": ("N8", "N9"),
+    "N8": ("N9", "N10"),
+    "N9": ("N11",),
+    "N10": ("N11", "N12"),
+    "N11": ("N12",),
+    "N12": ("N1",),
+  )
+  graph(
+    long-range,
+    directed: false,
+    layout: "force",
+    layout-options: (edge-length: 3, node-edge-clearance: 1.0),
+    style: graph-style(scale: 0.85),
+  ).diagram
+})
+
+#section("Graph force layout stress: nonplanar K3,3", {
+  graph(
+    (
+      "L1": ("R1", "R2", "R3"),
+      "L2": ("R1", "R2", "R3"),
+      "L3": ("R1", "R2", "R3"),
+      "R1": (),
+      "R2": (),
+      "R3": (),
+    ),
+    directed: false,
+    layout: "force",
+    layout-options: (edge-length: 2.1, node-edge-clearance: 1.0),
+  ).diagram
+})

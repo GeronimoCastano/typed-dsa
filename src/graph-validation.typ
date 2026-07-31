@@ -9,13 +9,13 @@
 )
 #import "validate.typ": (
   check-array, check-bool, check-customization-entries, check-dictionary,
-  check-enum, check-id-value-references, check-known-keys, check-number,
-  check-positive, check-reference, fail, is-number,
+  check-enum, check-id-value-references, check-known-keys, check-positive,
+  check-reference, fail, is-number,
   normalize-id-value-entries, show-list, show-value,
 )
 #import "graph-model.typ": (
   _collect-graph-edges, _collect-graph-node-ids, _edge-target-id,
-  _normalize-undirected-edge-key,
+  _normalize-undirected-edge-key, _topologically-order-graph-nodes,
 )
 
 // ── Validation ───────────────────────────────────────────────────────────────
@@ -25,7 +25,14 @@
 // set those keys produce. A neighbour that appears only as someone else's
 // target is a declared node too, by design.
 
-#let graph-layouts = ("auto", "linear", "manual")
+#let graph-layouts = ("auto", "linear", "manual", "force", "layered")
+#let force-layout-option-keys = (
+  "edge-length", "repulsion", "attraction", "node-edge-repulsion",
+  "node-edge-clearance", "iterations", "component-gap",
+)
+#let layered-layout-option-keys = (
+  "direction", "layer-gap", "node-gap", "crossing-sweeps",
+)
 
 #let _validate-graph-adjacency(where, adjacency) = {
   check-dictionary(
@@ -157,7 +164,160 @@
   _check-relative-position-cycles(where, positions)
 }
 
-#let _validate-graph-layout(where, layout, radius, gap, positions, node-ids) = {
+#let _validate-positive-graph-layout-option(where, option-name, option-value) = {
+  if is-number(option-value) and option-value > 0 { return }
+  fail(
+    where,
+    "layout-options." + option-name + " is " + show-value(option-value),
+    expected: "a positive integer or float",
+    fix: "set " + option-name + " to a value greater than 0",
+  )
+}
+
+#let _validate-force-layout-options(where, layout-options) = {
+  check-known-keys(
+    where, "layout-options:", layout-options, force-layout-option-keys,
+  )
+  for option-name in (
+    "edge-length", "repulsion", "attraction", "node-edge-repulsion",
+    "component-gap",
+  ) {
+    if option-name in layout-options {
+      _validate-positive-graph-layout-option(
+        where, option-name, layout-options.at(option-name),
+      )
+    }
+  }
+  if "node-edge-clearance" in layout-options {
+    let clearance = layout-options.node-edge-clearance
+    if not is-number(clearance) or clearance < 0 {
+      fail(
+        where,
+        "layout-options.node-edge-clearance is " + show-value(clearance),
+        expected: "a non-negative integer or float",
+        fix: "set node-edge-clearance to 0 or a positive value such as 0.25",
+      )
+    }
+  }
+  if "iterations" in layout-options {
+    let iterations = layout-options.iterations
+    if type(iterations) != int {
+      fail(
+        where,
+        "layout-options.iterations must be integer, got " + show-value(iterations),
+        expected: "a whole number from 1 to 500",
+        fix: "use an integer such as 60",
+      )
+    }
+    if iterations < 1 or iterations > 500 {
+      fail(
+        where,
+        "layout-options.iterations is " + show-value(iterations),
+        expected: "a whole number from 1 to 500",
+        fix: "use an integer such as 60",
+      )
+    }
+  }
+}
+
+#let _validate-layered-layout-options(where, layout-options) = {
+  check-known-keys(
+    where, "layout-options:", layout-options, layered-layout-option-keys,
+  )
+  if "direction" in layout-options {
+    check-enum(
+      where,
+      "layout-options.direction",
+      layout-options.direction,
+      ("right", "left", "down", "up"),
+    )
+  }
+  for option-name in ("layer-gap", "node-gap") {
+    if option-name in layout-options {
+      _validate-positive-graph-layout-option(
+        where, option-name, layout-options.at(option-name),
+      )
+    }
+  }
+  if "crossing-sweeps" in layout-options {
+    let crossing-sweeps = layout-options.crossing-sweeps
+    if type(crossing-sweeps) != int {
+      fail(
+        where,
+        "layout-options.crossing-sweeps must be integer, got " + show-value(crossing-sweeps),
+        expected: "a whole number from 0 to 20",
+        fix: "use 0 to disable crossing reduction, or an integer such as 4",
+      )
+    }
+    if crossing-sweeps < 0 or crossing-sweeps > 20 {
+      fail(
+        where,
+        "layout-options.crossing-sweeps is " + show-value(crossing-sweeps),
+        expected: "a whole number from 0 to 20",
+        fix: "use 0 to disable crossing reduction, or an integer such as 4",
+      )
+    }
+  }
+}
+
+#let _validate-graph-layout-options(
+  where,
+  adjacency,
+  directed,
+  layout,
+  layout-options,
+) = {
+  check-dictionary(
+    where,
+    "layout-options:",
+    layout-options,
+    fix: "pass a dictionary of options for layout \"force\" or \"layered\"",
+  )
+  if layout == "force" {
+    _validate-force-layout-options(where, layout-options)
+    return
+  }
+  if layout == "layered" {
+    _validate-layered-layout-options(where, layout-options)
+    if not directed {
+      fail(
+        where,
+        "layout \"layered\" was given directed: false",
+        expected: "directed: true because layered layout follows edge direction",
+        fix: "set directed: true, or use layout: \"force\" for an undirected graph",
+      )
+    }
+    if _topologically-order-graph-nodes(adjacency) == none {
+      fail(
+        where,
+        "layout \"layered\" found a directed cycle",
+        expected: "a directed acyclic graph (DAG)",
+        fix: "remove the cycle, or use layout: \"force\" or \"manual\"",
+      )
+    }
+    return
+  }
+  if layout-options.len() > 0 {
+    fail(
+      where,
+      "layout-options: was given with layout \"" + layout + "\"",
+      expected: "layout-options: only applies to layout \"force\" or \"layered\"",
+      fix: "drop layout-options:, or switch to a layout that uses it",
+    )
+  }
+}
+
+#let _validate-graph-layout(
+  where,
+  adjacency,
+  directed,
+  layout,
+  radius,
+  gap,
+  layout-options,
+  positions,
+  node-ids,
+) = {
   check-enum(where, "layout:", layout, graph-layouts)
   if radius != auto {
     check-positive(where, "radius:", radius)
@@ -181,6 +341,9 @@
       )
     }
   }
+  _validate-graph-layout-options(
+    where, adjacency, directed, layout, layout-options,
+  )
   _validate-graph-positions(where, positions, node-ids)
   if layout != "manual" { return }
   for node-id in node-ids {
@@ -203,6 +366,7 @@
   layout,
   radius,
   gap,
+  layout-options,
   edge-customizations,
   node-customizations,
   node-labels,
@@ -212,7 +376,17 @@
   check-bool(where, "directed:", directed)
   validate-style(where, style)
   let node-ids = _collect-graph-node-ids(adjacency)
-  _validate-graph-layout(where, layout, radius, gap, positions, node-ids)
+  _validate-graph-layout(
+    where,
+    adjacency,
+    directed,
+    layout,
+    radius,
+    gap,
+    layout-options,
+    positions,
+    node-ids,
+  )
   check-dictionary(
     where, "labels:", labels,
     fix: "pass a dictionary keyed by node name, for example labels: (\"a\": [$alpha$])",

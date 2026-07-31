@@ -8,12 +8,12 @@ consistent styling. It is built on top of
 [CeTZ](https://typst.app/universe/package/cetz).
 
 ```typst
-#import "@preview/typed-dsa:0.5.1": *
+#import "@preview/typed-dsa:0.6.0": *
 ```
 
 For the complete argument reference, including all nested `style:` and
 `edge-customizations:` options, see the
-[documentation PDF](https://github.com/GeronimoCastano/typed-dsa/blob/33bc098f8d8918f46f748b0ceb5a417f8a7a4da7/docs/documentation.pdf).
+[documentation PDF](https://github.com/GeronimoCastano/typed-dsa/blob/main/docs/documentation.pdf).
 
 Use it for lecture notes, problem sets, and explanations where the shape of a
 tree, heap, list, queue, stack, hash table, array, matrix, or graph matters more than
@@ -84,13 +84,27 @@ Objects support `search`, `insert` (`level: auto` or an explicit height), and
 
 ### Graphs
 
-`graph` draws from an adjacency dictionary. Automatic layout places nodes on a
-circle; `layout: "linear"` lines them up in a row (handy for topological
-orderings), with spacing set by `gap:`; `layout: "manual"` lets you define
-every position yourself. An edge entry can be just a neighbor label, or
+`graph` draws from an adjacency dictionary. `layout: "auto"` places nodes on a
+circle, while deterministic `"force"` placement clusters connected nodes and
+packs disconnected components. `"layered"` arranges a directed acyclic graph
+from sources to sinks; cycles are rejected with a diagnostic. `"linear"` makes
+a row and `"manual"` requires every position. An edge entry can be a neighbor or
 `(neighbor, label)` when you want an edge label such as a weight. Use
 `node-labels:` for outside annotations such as Dijkstra distances, ranks, or
 visit order.
+
+`layout-options:` accepts `(edge-length: 1.8, repulsion: 1.0, attraction: 1.0,
+node-edge-repulsion: 1.0, node-edge-clearance: 0.25, iterations: 60,
+component-gap: 2.5)` for `"force"`, or `(direction: "right", layer-gap: 2.2,
+node-gap: 1.4, crossing-sweeps: 4)` for `"layered"`. Layered direction may be
+`"right"`, `"left"`, `"down"`, or `"up"`; zero crossing sweeps disables
+crossing reduction. Both layouts are deterministic. Force layout treats
+non-endpoint nodes as obstacles, accounts for their shape and radius, and
+selects among deterministic candidate starts by node-edge clearance, edge
+crossings, and spring length. It is intended for small teaching graphs because
+the node-edge pass compares nodes with edges on every iteration. Any explicit
+`positions:` entry overrides the automatically calculated position and can
+therefore reintroduce an overlap.
 
 ```typst
 #graph(("v1": ("v2", "v3"), "v2": ("v3",), "v3": ())).diagram
@@ -103,24 +117,19 @@ visit order.
 ).diagram
 
 #graph(
-  ("v1": ("v2",), "v2": ("v3",), "v3": ("v4",), "v4": ()),
-  layout: "linear",
-  gap: 2,
+  ("A": ("B", "C"), "B": ("C", "D"), "C": ("D",), "D": ()),
+  directed: false,
+  layout: "force",
 ).diagram
 
 #graph(
-  ("v1": ("v2", "v3"), "v2": ("v4",), "v3": ("v4",), "v4": ()),
-  layout: "manual",
-  positions: (
-    "v1": (0, 0),
-    "v2": (rel: "v1", offset: (1.4, 0.8)),
-    "v3": (rel: "v1", offset: (1.4, -0.8)),
-    "v4": (rel: "v2", offset: (1.4, -0.8)),
-  ),
+  ("S1": ("M",), "S2": ("M",), "M": ("T",), "T": ()),
+  layout: "layered",
+  positions: ("M": (3, 1)), // override one automatic position
 ).diagram
 ```
 
-![Automatically and manually laid out graphs](assets/readme/graphs.png)
+![Circular, force-directed, layered, and manual graph layouts](assets/readme/graphs.png)
 
 Graph algorithms return full traces directly on the graph. Visited nodes are
 green, the current node is blue, queued/stacked nodes are yellow, and the edge
@@ -139,6 +148,7 @@ every reachable node.
   ),
   "S",
   target: "T",
+  layout: "layered",
   columns: 3,
   style: graph-style(scale: 0.65),
 ).diagram

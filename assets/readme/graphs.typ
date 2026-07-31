@@ -4,15 +4,22 @@
 #set text(font: "New Computer Modern", size: 11pt)
 
 #table(
-  columns: (auto, auto, auto),
+  columns: (auto, auto),
   column-gutter: 2em,
+  row-gutter: 1.5em,
   align: center + horizon,
   stroke: none,
-  [*Automatic circle layout*], [*Linear layout*], [*Manual layout*],
+  [*Automatic circle layout*], [*Force-directed layout*],
   graph(("v1": ("v2", "v3"), "v2": ("v3",), "v3": ())).diagram,
   graph(
-    ("v1": ("v2",), "v2": ("v3",), "v3": ("v4",), "v4": ()),
-    layout: "linear",
+    ("A": ("B", "C"), "B": ("C", "D"), "C": ("D",), "D": ()),
+    directed: false,
+    layout: "force",
+  ).diagram,
+  [*Layered DAG layout*], [*Manual layout*],
+  graph(
+    ("S1": ("M",), "S2": ("M",), "M": ("T",), "T": ()),
+    layout: "layered",
   ).diagram,
   graph(
     ("v1": ("v2", "v3"), "v2": ("v4",), "v3": ("v4",), "v4": ()),

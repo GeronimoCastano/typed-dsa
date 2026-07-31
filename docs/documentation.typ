@@ -7,7 +7,7 @@
 #import "@preview/codly-languages:0.1.1": *
 #import "../src/lib.typ": *
 
-#let version = "0.4.0"
+#let version = "0.6.0"
 #let accent = rgb("#1565C0")
 #let accent-soft = rgb("#E3F2FD")
 
@@ -491,13 +491,13 @@ Import the package from the Typst preview namespace. A wildcard import gives
 you every public symbol:
 
 ```typ
-#import "@preview/typed-dsa:0.5.0": *
+#import "@preview/typed-dsa:0.6.0": *
 ```
 
 Or import only what you need:
 
 ```typ
-#import "@preview/typed-dsa:0.5.0": bst, avl, min-heap, max-heap
+#import "@preview/typed-dsa:0.6.0": bst, avl, min-heap, max-heap
 ```
 
 #warn[A wildcard import shadows Typst's built-in #c("stack") function. Use
@@ -1460,6 +1460,7 @@ markers together, plus customized bubble-sort marker strokes.
     labels: (:),
     positions: (:),
     layout: "auto",
+    layout-options: (:),
     radius: auto,
     gap: auto,
     edge-customizations: (),
@@ -1481,9 +1482,10 @@ markers together, plus customized bubble-sort marker strokes.
   [#c("directed")], [`bool`], [`true`], [Draw an arrowhead on every declared pair. #c("false") drops arrowheads and collapses a reciprocal pair into the one edge it represents.],
   [#c("labels")], [`dictionary`], [`(:)`], [Node label to drawn content: math, styled text, an image, anything. A label left out keeps the plain key as its own content.],
   [#c("positions")], [`dictionary`], [`(:)`], [Node label to absolute #c("(x, y)") or #c("(rel:, offset:)") placement.],
-  [#c("layout")], [`str`], [`"auto"`], [#c("\"auto\"") starts from the circular layout and applies #c("positions"). #c("\"linear\"") starts from a row layout. #c("\"manual\"") requires every node in #c("positions").],
-  [#c("radius")], [`auto` / `float`], [`auto`], [Circle radius for #c("layout: \"auto\""). Passing a radius with #c("layout: \"manual\"") is an error.],
-  [#c("gap")], [`auto` / `float`], [`auto`], [Spacing between nodes for #c("layout: \"linear\""), in canvas units. #c("auto") is #c("1.5"). Has no effect on #c("\"auto\"") or #c("\"manual\"") layout.],
+  [#c("layout")], [`str`], [`"auto"`], [#c("\"auto\"") uses a circle; #c("\"linear\"") uses a row; #c("\"force\"") clusters connections; #c("\"layered\"") ranks a directed DAG; #c("\"manual\"") requires every node in #c("positions").],
+  [#c("layout-options")], [`dictionary`], [`(:)`], [Options for #c("\"force\"") or #c("\"layered\""). Non-empty options with another layout are an error.],
+  [#c("radius")], [`auto` / `float`], [`auto`], [Circle radius for #c("layout: \"auto\""). Passing a radius with another layout is an error.],
+  [#c("gap")], [`auto` / `float`], [`auto`], [Spacing between nodes for #c("layout: \"linear\""), in canvas units. #c("auto") is #c("1.5"). Passing a gap with another layout is an error.],
   [#c("edge-customizations")], [`array`], [`()`], [#c("(from, to, options)") tuples restyling one edge. See below.],
   [#c("node-customizations")], [`array`], [`()`], [#c("(node, options)") tuples restyling one node by graph identity.],
   [#c("node-labels")], [`array` / `dictionary`], [`(:)`], [Labels drawn outside individual graph nodes.],
@@ -1505,6 +1507,23 @@ markers together, plus customized bubble-sort marker strokes.
   [#c("positions.<node>")], [`point` / `dictionary`], [auto layout position], [Absolute #c("(x, y)") position or relative placement dictionary.],
   [#c("positions.<node>.rel")], [`content`], [required for relative placement], [Another node label to place from.],
   [#c("positions.<node>.offset")], [`point`], [required for relative placement], [#c("(dx, dy)") offset from #c("rel").],
+)
+
+#subargtable([#c("layout-options") for #c("layout: \"force\"")],
+  [#c("edge-length")], [`float`], [`1.8`], [Preferred spring length. Must be positive.],
+  [#c("repulsion")], [`float`], [`1.0`], [Strength of all-pairs electrical repulsion. Must be positive.],
+  [#c("attraction")], [`float`], [`1.0`], [Strength of spring attraction along edges. Must be positive.],
+  [#c("node-edge-repulsion")], [`float`], [`1.0`], [Strength that pushes non-endpoint nodes away from edges. Must be positive.],
+  [#c("node-edge-clearance")], [`float`], [`0.25`], [Extra clearance beyond each node's shape boundary. Must be zero or positive.],
+  [#c("iterations")], [`int`], [`60`], [Cooling iterations, from #c("1") through #c("500").],
+  [#c("component-gap")], [`float`], [`2.5`], [Predictable horizontal gap between disconnected components. Must be positive.],
+)
+
+#subargtable([#c("layout-options") for #c("layout: \"layered\"")],
+  [#c("direction")], [`str`], [`"right"`], [Flow direction: #c("\"right\""), #c("\"left\""), #c("\"down\""), or #c("\"up\"").],
+  [#c("layer-gap")], [`float`], [`2.2`], [Gap between dependency ranks. Must be positive.],
+  [#c("node-gap")], [`float`], [`1.4`], [Gap between nodes in one rank. Must be positive.],
+  [#c("crossing-sweeps")], [`int`], [`4`], [Deterministic barycenter sweeps, from #c("0") through #c("20"). Use #c("0") to preserve declared ordering without crossing reduction.],
 )
 
 #edge-customizations-reference(label-options: true)
@@ -1604,9 +1623,9 @@ markers together, plus customized bubble-sort marker strokes.
 ]
 
 #demo[
-  #c("radius") only applies to #c("layout: \"auto\""). In manual layout, every
-  node already has an explicit position, so combining #c("radius") with
-  #c("layout: \"manual\"") raises an error.
+  #c("radius") only applies to #c("layout: \"auto\""). Combining it with
+  #c("\"linear\""), #c("\"force\""), #c("\"layered\""), or
+  #c("\"manual\"") raises an error.
 ]
 
 #demo[
@@ -1619,6 +1638,155 @@ markers together, plus customized bubble-sort marker strokes.
     ("A": ("B",), "B": ("C",), "C": ("D",), "D": ()),
     layout: "linear",
     gap: 2.5,
+  ).diagram
+  ```, side: false)
+]
+
+#demo[
+  #c("layout: \"force\"") applies deterministic spring attraction along
+  edges, electrical repulsion between every pair of nodes, and repulsion between
+  each edge and every node that is not its endpoint. Node-edge clearance uses
+  the resolved node shape and radius, including node customizations, followed by
+  a bounded separation pass and uniform component expansion when needed. Three
+  deterministic starting arrangements are scored by remaining node-edge
+  overlap, proper edge crossings, and spring length; the best arrangement is
+  selected. Directed edges act as ordinary physical connections; their
+  direction affects arrowheads, not the simulation. Disconnected components are
+  simulated independently and packed left to right. The same graph and options
+  always produce the same coordinates, with no randomness.
+
+  #example(```typ
+  #graph(
+    (
+      "A": ("B", "C"),
+      "B": ("C", "D"),
+      "C": ("D", "E"),
+      "D": ("E",),
+      "E": ("A",),
+      "X": ("Y",),
+      "Y": (),
+    ),
+    directed: false,
+    layout: "force",
+    layout-options: (edge-length: 2.0, component-gap: 3.0),
+  ).diagram
+  ```, side: false)
+]
+
+#note[Force layout is designed for small educational graphs. It evaluates three
+deterministic candidate starts. Each iteration compares every pair of nodes and
+every non-endpoint node-edge pair within a component, so its dominant work is
+#c("O(V² + VE)") per candidate iteration and becomes cubic for dense graphs.
+Lower #c("iterations") for faster drafts; raise it, up to #c("500"), only when
+a graph benefits visibly. Explicit #c("positions:") overrides are applied after
+automatic layout and can intentionally reintroduce node-edge overlaps.]
+
+#demo[
+  A denser mesh exercises node-edge clearance when many straight segments share
+  the same region. Increasing #c("edge-length") gives the optimizer more room;
+  #c("node-edge-clearance") controls the extra gap beyond node boundaries.
+
+  #example(```typ
+  #graph(
+    (
+      "A": ("B", "C", "D"),
+      "B": ("C", "E", "F"),
+      "C": ("D", "F", "G"),
+      "D": ("G", "H"),
+      "E": ("F", "H"),
+      "F": ("G",),
+      "G": ("H",),
+      "H": ("A",),
+    ),
+    directed: false,
+    layout: "force",
+    layout-options: (edge-length: 2.1, node-edge-clearance: 0.3),
+  ).diagram
+  ```, side: false)
+]
+
+#demo[
+  This larger example adds long-range connections among twelve nodes. The force
+  model tests each such edge against all ten nodes that are not its endpoints.
+
+  #example(```typ
+  #graph(
+    (
+      "N1": ("N2", "N3", "N7"),
+      "N2": ("N3", "N4", "N9"),
+      "N3": ("N5", "N8"),
+      "N4": ("N5", "N6", "N10"),
+      "N5": ("N6", "N11"),
+      "N6": ("N12",),
+      "N7": ("N8", "N9"),
+      "N8": ("N9", "N10"),
+      "N9": ("N11",),
+      "N10": ("N11", "N12"),
+      "N11": ("N12",),
+      "N12": ("N1",),
+    ),
+    directed: false,
+    layout: "force",
+    layout-options: (edge-length: 2.2, node-edge-clearance: 0.3),
+  ).diagram
+  ```, side: false)
+]
+
+#demo[
+  #c("K₃,₃") is nonplanar, so at least one proper edge crossing is unavoidable
+  with straight edges. The layout still keeps those edges outside every node
+  that is not an endpoint.
+
+  #example(```typ
+  #graph(
+    (
+      "L1": ("R1", "R2", "R3"),
+      "L2": ("R1", "R2", "R3"),
+      "L3": ("R1", "R2", "R3"),
+      "R1": (),
+      "R2": (),
+      "R3": (),
+    ),
+    directed: false,
+    layout: "force",
+    layout-options: (edge-length: 2.1, node-edge-clearance: 0.3),
+  ).diagram
+  ```, side: false)
+]
+
+#demo[
+  #c("layout: \"layered\"") requires #c("directed: true") and a directed
+  acyclic graph. Sources occupy the first rank; longest-path ranking places
+  every node after all of its predecessors. A deterministic barycenter pass
+  reduces crossings, and #c("direction") transforms the canonical rightward
+  layout. A directed cycle produces a diagnostic suggesting #c("\"force\"")
+  or #c("\"manual\"").
+
+  #example(```typ
+  #graph(
+    (
+      "S1": ("M",),
+      "S2": ("M", "X"),
+      "M": ("T",),
+      "X": ("T",),
+      "T": (),
+    ),
+    layout: "layered",
+    layout-options: (direction: "down"),
+  ).diagram
+  ```, side: false)
+]
+
+#demo[
+  Explicit #c("positions") retain their usual override semantics with both new
+  layouts. Omitted nodes keep their automatic coordinates; absolute and
+  relative overrides are resolved on top.
+
+  #example(```typ
+  #graph(
+    ("S1": ("M",), "S2": ("M",), "M": ("T",), "T": ()),
+    layout: "layered",
+    positions: ("M": (3.2, 1.4)),
   ).diagram
   ```, side: false)
 ]
@@ -1677,10 +1845,9 @@ markers together, plus customized bubble-sort marker strokes.
 #demo[
   #c("labels") swaps what's drawn inside a node for any content, keyed by the
   plain-string label that #c("adjacency")/#c("positions")/
-  #c("edge-customizations") still use for identity. With the default
-  #c("layout: \"auto\""), #c("positions") places a node at an absolute
-  #c("(x, y)") point or at #c("(rel: other-label, offset: (dx, dy))") on top
-  of the automatic circular layout.
+  #c("edge-customizations") still use for identity. With any automatic layout,
+  #c("positions") places a node at an absolute #c("(x, y)") point or at
+  #c("(rel: other-label, offset: (dx, dy))") on top of the calculated layout.
 
   #example(```typ
   #graph(
@@ -1692,7 +1859,7 @@ markers together, plus customized bubble-sort marker strokes.
 ]
 
 #demo[
-  Set #c("layout: \"manual\"") to skip the circular layout. Every node,
+  Set #c("layout: \"manual\"") to skip automatic placement. Every node,
   including a neighbor-only node, must have a #c("positions") entry. At least
   one absolute #c("(x, y)") entry should act as an anchor for relative
   placements.
@@ -1711,9 +1878,9 @@ markers together, plus customized bubble-sort marker strokes.
   ```, side: false)
 ]
 
-== #raw("edge-customizations") <edge-customizations>
-
 #demo[
+  #heading(level: 2)[#raw("edge-customizations")] <edge-customizations>
+
   An array of #c("(from, to, options)") tuples, each restyling one edge.
   For #c("graph"), #c("from") and #c("to") are node labels. For generated
   trees, they are parent and child values. #c("options") is a dictionary.
@@ -1752,10 +1919,11 @@ markers together, plus customized bubble-sort marker strokes.
 #c("\"left\"") is relative to each edge's own direction of travel. The two
 arrows read as two edges instead of one double-headed line.]
 
-#note[Nodes default to a circle, in the order their labels first show up,
-radius growing with the node count. Connected nodes don't cluster closer
-together yet, and #c("graph") has no operations: no add-node, add-edge, or a
-transition to match trees and heaps. See @limitations.]
+#note[Nodes default to a circle, in the order their labels first show up, with
+radius growing by node count. Choose deterministic #c("\"force\"") placement
+when connectivity should shape the drawing, or #c("\"layered\"") for a
+directed DAG. #c("graph") has no add-node, add-edge, or tree-style mutation
+transition yet. See @limitations.]
 
 == Graph algorithm traces
 
@@ -1784,7 +1952,7 @@ transition to match trees and heaps. See @limitations.]
   [#c("columns")], [`int`], [`1`], [Trace grid columns.],
   [#c("row-gap")], [`length`], [`0.8em`], [Gap between trace cells.],
   [#c("captions")], [`bool`], [`true`], [Show generated step captions.],
-  [#c("labels") / #c("positions") / #c("layout") / #c("radius") / #c("gap")], [same as #c("graph")], [same], [Node display and placement options.],
+  [#c("labels") / #c("positions") / #c("layout") / #c("layout-options") / #c("radius") / #c("gap")], [same as #c("graph")], [same], [Node display and placement options. One layout is resolved per call and reused unchanged by every trace panel.],
   [#c("edge-customizations") / #c("node-customizations") / #c("node-labels")], [same as #c("graph")], [same], [Base customizations merged with algorithm states.],
   [#c("style")], [`dictionary`], [`(:)`], [Graph style plus #c("visited-style"), #c("current-style"), #c("queued-style"), #c("active-edge-style"), and #c("algorithm-label-text").],
 )
@@ -1801,11 +1969,16 @@ draws a distinct purple #c("d = ...") label beside every node on every step;
 the default label gap is #c("0.5") canvas units. #c("style.node-labels.gap")
 or per-node #c("node-labels") options can override it.]
 
+#note[Each trace step exposes #c("node-positions"), the resolved coordinate
+dictionary used for that panel. Every step in one trace shares the same value,
+including force layouts, so state highlighting never makes nodes drift.]
+
 #demo[
   #example(```typ
   #bfs(
     ("S": ("A", "B"), "A": ("T",), "B": ("T",), "T": ()),
     "S", target: "T", columns: 3,
+    layout: "layered",
     style: graph-style(scale: 0.65),
   ).diagram
   ```, side: false)
@@ -2826,8 +2999,14 @@ One stone remains, weight *1*, matching
   operation marks are position-keyed. For static tree/graph diagrams, use
   #c("node-customizations") for explicit per-node control. For arrays and
   matrices, use #c("cell-customizations").
-- #c("graph") lays nodes out on a circle. A layout that pulls connected nodes
-  closer together isn't built yet.
+- Force layout is deterministic but heuristic. Automatic positions keep
+  straight edges outside non-endpoint node boundaries and score candidate
+  layouts to reduce proper edge crossings, but crossings cannot always be
+  eliminated, especially in nonplanar graphs. Explicit position overrides can
+  reintroduce overlaps. The layout is tuned for small teaching diagrams rather
+  than large-scale or scientific layout.
+- Layered layout requires a directed acyclic graph. Use force or manual layout
+  for cyclic dependency diagrams.
 - #c("graph") has no operations yet: no add-node, add-edge, or a transition
   to match trees and heaps.
 - Graph algorithm traces show frontier state on the graph itself; they do not
@@ -2858,7 +3037,7 @@ One stone remains, weight *1*, matching
   [#c("skip-list(..vals, style:, decision-fn:, level-spacing:, max-level:)")], [Sorted skip list with express-lane levels; ops #c("search"), #c("insert"), #c("delete")],
   [#c("array-view(..vals, style:, cell-customizations:, pointers:)")], [Static array cells with optional #c("style.indices"), per-cell overrides, and labelled #c("pointers") arrows above cells],
   [#c("matrix(rows, style:, cell-customizations:, row-labels:, column-labels:)")], [Static matrix/grid cells with optional row/column labels and per-cell overrides],
-  [#c("graph(adjacency, directed:, labels:, positions:, layout:, radius:, gap:, edge-customizations:, node-customizations:, node-labels:, style:)")], [Graph from an adjacency dict; circular, linear, or manual layout, no ops yet],
+  [#c("graph(adjacency, directed:, labels:, positions:, layout:, layout-options:, radius:, gap:, edge-customizations:, node-customizations:, node-labels:, style:)")], [Graph from an adjacency dict; circular, linear, force-directed, layered DAG, or manual layout],
   [#c("hash-table(..entries, size:, collision:, hash:, style:)")], [Separate-chaining or linear-probing table; ops #c("insert"), #c("delete"), and #c("search")],
 )
 

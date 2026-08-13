@@ -507,7 +507,7 @@ name clash.]
 The package exports these symbols:
 
 #table(
-  columns: (auto, 1fr), inset: 7pt,
+  columns: (1fr, 3fr), inset: 7pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Symbol*], [*Purpose*],
@@ -2354,7 +2354,7 @@ node. Tree operation marks remain value-keyed; see @limitations.]
 Calling an operation field returns a *step*: a dictionary with five fields.
 
 #table(
-  columns: (52%, 48%), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Field*], [*Description*],
@@ -2517,7 +2517,7 @@ A caption is resolved by walking four sources, each one winning over the ones
 before it:
 
 #table(
-  columns: (auto, 1fr), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Layer*], [*What it is*],
@@ -2865,7 +2865,7 @@ dictionaries such as #c("style.node-text"), #c("style.label-text"), and
 #c("edge-customizations[].options.label").
 
 #table(
-  columns: (auto, 1fr), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Area*], [*Detailed reference*],
@@ -3022,7 +3022,7 @@ One stone remains, weight *1*, matching
 == Structure builders
 
 #table(
-  columns: (52%, 48%), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Call*], [*Result*],
@@ -3044,7 +3044,7 @@ One stone remains, weight *1*, matching
 == Graph algorithms
 
 #table(
-  columns: (52%, 48%), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Call*], [*Result*],
@@ -3056,7 +3056,7 @@ One stone remains, weight *1*, matching
 == Sorting algorithms
 
 #table(
-  columns: (52%, 48%), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Call*], [*Result*],
@@ -3073,7 +3073,7 @@ One stone remains, weight *1*, matching
 == Hand-composed trees
 
 #table(
-  columns: (52%, 48%), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Call*], [*Result*],
@@ -3085,7 +3085,7 @@ One stone remains, weight *1*, matching
 == Transitions and operations
 
 #table(
-  columns: (auto, 1fr), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Call*], [*Result*],
@@ -3103,7 +3103,7 @@ One stone remains, weight *1*, matching
 == Localization
 
 #table(
-  columns: (auto, 1fr), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Call / argument*], [*Result*],
@@ -3119,7 +3119,7 @@ See @localization for the full message-key catalog and the resolution order.
 == Styling keys
 
 #table(
-  columns: (auto, auto, 1fr), inset: 6.5pt,
+  columns: (1fr, 1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Key*], [*Default*], [*Effect*],
@@ -3167,7 +3167,7 @@ See @localization for the full message-key catalog and the resolution order.
 == Styling helpers
 
 #table(
-  columns: (auto, 1fr), inset: 6.5pt,
+  columns: (1fr, 2fr), inset: 6.5pt,
   align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
   fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
   [*Call*], [*Result*],

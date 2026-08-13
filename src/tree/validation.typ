@@ -3,16 +3,16 @@
 // Generic diagnostic formatting and schema primitives remain in validate.typ;
 // checks that understand tree nodes and edges stay with the tree domain.
 
-#import "style.typ": (
+#import "../shared/style.typ": (
   validate-style, check-edge-customization-options,
   check-node-customization-options, check-node-label-override,
 )
-#import "validate.typ": (
+#import "../shared/validate.typ": (
   check-comparable, check-customization-entries, check-id-value-references,
   check-reference, check-unique, fail, normalize-id-value-entries, show-list,
   show-value,
 )
-#import "tree-state.typ": (
+#import "state.typ": (
   _is-tree-node, _tree-node-id, _visible-tree-children,
 )
 

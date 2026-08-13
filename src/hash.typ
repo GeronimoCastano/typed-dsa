@@ -2,15 +2,15 @@
 
 #import "@preview/cetz:0.5.2"
 #import cetz.draw: line
-#import "style.typ": resolve, scaled, resolve-mark-style, array-style, indices-style, validate-style
-#import "validate.typ": (
+#import "shared/style.typ": resolve, scaled, resolve-mark-style, array-style, indices-style, validate-style
+#import "shared/validate.typ": (
   check-callback-result, check-enum, check-function, check-integer, fail,
   show-value,
 )
 #import "grid.typ": array-view
-#import "linear.typ": _render-linked-list, _null
-#import "transition-view.typ": trans-view
-#import "messages.typ": default-catalog, resolve-catalog, msg
+#import "linear/facade.typ": _render-linked-list, _null
+#import "shared/transition-view.typ": trans-view
+#import "shared/messages.typ": default-catalog, resolve-catalog, msg
 
 // An entry is a bare key, a `(key, value)` pair, or a key with a separate
 // `value:`. Any other array shape would silently be stored as one opaque key.

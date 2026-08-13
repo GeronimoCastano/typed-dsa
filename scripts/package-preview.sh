@@ -53,7 +53,7 @@ mkdir -p "$target/src" "$target/assets/readme"
 cp "$repo_root/typst.toml" "$target/typst.toml"
 cp "$repo_root/README.md" "$target/README.md"
 cp "$repo_root/LICENSE" "$target/LICENSE"
-cp "$repo_root"/src/*.typ "$target/src/"
+cp -R "$repo_root/src/." "$target/src/"
 
 found_png=0
 for image in "$repo_root"/assets/readme/*.png; do

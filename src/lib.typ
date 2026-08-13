@@ -4,16 +4,16 @@
 // consistently styled diagram. Operation transitions render the before state,
 // an arrow, and the derived after state with the diff highlighted.
 
-#import "tree.typ": bst, avl, tree, node, subtree, transition as _tree-transition, op-arrow, tree-insert, tree-delete, tree-search
-#import "linear.typ": linked-list, doubly-linked-list, skip-list, default-decision-fn, stack, queue
+#import "tree/facade.typ": bst, avl, tree, node, subtree, transition as _tree-transition, op-arrow, tree-insert, tree-delete, tree-search
+#import "linear/facade.typ": linked-list, doubly-linked-list, skip-list, default-decision-fn, stack, queue
 #import "heap.typ": min-heap, max-heap, _transition as _heap-transition, heap-insert, heap-extract
-#import "graph.typ": graph, bfs, dfs, dijkstra
+#import "graph/facade.typ": graph, bfs, dfs, dijkstra
 #import "grid.typ": array-view, matrix, sequence, operation-sequence
-#import "sorting.typ": merge-sort, merge-operation, partition-step, quick-sort, bubble-sort, insertion-sort, selection-sort, sort-sequence
+#import "sorting/facade.typ": merge-sort, merge-operation, partition-step, quick-sort, bubble-sort, insertion-sort, selection-sort, sort-sequence
 #import "hash.typ": hash-table
-#import "style.typ": theme, themes, theme-preset, resolve, tree-style, heap-style, graph-style, list-style, stack-style, queue-style, array-style, matrix-style, text-style, label-style, node-mark-style, cell-mark-style, node-label-style, indices-style
-#import "messages.typ": messages, supported-languages
-#import "validate.typ": check-enum, fail, show-list, show-value
+#import "shared/style.typ": theme, themes, theme-preset, resolve, tree-style, heap-style, graph-style, list-style, stack-style, queue-style, array-style, matrix-style, text-style, label-style, node-mark-style, cell-mark-style, node-label-style, indices-style
+#import "shared/messages.typ": messages, supported-languages
+#import "shared/validate.typ": check-enum, fail, show-list, show-value
 
 // The variants `transition` understands, and the operation family each one
 // needs. An operation carries its family, so a heap operation aimed at a tree

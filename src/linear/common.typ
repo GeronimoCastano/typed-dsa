@@ -4,12 +4,12 @@
 // container, and skip-list semantics remain in their owning modules.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": resolve-mark-style, validate-style
-#import "transition-view.typ": trans-view
-#import "validate.typ": (
+#import "../shared/style.typ": resolve-mark-style, validate-style
+#import "../shared/transition-view.typ": trans-view
+#import "../shared/validate.typ": (
   check-array, check-bool, check-index, fail, show-list, show-value,
 )
-#import "messages.typ": msg
+#import "../shared/messages.typ": msg
 #import cetz.draw: line, rect, content
 
 // ── Validation ───────────────────────────────────────────────────────────────

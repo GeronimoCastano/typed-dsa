@@ -3,8 +3,8 @@
 // Generic checks and diagnostic formatting remain in validate.typ. These
 // helpers understand sorting inputs and trace customization roles.
 
-#import "style.typ": validate-style, check-cell-customization-options
-#import "validate.typ": (
+#import "../shared/style.typ": validate-style, check-cell-customization-options
+#import "../shared/validate.typ": (
   check-comparable, check-non-empty, fail, show-value,
 )
 

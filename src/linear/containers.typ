@@ -1,15 +1,15 @@
 // Stack and queue state, operations, and rendering.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": resolve, scaled, resolve-mark-style, validate-style
-#import "validate.typ": (
+#import "../shared/style.typ": resolve, scaled, resolve-mark-style, validate-style
+#import "../shared/validate.typ": (
   check-array, check-bool, check-callback-result, check-comparable,
   check-comparable-with, check-function, check-index, check-integer,
   check-positive, check-unique, fail, show-list, show-value,
 )
-#import "messages.typ": default-catalog, resolve-catalog, msg
+#import "../shared/messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, rect, content
-#import "linear-common.typ": (
+#import "common.typ": (
   _validate-linear-list-arguments,
   _check-deletable-value,
   _check-non-empty-structure,

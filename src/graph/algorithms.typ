@@ -3,21 +3,21 @@
 // Algorithms own traversal semantics and trace construction. They consume the
 // graph model and renderer but do not own public graph rendering or layout.
 
-#import "style.typ": resolve
-#import "validate.typ": (
+#import "../shared/style.typ": resolve
+#import "../shared/validate.typ": (
   check-bool, check-enum, check-integer, check-reference, fail, is-number,
   show-value,
 )
-#import "messages.typ": default-catalog, resolve-catalog, msg
-#import "graph-model.typ": (
+#import "../shared/messages.typ": default-catalog, resolve-catalog, msg
+#import "model.typ": (
   _collect-graph-node-ids, _edge-display-label, _edge-target-id,
 )
-#import "graph-layout.typ": _resolve-graph-layout
-#import "graph-render.typ": (
+#import "layout.typ": _resolve-graph-layout
+#import "render.typ": (
   _lookup-graph-node-value, _render-graph-at-positions,
   _resolve-graph-edge-customization, _resolve-graph-node-customization,
 )
-#import "graph-validation.typ": _validate-graph-arguments
+#import "validation.typ": _validate-graph-arguments
 
 // ── Algorithm traces ────────────────────────────────────────────────────────
 

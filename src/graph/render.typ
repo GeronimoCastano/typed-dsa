@@ -1,15 +1,15 @@
 // CeTZ rendering for validated graph state and resolved graph layouts.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": (
+#import "../shared/style.typ": (
   theme, scaled, edge-stroke, edge-arrow, edge-wave, wavy-parts,
 )
 #import cetz.draw: line, circle, rect, content, bezier-through
-#import "graph-model.typ": (
+#import "model.typ": (
   _collect-graph-edges, _collect-graph-node-ids, _edge-display-label,
   _normalize-undirected-edge-key,
 )
-#import "graph-layout.typ": (
+#import "layout.typ": (
   _calculate-graph-edge-bend-point, _calculate-node-boundary-radius,
   _resolve-graph-node-radius,
   _resolve-graph-node-shape, _trim-edge-to-node-boundary,

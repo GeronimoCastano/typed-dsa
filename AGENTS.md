@@ -48,6 +48,24 @@ structure into the same file pattern. A boundary should represent clear domain
 ownership or an architectural dependency layer, and shared infrastructure
 should be extracted only when multiple domains use the same stable abstraction.
 
+### Source Directory Organization
+
+Organize `src/` by cohesive domain rather than by technical layer. A domain
+that owns multiple modules should have its own directory and an explicit
+`facade.typ` that exposes the symbols used by `src/lib.typ` and other domains.
+Keep a coherent single-file domain at the `src/` root until it has a real need
+for multiple modules; do not create one-file directories for symmetry.
+
+Place code in `src/shared/` only when multiple domains depend on the same stable
+abstraction. The shared directory must not become a home for helpers that lack
+a clear owner. Shared modules must not import domain modules.
+
+Within a domain directory, import sibling implementation modules directly.
+Cross-domain reuse should go through the owning domain's `facade.typ` rather
+than importing its internal state, layout, validation, or rendering modules.
+`src/lib.typ` remains the package entrypoint and composes the public API from
+domain facades, root single-file domains, and shared public definitions.
+
 ### Readability over Cleverness
 
 Prefer direct and explicit Typst code over dense expressions, excessive
@@ -324,7 +342,7 @@ probe sequence
 Avoid generic utility frameworks or configuration machinery introduced for only
 one caller.
 
-Prefer existing shared helpers in `src/style.typ` and the relevant structure
+Prefer existing shared helpers in `src/shared/style.typ` and the relevant structure
 module before creating a new convention.
 
 ### Comments Explain Why
@@ -467,10 +485,10 @@ In practice:
   enums, numeric ranges, dictionary keys), then structure, then references into
   the resolved structure. Model, layout, and rendering code may assume a valid
   model and must not re-check or silently repair one.
-- Reuse the shared helpers in `src/validate.typ` (`check-type`, `check-enum`,
+- Reuse the shared helpers in `src/shared/validate.typ` (`check-type`, `check-enum`,
   `check-index`, `check-known-keys`, `check-reference`, `check-comparable`,
   `check-customization-entries`, `fail`, ...) and the schema lists and
-  customization checkers in `src/style.typ`. Do not write a second,
+  customization checkers in `src/shared/style.typ`. Do not write a second,
   slightly-different validator for a concept that already has one.
 - Every diagnostic must name four things: the public function and argument, the
   offending value, the accepted range or the available identifiers, and how to
@@ -520,37 +538,37 @@ Every change to the public API or user-visible behavior must be reflected in
 ```text
 typst.toml              Package manifest
 src/lib.typ             Public API exports and transition dispatcher
-src/tree.typ            Tree domain facade
-src/tree-state.typ      Tree state, rotations, mutations, manual node models
-src/tree-validation.typ Tree-specific structure and reference validation
-src/tree-layout.typ     Tree layout calculations
-src/tree-render.typ     Tree CeTZ rendering
-src/tree-api.typ        Tree constructors, operations, objects, transitions
+src/tree/facade.typ     Tree domain facade
+src/tree/state.typ      Tree state, rotations, mutations, manual node models
+src/tree/validation.typ Tree-specific structure and reference validation
+src/tree/layout.typ     Tree layout calculations
+src/tree/render.typ     Tree CeTZ rendering
+src/tree/api.typ        Tree constructors, operations, objects, transitions
 src/heap.typ            Array-backed min/max heaps and heap transitions
-src/linear.typ          Linear-structure domain facade
-src/linear-common.typ   Shared linear cells, validation, operation records
-src/linear-lists.typ    Singly and doubly linked lists
-src/linear-containers.typ Stack and queue structures
-src/linear-skip-list.typ Skip-list state, algorithms, layout, rendering
-src/graph.typ           Graph domain facade
-src/graph-model.typ     Graph adjacency state and identity
-src/graph-validation.typ Graph-specific argument and reference validation
-src/graph-layout.typ    Graph node placement and edge geometry
-src/graph-render.typ    Graph CeTZ rendering
-src/graph-api.typ       Public graph constructor
-src/graph-algorithms.typ BFS, DFS, and Dijkstra teaching traces
+src/linear/facade.typ   Linear-structure domain facade
+src/linear/common.typ   Shared linear cells, validation, operation records
+src/linear/lists.typ    Singly and doubly linked lists
+src/linear/containers.typ Stack and queue structures
+src/linear/skip-list.typ Skip-list state, algorithms, layout, rendering
+src/graph/facade.typ    Graph domain facade
+src/graph/model.typ     Graph adjacency state and identity
+src/graph/validation.typ Graph-specific argument and reference validation
+src/graph/layout.typ    Graph node placement and edge geometry
+src/graph/render.typ    Graph CeTZ rendering
+src/graph/api.typ       Public graph constructor
+src/graph/algorithms.typ BFS, DFS, and Dijkstra teaching traces
 src/hash.typ            Chained and linear-probing hash tables and operations
 src/grid.typ            Array, matrix, and step-sequence rendering
-src/sorting.typ         Sorting domain facade
-src/sorting-validation.typ Sorting-specific input and role validation
-src/sorting-common.typ  Shared sorting trace records and presentation
-src/sorting-merge.typ   Merge operations and merge-sort traces
-src/sorting-quick.typ   Partition operations and quick-sort traces
-src/sorting-elementary.typ Bubble, insertion, and selection traces
-src/transition-view.typ Shared before/after transition presentation
-src/style.typ           Shared theme defaults, style resolution, and schemas
-src/validate.typ        Shared argument validation and diagnostic helpers
-src/messages.typ        Localized caption catalogs and message overrides
+src/sorting/facade.typ  Sorting domain facade
+src/sorting/validation.typ Sorting-specific input and role validation
+src/sorting/common.typ  Shared sorting trace records and presentation
+src/sorting/merge.typ   Merge operations and merge-sort traces
+src/sorting/quick.typ   Partition operations and quick-sort traces
+src/sorting/elementary.typ Bubble, insertion, and selection traces
+src/shared/transition-view.typ Shared before/after transition presentation
+src/shared/style.typ    Shared theme defaults, style resolution, and schemas
+src/shared/validate.typ Shared argument validation and diagnostic helpers
+src/shared/messages.typ Localized caption catalogs and message overrides
 docs/documentation.typ  User guide source
 docs/documentation.pdf  Rendered user guide
 assets/readme/          Typst source and rendered PNG README examples
@@ -649,7 +667,8 @@ and `.result`.
 Data structures, layout, and rendering all live in Typst source files.
 
 **CeTZ drawing backend:** Public builders return Typst content backed by CeTZ
-canvas drawing. Prefer existing helpers in `src/style.typ`, `src/tree.typ`, and
+canvas drawing. Prefer existing helpers in `src/shared/style.typ`,
+`src/tree/facade.typ`, and
 the relevant structure module over introducing new drawing conventions.
 
 **Unified object model:** Structure builders return an object that contains the
@@ -693,7 +712,7 @@ Runtime package files include:
 typst.toml
 README.md
 LICENSE
-src/*.typ
+src/                    Complete recursive Typst module tree
 assets/readme/*.png
 ```
 

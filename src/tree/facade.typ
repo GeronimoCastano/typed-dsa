@@ -3,7 +3,7 @@
 // This is the tree domain facade. State transformations, validation, layout,
 // rendering, and transition coordination live in focused internal modules.
 
-#import "tree-state.typ": (
+#import "state.typ": (
   node as _node, subtree as _subtree,
   _create-tree-node as _create-tree-node-impl,
   _build-search-tree as _build-search-tree-impl,
@@ -12,9 +12,9 @@
   _insert-bst-node as _insert-bst-node-impl,
   _remove-avl-node as _remove-avl-node-impl,
 )
-#import "tree-render.typ": _render-tree as _render-tree-impl
-#import "transition-view.typ": op-arrow as _op-arrow, trans-view as _trans-view
-#import "tree-api.typ": (
+#import "render.typ": _render-tree as _render-tree-impl
+#import "../shared/transition-view.typ": op-arrow as _op-arrow, trans-view as _trans-view
+#import "api.typ": (
   tree as _tree, bst as _bst, avl as _avl, transition as _transition,
   tree-insert as _tree-insert,
   tree-delete as _tree-delete, tree-search as _tree-search,

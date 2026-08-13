@@ -3,17 +3,17 @@
 // These abstractions are used by merge, quick, and elementary sorting traces.
 // Algorithm-specific state transitions remain in their owning modules.
 
-#import "grid.typ": array-view
+#import "../grid.typ": array-view
 #import "@preview/cetz:0.5.2"
-#import "style.typ": (
+#import "../shared/style.typ": (
   array-style, indices-style, cell-mark-style, resolve, scaled, validate-style,
   check-cell-customization-options,
 )
-#import "validate.typ": (
+#import "../shared/validate.typ": (
   check-bool, check-comparable, check-enum, check-index, check-integer,
   check-non-empty, check-type, fail, show-value,
 )
-#import "messages.typ": default-catalog, msg
+#import "../shared/messages.typ": default-catalog, msg
 #import cetz.draw: line, content
 
 // ── Validation ───────────────────────────────────────────────────────────────

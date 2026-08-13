@@ -3,17 +3,17 @@
 // These checks run at public calls. They understand adjacency entries, graph
 // edges, and relative placements and therefore remain in the graph domain.
 
-#import "style.typ": (
+#import "../shared/style.typ": (
   validate-style, check-coordinate-pair, check-edge-customization-options,
   check-node-customization-options, check-node-label-override,
 )
-#import "validate.typ": (
+#import "../shared/validate.typ": (
   check-array, check-bool, check-customization-entries, check-dictionary,
   check-enum, check-id-value-references, check-known-keys, check-positive,
   check-reference, fail, is-number,
   normalize-id-value-entries, show-list, show-value,
 )
-#import "graph-model.typ": (
+#import "model.typ": (
   _collect-graph-edges, _collect-graph-node-ids, _edge-target-id,
   _normalize-undirected-edge-key, _topologically-order-graph-nodes,
 )

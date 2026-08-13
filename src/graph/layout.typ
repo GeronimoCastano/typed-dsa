@@ -1,6 +1,6 @@
 // Graph node placement and edge geometry calculations.
 
-#import "graph-model.typ": (
+#import "model.typ": (
   _collect-graph-connected-components, _collect-graph-edges,
   _collect-graph-node-ids, _edge-target-id, _topologically-order-graph-nodes,
 )

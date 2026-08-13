@@ -3,19 +3,19 @@
 // Public calls validate before state mutation. Transition rendering coordinates
 // validated before-and-after states without owning tree operation semantics.
 
-#import "style.typ": resolve
-#import "validate.typ": (
+#import "../shared/style.typ": resolve
+#import "../shared/validate.typ": (
   check-array, check-bool, check-comparable, check-comparable-with,
   check-dictionary, check-enum, check-known-keys, fail, show-list, show-value,
 )
-#import "messages.typ": default-catalog, resolve-catalog, msg
-#import "transition-view.typ": op-arrow, trans-view
-#import "tree-state.typ": (
+#import "../shared/messages.typ": default-catalog, resolve-catalog, msg
+#import "../shared/transition-view.typ": op-arrow, trans-view
+#import "state.typ": (
   _build-search-tree, _check-tree-node, _find-bst-search-path, _insert-avl-node,
   _insert-bst-node, _remove-avl-node, _remove-bst-node,
 )
-#import "tree-render.typ": _render-tree
-#import "tree-validation.typ": (
+#import "render.typ": _render-tree
+#import "validation.typ": (
   _collect-tree-keys, _validate-search-tree-keys, _validate-tree-arguments,
 )
 

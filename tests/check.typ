@@ -2,8 +2,8 @@
 // any broken invariant aborts compilation with a failed assert.
 //   typst compile --root . tests/check.typ /dev/null
 
-#import "../src/tree.typ": _build-search-tree, _calculate-balance-factor, _remove-bst-node, _insert-bst-node, _remove-avl-node
-#import "../src/graph-layout.typ": _project-point-to-graph-edge
+#import "../src/tree/facade.typ": _build-search-tree, _calculate-balance-factor, _remove-bst-node, _insert-bst-node, _remove-avl-node
+#import "../src/graph/layout.typ": _project-point-to-graph-edge
 
 #let inorder(tree-node) = if tree-node == none {
   ()

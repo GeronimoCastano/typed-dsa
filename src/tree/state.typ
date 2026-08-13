@@ -3,8 +3,8 @@
 // Rotations and search-tree mutations live here because they transform the
 // persistent tree model. This module has no layout or rendering dependency.
 
-#import "style.typ": check-fill
-#import "validate.typ": check-array, check-positive, fail, show-value
+#import "../shared/style.typ": check-fill
+#import "../shared/validate.typ": check-array, check-positive, fail, show-value
 
 // ── Model: generated BST/AVL ─────────────────────────────────────────────────
 

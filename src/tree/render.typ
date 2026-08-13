@@ -1,13 +1,13 @@
 // CeTZ rendering for validated, laid-out tree state.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": (
+#import "../shared/style.typ": (
   theme, scaled, resolve-mark-style, edge-mark, edge-stroke, edge-wave,
   wavy-parts,
 )
 #import cetz.draw: line, circle, rect, content, bezier-through
-#import "tree-layout.typ": _calculate-tree-layout
-#import "tree-state.typ": _tree-node-id, _visible-tree-children
+#import "layout.typ": _calculate-tree-layout
+#import "state.typ": _tree-node-id, _visible-tree-children
 
 // ── Render ───────────────────────────────────────────────────────────────────
 

@@ -1,9 +1,9 @@
 // Public graph constructor.
 
-#import "style.typ": resolve
-#import "graph-layout.typ": _resolve-graph-layout
-#import "graph-render.typ": _render-graph-at-positions
-#import "graph-validation.typ": _validate-graph-arguments
+#import "../shared/style.typ": resolve
+#import "layout.typ": _resolve-graph-layout
+#import "render.typ": _render-graph-at-positions
+#import "validation.typ": _validate-graph-arguments
 
 // `adjacency` maps each node label to an array of neighbor labels or
 // `(neighbor-label, edge-label)` pairs.

@@ -4,8 +4,8 @@
 // keys as the rest of the package.
 
 #import "@preview/cetz:0.5.2"
-#import "style.typ": resolve, scaled, validate-style, check-cell-customization-options, check-text-style
-#import "validate.typ": (
+#import "shared/style.typ": resolve, scaled, validate-style, check-cell-customization-options, check-text-style
+#import "shared/validate.typ": (
   check-array, check-bool, check-dictionary, check-enum, check-function,
   check-index, check-integer, check-known-keys, fail, show-value,
 )

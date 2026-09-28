@@ -89,8 +89,8 @@
 
 #import "../src/lib.typ": (
   array-view, bfs, bst, dfs, dijkstra, doubly-linked-list, graph, hash-table,
-  linked-list, matrix, min-heap, skip-list, stack, theme-preset, transition,
-  tree, node, subtree, queue, tree-search, quick-sort,
+  linked-list, matrix, merge-sort, min-heap, skip-list, stack, theme-preset,
+  transition, tree, node, subtree, queue, tree-search, quick-sort,
 )
 
 // An unsuccessful search reports itself instead of failing.
@@ -432,6 +432,12 @@
 #assert(down-layered-positions.at("source-a").at(1) > down-layered-positions.at("sink").at(1))
 #assert(up-layered-positions.at("source-a").at(1) < up-layered-positions.at("sink").at(1))
 #let _ = array-view(1, 2, 3, style: (indices: true)).diagram
+#let merge-index-labels-trace = merge-sort(array-view(
+  4, 2, 3, 1,
+  style: (indices: (enabled: true, labels: ("1", "2", "3", "4"))),
+))
+#assert.eq(merge-index-labels-trace.result, (1, 2, 3, 4))
+#let _ = merge-index-labels-trace.diagram
 #let _ = array-view().diagram
 #let _ = matrix(((1, 2), (3, 4)), row-labels: ([r],)).diagram
 #let _ = tree(node("a", left: node("b"), right: subtree("T")))

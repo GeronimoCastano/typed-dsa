@@ -240,12 +240,26 @@
   let x = _calculate-array-node-center(start, end, pitch) - values.len() * resolved-style.box-w / 2
   let fill = if mark == none { resolved-style.box-fill } else { mark.fill }
   let stroke = if mark == none { resolved-style.box-stroke } else { mark.stroke }
+  let index-options = resolved-style.at("indices", default: none)
+  let index-labels = if type(index-options) == dictionary {
+    index-options.at("labels", default: auto)
+  } else {
+    auto
+  }
   for (i, value) in values.enumerate() {
     let cell-x = x + i * resolved-style.box-w
     rect((cell-x, y), (cell-x + resolved-style.box-w, y + resolved-style.box-h), fill: fill, stroke: stroke)
     _render-sorting-text((cell-x + resolved-style.box-w / 2, y + resolved-style.box-h / 2), value, resolved-style.value-text)
     if show-indices {
-      _render-sorting-text((cell-x + resolved-style.box-w / 2, y - 0.28), i, resolved-style.index-text)
+      // Custom labels are keyed by position in the original array so a
+      // labelled trace keeps the same indices across every subtree.
+      let original-index = start + i
+      let index-label = if index-labels == auto { i }
+        else if type(index-labels) == array and original-index < index-labels.len() { index-labels.at(original-index) }
+        else { none }
+      if index-label != none {
+        _render-sorting-text((cell-x + resolved-style.box-w / 2, y - 0.28), index-label, resolved-style.index-text)
+      }
     }
   }
 }

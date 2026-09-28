@@ -1491,3 +1491,10 @@
     layout-options: (edge-length: 2.1, node-edge-clearance: 1.0),
   ).diagram
 })
+
+#section("Merge sort custom index labels follow original-array positions", merge-sort(
+  array-view(
+    38, 27, 43, 3, 9,
+    style: (indices: (enabled: true, labels: ("1", "2", "3", "4", "5"))),
+  ),
+).diagram)

@@ -1143,7 +1143,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 #linear-style-reference("array")
 #subargtable([Nested keys for #c("style.indices")],
   [#c("style.indices.enabled")], [`bool`], [`false`], [Draw index labels below array cells.],
-  [#c("style.indices.labels")], [`auto` / `array`], [`auto`], [#c("auto") draws zero-based numeric indices; an array supplies custom labels.],
+  [#c("style.indices.labels")], [`auto` / `array`], [`auto`], [#c("auto") draws zero-based numeric indices; an array supplies custom labels. Merge sort's divide and merge trees address the array by each cell's position in the original array.],
   [#c("style.indices.offset")], [`tuple`], [#c("(0, -0.28)")], [Canvas offset from the bottom-center index position.],
   [#c("style.indices.size")], [`length`], [#c("style.label-text.size")], [Index text size.],
   [#c("style.indices.color")], [`color`], [#c("style.label-text.color")], [Index text color.],
@@ -1257,11 +1257,13 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 
   To style a trace, pass a styled #c("array-view(...)") in place of the bare
   array: its style (fills, text, and index configuration) is carried through
-  every step of the trace. Bubble sort adds a pointer-free settled frame after
-  each pass to highlight its green suffix, and selection sort adds one after
-  each minimum swap to highlight its sorted prefix. Settled frames name the
-  newly settled value, and selection scan labels list position, minimum, then
-  item.
+  every step of the trace. Custom #c("style.indices.labels") entries are
+  addressed by each cell's position in the original array, so a labelled trace
+  keeps the same indices in every divided and merged subtree. Bubble sort adds
+  a pointer-free settled frame after each pass to highlight its green suffix,
+  and selection sort adds one after each minimum swap to highlight its sorted
+  prefix. Settled frames name the newly settled value, and selection scan
+  labels list position, minimum, then item.
 
   Merge operation, bubble, insertion, and selection sort show labelled arrows
   above their active positions by default. Pass #c("pointers: false") to hide
@@ -1328,6 +1330,22 @@ separate a label from its array or make neighbouring frames overlap.
 #trace.diagram
 ```, {
   let trace = merge-sort((38, 27, 43))
+  sorting-diagram(trace.diagram)
+})
+
+*Merge sort with 1-based index labels*
+
+#sorting-example(```typ
+#let trace = merge-sort(array-view(
+  38, 27, 43, 3, 9,
+  style: (indices: (enabled: true, labels: ("1", "2", "3", "4", "5"))),
+))
+#trace.diagram
+```, {
+  let trace = merge-sort(array-view(
+    38, 27, 43, 3, 9,
+    style: (indices: (enabled: true, labels: ("1", "2", "3", "4", "5"))),
+  ))
   sorting-diagram(trace.diagram)
 })
 

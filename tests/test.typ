@@ -1498,3 +1498,47 @@
     style: (indices: (enabled: true, labels: ("1", "2", "3", "4", "5"))),
   ),
 ).diagram)
+
+#section("Tidy tree layout: contour packing vs. default columns", {
+  let keys = (40, 20, 10, 5, 30, 60, 70, 65, 80, 1, 12, 25, 35, 33, 37, 90, 95, 99)
+  std.stack(dir: ltr, spacing: 2em,
+    bst(..keys, style: (scale: 0.6)).diagram,
+    bst(..keys, style: (scale: 0.6, tree-layout: "tidy")).diagram,
+  )
+  v(1em)
+  tree(
+    node("r", left: subtree("A"), right: node("x", left: node("y"), right: subtree("B", scale: 1.5))),
+    style: (tree-layout: "tidy"),
+  )
+  v(1em)
+  tree(
+    node("root", children: (
+      node("a", children: (node("a1"), node("a2"), node("a3"))),
+      node("b"),
+      node("c", children: (node("c1"), subtree("C2"))),
+    )),
+    style: (tree-layout: "tidy"),
+  )
+  v(1em)
+  std.stack(dir: ltr, spacing: 2em,
+    avl(10, 20, 30, 40, 50, 25, style: (tree-layout: "tidy")).diagram,
+    min-heap(3, 8, 5, 9, 12, 7, 6, style: (tree-layout: "tidy")).diagram,
+  )
+})
+
+#let _compare-tree-layouts(builder, ..keys) = std.stack(dir: ltr, spacing: 3em,
+  builder(..keys, style: (scale: 0.7)).diagram,
+  builder(..keys, style: (scale: 0.7, tree-layout: "tidy")).diagram,
+)
+
+#section("Layout comparison 1: columns (left) vs. tidy (right), zigzag branches", {
+  _compare-tree-layouts(bst, 50, 20, 70, 10, 30, 25, 35, 27, 60, 80, 75, 90, 78)
+})
+
+#section("Layout comparison 2: columns (left) vs. tidy (right), deep left spine with bushy right side", {
+  _compare-tree-layouts(bst, 50, 40, 30, 20, 10, 45, 35, 25, 70, 60, 80, 55, 65, 75, 90)
+})
+
+#section("Layout comparison 3: columns (left) vs. tidy (right), AVL after sequential inserts", {
+  _compare-tree-layouts(avl, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
+})

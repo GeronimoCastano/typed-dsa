@@ -449,3 +449,11 @@
 
 #set page(width: auto, height: auto, margin: 4pt)
 All invariant checks passed.
+
+// Tidy tree layout accepts binary, multiway, and triangle trees.
+#let _ = bst(5, 3, 8, 1, 4, 9, style: (tree-layout: "tidy")).diagram
+#let _ = tree(
+  node("r", children: (node("a"), subtree("T"), node("c", children: (node("d"),)))),
+  style: (tree-layout: "tidy"),
+)
+#let _ = ((bst(20, 10, 30, style: (tree-layout: "tidy")).insert)(40)).diagram

@@ -205,6 +205,7 @@
     [#c("style.node-shape")], [`str`], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"rounded\""), #c("\"capsule\""), #c("\"diamond\""), or #c("\"hexagon\"").],
     [#c("style.x-gap")], [`float`], [`1.05`], [Horizontal spacing between in-order columns.],
     [#c("style.y-gap")], [`float`], [`1.2`], [Vertical spacing between depths.],
+    [#c("style.tree-layout")], [`str`], [`"columns"`], [#c("\"columns\"") gives every leaf its own column. #c("\"tidy\"") packs sibling subtrees against their contours, keeping parents centered and subtree triangles clear. See @tidy-tree-layout.],
     [#c("style.node-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Node outline.],
     [#c("style.node-fill")], [`color`], [`white`], [Default node fill.],
     [#c("style.edge-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Parent-child edge stroke.],
@@ -636,6 +637,27 @@ covers the step shape they share.
         rotate-style: (node-radius: 0.44),
       ),
     ),
+  )
+  ```, side: false)
+]
+
+=== Tidy tree layout <tidy-tree-layout>
+
+By default every leaf receives its own column, which keeps trees predictable
+but can leave wide gaps between uneven subtrees. Set
+#c("style: (tree-layout: \"tidy\")") to pack sibling subtrees against each
+other instead: each subtree is placed as close to its left neighbour as its
+outline allows. Binary left/right placement, parent centering, child order, and
+the space taken by #c("subtree()") triangles are preserved. The option applies
+to #c("bst"), #c("avl"), #c("tree"), heaps, and tree transitions, and
+#c("\"columns\"") remains the default.
+
+#demo[
+  #example(```typ
+  #let keys = (40, 20, 10, 5, 30, 60, 70, 65, 80, 1, 12, 25, 35, 33, 37, 90, 95, 99)
+  #std.stack(dir: ltr, spacing: 2em,
+    bst(..keys, style: (scale: 0.6)).diagram,
+    bst(..keys, style: (scale: 0.6, tree-layout: "tidy")).diagram,
   )
   ```, side: false)
 ]
@@ -3145,6 +3167,7 @@ See @localization for the full message-key catalog and the resolution order.
   [#c("node-shape")], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"rounded\""), #c("\"capsule\""), #c("\"diamond\""), or #c("\"hexagon\"").],
   [#c("x-gap")], [`1.05`], [Horizontal spacing between columns.],
   [#c("y-gap")], [`1.2`], [Vertical spacing between depths.],
+  [#c("tree-layout")], [`"columns"`], [#c("\"columns\"") or #c("\"tidy\"") (contour-packed subtrees).],
   [#c("node-stroke")], [`0.6pt + #333`], [Node outline.],
   [#c("node-fill")], [`white`], [Default node fill.],
   [#c("edge-stroke")], [`0.6pt + #333`], [Edge stroke.],

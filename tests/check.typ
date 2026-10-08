@@ -449,3 +449,53 @@
 
 #set page(width: auto, height: auto, margin: 4pt)
 All invariant checks passed.
+
+// Graph edges retain endpoint identity through routing and normalization.
+#import "../src/graph/model.typ": _collect-graph-edges
+#import "../src/graph/render.typ": _resolve-graph-edge-routing
+#import "../src/graph/layout.typ": _calculate-graph-loop-geometry
+#let reciprocal-edges = _collect-graph-edges(("A": (("B", 4),), "B": (("A", 7),)), true)
+#assert(reciprocal-edges.len() == 2)
+#assert(_resolve-graph-edge-routing(reciprocal-edges, "A", "B", true, "auto", none).bend == "left")
+#assert(_resolve-graph-edge-routing(reciprocal-edges, "B", "A", true, "auto", none).bend == "left")
+#assert(_resolve-graph-edge-routing(reciprocal-edges, "A", "B", true, "manual", none) == (:))
+#assert(_resolve-graph-edge-routing(reciprocal-edges, "A", "B", false, "auto", none) == (:))
+#assert(_resolve-graph-edge-routing(reciprocal-edges, "A", "B", true, "auto", (bend: false)).bend == false)
+#assert(_resolve-graph-edge-routing(reciprocal-edges, "A", "B", true, "auto", (bend: "right", color: red)) == (bend: "right", color: red))
+#assert(_collect-graph-edges(("A": (("B", 4),), "B": (("A", 4),)), false).len() == 1)
+#assert(_collect-graph-edges(("A": ("A",)), false).len() == 1)
+#let loop-shapes = ("circle", "square", "rounded", "capsule", "diamond", "hexagon")
+#for shape in loop-shapes {
+  let upper = _calculate-graph-loop-geometry((2, 3), (shape, 0.6))
+  let lower = _calculate-graph-loop-geometry((2, 3), (shape, 0.6), bend: "right")
+  let attachment-x = upper.start.at(0) - 2
+  let attachment-y = upper.start.at(1) - 3
+  if shape == "circle" {
+    assert(calc.abs(attachment-x * attachment-x + attachment-y * attachment-y - 0.36) < 0.000001)
+  } else if shape == "diamond" {
+    assert(calc.abs(attachment-x + attachment-y - 0.6) < 0.000001)
+  } else {
+    let boundary-height = if shape == "hexagon" { 0.86 * 0.6 } else { 0.6 }
+    assert(calc.abs(attachment-y - boundary-height) < 0.000001)
+  }
+  assert(upper.start != upper.end)
+  assert(upper.start.at(1) > 3 and upper.label.at(1) > upper.start.at(1))
+  assert(calc.abs(upper.label.at(1) + lower.label.at(1) - 6) < 0.000001)
+  let _ = graph(("A": (("A", [repeat]),)), style: (node-shape: shape)).diagram
+}
+#let _ = graph(("A": ("A",)), directed: false).diagram
+#let _ = graph(("A": (("B", [same]),), "B": (("A", [same]),)), directed: false).diagram
+#let _ = graph(("A": ("B",), "B": ("A",)), edge-routing: "auto").diagram
+#let _ = graph(("A": (), "B": ()), positions: ("A": (0, 0), "B": (0, 0))).diagram
+#let _ = graph(("A": ("A",)), edge-customizations: (("A", "A", (bend: "right", label: (content: [loop], color: red))),)).diagram
+#let _ = graph(("A": ("A",)), style: (edge-pattern: "wavy"), edge-customizations: (("A", "A", (pattern: "solid", wave: false)),)).diagram
+#let loop-traversal-adjacency = ("A": (("A", 0), ("B", 4)), "B": (("A", 7),))
+#assert(bfs(loop-traversal-adjacency, "A", edge-routing: "auto").result.order == ("A", "B"))
+#assert(dfs(loop-traversal-adjacency, "A", edge-routing: "auto").result.order == ("A", "B"))
+#assert(dijkstra(loop-traversal-adjacency, "A", edge-routing: "auto").result.distances.at("B") == 4)
+
+#assert(_calculate-graph-loop-geometry((0, 0), ("circle", 0.4), bend: true).side == -1)
+#assert(_resolve-graph-edge-routing((("A", "B", none),), "A", "B", true, "auto", none) == (:))
+#let _ = graph(("A": ("A",)), edge-customizations: (("A", "A", (label: (body: [repeat], size: 12pt))),)).diagram
+
+#let _ = graph(("A": ("A",)), layout: "force").diagram

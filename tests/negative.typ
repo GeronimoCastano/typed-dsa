@@ -711,6 +711,127 @@
     expect: "must be content or string or function",
     code: "#bst(5, messages: (tree: (insert: 3))).diagram",
   ),
+  (
+    name: "graph: invalid edge-routing",
+    expect: "edge-routing:",
+    code: "#graph((\"A\": ()), edge-routing: \"curvy\").diagram",
+  ),
+  (
+    name: "graph: duplicate directed edge",
+    expect: "repeats target",
+    code: "#graph((\"A\": (\"B\", (\"B\", 2)))).diagram",
+  ),
+  (
+    name: "graph: conflicting undirected weights",
+    expect: "conflicting labels",
+    code: "#graph((\"A\": ((\"B\", 2),), \"B\": ((\"A\", 3),)), directed: false).diagram",
+  ),
+  (
+    name: "graph: connected coincident positions",
+    expect: "coincide at",
+    code: "#graph((\"A\": (\"B\",)), positions: (\"A\": (0, 0), \"B\": (rel: \"A\", offset: (0, 0)))).diagram",
+  ),
+  (
+    name: "bfs: invalid edge-routing",
+    expect: "edge-routing:",
+    code: "#bfs((\"A\": ()), \"A\", edge-routing: \"curvy\").diagram",
+  ),
+  (
+    name: "bfs: duplicate directed edge",
+    expect: "repeats target",
+    code: "#bfs((\"A\": (\"B\", (\"B\", 2))), \"A\").diagram",
+  ),
+  (
+    name: "bfs: conflicting undirected weights",
+    expect: "conflicting labels",
+    code: "#bfs((\"A\": ((\"B\", 2),), \"B\": ((\"A\", 3),)), \"A\", directed: false).diagram",
+  ),
+  (
+    name: "bfs: connected coincident positions",
+    expect: "coincide at",
+    code: "#bfs((\"A\": (\"B\",)), \"A\", positions: (\"A\": (0, 0), \"B\": (rel: \"A\", offset: (0, 0)))).diagram",
+  ),
+  (
+    name: "dfs: invalid edge-routing",
+    expect: "edge-routing:",
+    code: "#dfs((\"A\": ()), \"A\", edge-routing: \"curvy\").diagram",
+  ),
+  (
+    name: "dfs: duplicate directed edge",
+    expect: "repeats target",
+    code: "#dfs((\"A\": (\"B\", (\"B\", 2))), \"A\").diagram",
+  ),
+  (
+    name: "dfs: conflicting undirected weights",
+    expect: "conflicting labels",
+    code: "#dfs((\"A\": ((\"B\", 2),), \"B\": ((\"A\", 3),)), \"A\", directed: false).diagram",
+  ),
+  (
+    name: "dfs: connected coincident positions",
+    expect: "coincide at",
+    code: "#dfs((\"A\": (\"B\",)), \"A\", positions: (\"A\": (0, 0), \"B\": (rel: \"A\", offset: (0, 0)))).diagram",
+  ),
+  (
+    name: "dijkstra: invalid edge-routing",
+    expect: "edge-routing:",
+    code: "#dijkstra((\"A\": ()), \"A\", edge-routing: \"curvy\").diagram",
+  ),
+  (
+    name: "dijkstra: duplicate directed edge",
+    expect: "repeats target",
+    code: "#dijkstra((\"A\": (\"B\", (\"B\", 2))), \"A\").diagram",
+  ),
+  (
+    name: "dijkstra: conflicting undirected weights",
+    expect: "conflicting labels",
+    code: "#dijkstra((\"A\": ((\"B\", 2),), \"B\": ((\"A\", 3),)), \"A\", directed: false).diagram",
+  ),
+  (
+    name: "dijkstra: connected coincident positions",
+    expect: "coincide at",
+    code: "#dijkstra((\"A\": (\"B\",)), \"A\", positions: (\"A\": (0, 0), \"B\": (rel: \"A\", offset: (0, 0)))).diagram",
+  ),
+  (
+    name: "graph: routing type",
+    expect: "edge-routing:",
+    code: "#graph((\"A\": ()), edge-routing: true).diagram",
+  ),
+  (
+    name: "graph: repeated self-loop",
+    expect: "repeats target",
+    code: "#graph((\"A\": (\"A\", \"A\"))).diagram",
+  ),
+  (
+    name: "graph: duplicate undirected declaration",
+    expect: "repeats target",
+    code: "#graph((\"A\": (\"B\", \"B\")), directed: false).diagram",
+  ),
+  (
+    name: "graph: reciprocal missing label",
+    expect: "conflicting labels",
+    code: "#graph((\"A\": ((\"B\", 2),), \"B\": (\"A\",)), directed: false).diagram",
+  ),
+  (
+    name: "graph: reciprocal content labels",
+    expect: "conflicting labels",
+    code: "#graph((\"A\": ((\"B\", [two]),), \"B\": ((\"A\", [three]),)), directed: false).diagram",
+  ),
+  (
+    name: "graph: loop angle",
+    expect: "angle: only for edges",
+    code: "#graph((\"A\": (\"A\",)), edge-customizations: ((\"A\", \"A\", (angle: 30deg)),)).diagram",
+  ),
+  (
+    name: "graph: loop wave",
+    expect: "wavy edge",
+    code: "#graph((\"A\": (\"A\",)), edge-customizations: ((\"A\", \"A\", (wave: true)),)).diagram",
+  ),
+  (
+    name: "graph: connected coincident manual endpoints",
+    expect: "coincide at",
+    code: "#graph((\"A\": (\"B\",)), layout: \"manual\", positions: (\"A\": (1, 2), \"B\": (1, 2))).diagram",
+  ),
+
 )
 
 // Every case is evaluated with the whole public API in scope, exactly as a

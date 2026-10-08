@@ -1481,6 +1481,7 @@ markers together, plus customized bubble-sort marker strokes.
     layout-options: (:),
     radius: auto,
     gap: auto,
+    edge-routing: "manual",
     edge-customizations: (),
     node-customizations: (),
     node-labels: (:),
@@ -1504,6 +1505,7 @@ markers together, plus customized bubble-sort marker strokes.
   [#c("layout-options")], [`dictionary`], [`(:)`], [Options for #c("\"force\"") or #c("\"layered\""). Non-empty options with another layout are an error.],
   [#c("radius")], [`auto` / `float`], [`auto`], [Circle radius for #c("layout: \"auto\""). Passing a radius with another layout is an error.],
   [#c("gap")], [`auto` / `float`], [`auto`], [Spacing between nodes for #c("layout: \"linear\""), in canvas units. #c("auto") is #c("1.5"). Passing a gap with another layout is an error.],
+  [#c("edge-routing")], [`str`], [`"manual"`], [#c("auto") bends reciprocal directed edges apart when no explicit #c("bend") is given; #c("manual") preserves ordinary edge geometry.],
   [#c("edge-customizations")], [`array`], [`()`], [#c("(from, to, options)") tuples restyling one edge. See below.],
   [#c("node-customizations")], [`array`], [`()`], [#c("(node, options)") tuples restyling one node by graph identity.],
   [#c("node-labels")], [`array` / `dictionary`], [`(:)`], [Labels drawn outside individual graph nodes.],
@@ -1548,6 +1550,36 @@ markers together, plus customized bubble-sort marker strokes.
 #graph-style-reference()
 #node-customizations-reference(key-desc: [Graph identity key, not the display label from #c("labels").])
 #node-labels-reference(key-desc: [Graph identity key, not the display label from #c("labels").])
+
+#note[Graph edges are identified by their ordered endpoints. Repeating the same
+neighbor in one adjacency entry is an error; parallel edges are unsupported.
+For undirected graphs, reciprocal declarations must carry identical labels,
+including whether a label is omitted. Declare an edge once when the two labels
+would differ. These checks also apply to BFS, DFS, and Dijkstra.]
+
+#note[Self-loops attach to the node boundary and draw above the node by default.
+Use #c("bend: \"right\"") or #c("true") to draw a loop below it; #c("false"), #c("none"),
+and #c("\"left\"") select the upper loop. Loop geometry is fixed:
+#c("angle") and wavy patterns are unsupported and produce diagnostics. Stroke,
+color, dash pattern, arrow, and label overrides apply as usual.
+Distinct connected nodes must have different resolved positions, even when
+positions are specified relatively. Coincident unconnected nodes remain allowed.]
+
+#demo[
+  Self-loop labels and reciprocal weights with automatic routing.
+  #example(```typ
+  #graph(
+    ("A": (("A", [repeat]), ("B", 4)), "B": (("A", 7),)),
+    layout: "linear",
+    edge-routing: "auto",
+  ).diagram
+  ```)
+]
+
+#note[#c("edge-routing: \"auto\"") uses a left bend relative to each directed
+edge, separating the two directions. Explicit #c("bend") values always win,
+including #c("false") to keep an edge straight. Other overrides such as color
+or labels do not disable routing. Undirected edges are unaffected.]
 
 #methodtable(
   [#c(".diagram")], [n/a], [The rendered graph.],
@@ -1970,7 +2002,7 @@ transition yet. See @limitations.]
   [#c("columns")], [`int`], [`1`], [Trace grid columns.],
   [#c("row-gap")], [`length`], [`0.8em`], [Gap between trace cells.],
   [#c("captions")], [`bool`], [`true`], [Show generated step captions.],
-  [#c("labels") / #c("positions") / #c("layout") / #c("layout-options") / #c("radius") / #c("gap")], [same as #c("graph")], [same], [Node display and placement options. One layout is resolved per call and reused unchanged by every trace panel.],
+  [#c("labels") / #c("positions") / #c("layout") / #c("layout-options") / #c("radius") / #c("gap") / #c("edge-routing")], [same as #c("graph")], [same], [Node display and placement options. One layout is resolved per call and reused unchanged by every trace panel.],
   [#c("edge-customizations") / #c("node-customizations") / #c("node-labels")], [same as #c("graph")], [same], [Base customizations merged with algorithm states.],
   [#c("style")], [`dictionary`], [`(:)`], [Graph style plus #c("visited-style"), #c("current-style"), #c("queued-style"), #c("active-edge-style"), and #c("algorithm-label-text").],
 )
@@ -3055,7 +3087,7 @@ One stone remains, weight *1*, matching
   [#c("skip-list(..vals, style:, decision-fn:, level-spacing:, max-level:)")], [Sorted skip list with express-lane levels; ops #c("search"), #c("insert"), #c("delete")],
   [#c("array-view(..vals, style:, cell-customizations:, pointers:)")], [Static array cells with optional #c("style.indices"), per-cell overrides, and labelled #c("pointers") arrows above cells],
   [#c("matrix(rows, style:, cell-customizations:, row-labels:, column-labels:)")], [Static matrix/grid cells with optional row/column labels and per-cell overrides],
-  [#c("graph(adjacency, directed:, labels:, positions:, layout:, layout-options:, radius:, gap:, edge-customizations:, node-customizations:, node-labels:, style:)")], [Graph from an adjacency dict; circular, linear, force-directed, layered DAG, or manual layout],
+  [#c("graph(adjacency, directed:, labels:, positions:, layout:, layout-options:, radius:, gap:, edge-routing:, edge-customizations:, node-customizations:, node-labels:, style:)")], [Graph from an adjacency dict; circular, linear, force-directed, layered DAG, or manual layout],
   [#c("hash-table(..entries, size:, collision:, hash:, style:)")], [Separate-chaining or linear-probing table; ops #c("insert"), #c("delete"), and #c("search")],
 )
 

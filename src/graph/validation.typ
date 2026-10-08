@@ -4,7 +4,7 @@
 // edges, and relative placements and therefore remain in the graph domain.
 
 #import "../shared/style.typ": (
-  validate-style, check-coordinate-pair, check-edge-customization-options,
+  validate-style, resolve, edge-wave, check-coordinate-pair, check-edge-customization-options,
   check-node-customization-options, check-node-label-override,
 )
 #import "../shared/validate.typ": (
@@ -15,7 +15,7 @@
 )
 #import "model.typ": (
   _collect-graph-edges, _collect-graph-node-ids, _edge-target-id,
-  _normalize-undirected-edge-key, _topologically-order-graph-nodes,
+  _normalize-undirected-edge-key, _topologically-order-graph-nodes, _edge-display-label,
 )
 
 // ── Validation ───────────────────────────────────────────────────────────────
@@ -59,6 +59,73 @@
         entry-name + " is " + show-value(edge-entry),
         expected: "a neighbour name, or a (neighbour, edge-label) pair",
         fix: "write it as \"b\", or (\"b\", [w]) to label the edge",
+      )
+    }
+  }
+}
+
+#let _validate-graph-edge-semantics(where, adjacency, directed) = {
+  let undirected-labels = (:)
+  for (from-node-id, entries) in adjacency {
+    let declared-targets = ()
+    for entry in entries {
+      let to-node-id = _edge-target-id(entry)
+      if to-node-id in declared-targets {
+        fail(where,
+          "adjacency entry " + show-value(from-node-id) + " repeats target " + show-value(to-node-id),
+          expected: "one declaration per ordered endpoint pair; parallel edges are unsupported",
+          fix: "remove the repeated neighbour from this adjacency entry",
+        )
+      }
+      declared-targets.push(to-node-id)
+      if not directed {
+        let edge-key = _normalize-undirected-edge-key(from-node-id, to-node-id)
+        let edge-label = _edge-display-label(entry)
+        if edge-key in undirected-labels and undirected-labels.at(edge-key) != edge-label {
+          fail(where,
+            "adjacency reciprocal edge " + show-value(from-node-id) + " -- " + show-value(to-node-id)
+              + " has conflicting labels " + show-value(undirected-labels.at(edge-key)) + " and " + show-value(edge-label),
+            expected: "identical labels on both declarations of an undirected edge, including omitted labels",
+            fix: "declare the edge only once, or use the same label in both directions",
+          )
+        }
+        undirected-labels.insert(edge-key, edge-label)
+      }
+    }
+  }
+}
+
+#let _validate-graph-loop-options(where, adjacency, edge-customizations, style) = {
+  let resolved-style = resolve(style)
+  for (from-node-id, to-node-id, _) in _collect-graph-edges(adjacency, true) {
+    if from-node-id != to-node-id { continue }
+    let custom = edge-customizations.find(entry => entry.at(0) == from-node-id and entry.at(1) == to-node-id)
+    let options = if custom == none { (:) } else { custom.at(2) }
+    if "angle" in options {
+      fail(where,
+        "edge-customizations: self-loop " + show-value(from-node-id) + " has angle " + show-value(options.angle),
+        expected: "angle: only for edges between distinct nodes; self-loops use fixed curved geometry",
+        fix: "remove angle:; use bend: left for an upper loop or right for a lower loop",
+      )
+    }
+    if edge-wave(resolved-style, custom: options) {
+      fail(where,
+        "edge-customizations/style: self-loop " + show-value(from-node-id) + " requests a wavy edge",
+        expected: "solid, dashed, or dotted self-loops",
+        fix: "set pattern: solid and wave: false on this loop",
+      )
+    }
+  }
+}
+
+#let _validate-resolved-graph-edge-positions(where, adjacency, directed, node-positions) = {
+  for (from-node-id, to-node-id, _) in _collect-graph-edges(adjacency, directed) {
+    if from-node-id != to-node-id and node-positions.at(from-node-id) == node-positions.at(to-node-id) {
+      fail(where,
+        "positions: connected nodes " + show-value(from-node-id) + " and " + show-value(to-node-id)
+          + " coincide at " + show-value(node-positions.at(from-node-id)),
+        expected: "different resolved positions for distinct endpoints of an edge",
+        fix: "move one endpoint using positions: or its relative offset; a self-loop must use the same node identity",
       )
     }
   }
@@ -371,10 +438,13 @@
   node-customizations,
   node-labels,
   style,
+  edge-routing: "manual",
 ) = {
   _validate-graph-adjacency(where, adjacency)
   check-bool(where, "directed:", directed)
+  check-enum(where, "edge-routing:", edge-routing, ("manual", "auto"))
   validate-style(where, style)
+  _validate-graph-edge-semantics(where, adjacency, directed)
   let node-ids = _collect-graph-node-ids(adjacency)
   _validate-graph-layout(
     where,
@@ -407,5 +477,6 @@
     check-reference(where, "node-customizations:", node-id, node-ids)
   }
   _validate-graph-edge-references(where, adjacency, directed, edge-customizations)
+  _validate-graph-loop-options(where, adjacency, edge-customizations, style)
   node-ids
 }

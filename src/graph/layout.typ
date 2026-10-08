@@ -1105,3 +1105,27 @@
     node-position.at(1) + unit-y * boundary-distance,
   )
 }
+
+// Attach in the flat upper/lower portions of rounded shapes, away from corners.
+#let _calculate-graph-loop-geometry(position, boundary, bend: false) = {
+  let (shape, radius) = boundary
+  let side = if bend in ("right", true) { -1 } else { 1 }
+  let attachment-x = 0.35 * radius
+  let attachment-y = if shape == "circle" {
+    calc.sqrt(radius * radius - attachment-x * attachment-x)
+  } else if shape == "diamond" {
+    radius - attachment-x
+  } else if shape == "hexagon" {
+    0.86 * radius
+  } else { radius }
+  let (x, y) = position
+  let control-y = y + side * 3 * radius
+  (
+    start: (x + attachment-x, y + side * attachment-y),
+    end: (x - attachment-x, y + side * attachment-y),
+    control-start: (x + 1.8 * radius, control-y),
+    control-end: (x - 1.8 * radius, control-y),
+    label: (x, y + side * (0.25 * attachment-y + 2.25 * radius)),
+    side: side,
+  )
+}

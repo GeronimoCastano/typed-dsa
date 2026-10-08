@@ -3,7 +3,7 @@
 #import "../shared/style.typ": resolve
 #import "layout.typ": _resolve-graph-layout
 #import "render.typ": _render-graph-at-positions
-#import "validation.typ": _validate-graph-arguments
+#import "validation.typ": _validate-graph-arguments, _validate-resolved-graph-edge-positions
 
 // `adjacency` maps each node label to an array of neighbor labels or
 // `(neighbor-label, edge-label)` pairs.
@@ -29,6 +29,7 @@
   layout-options: (:),
   radius: auto,
   gap: auto,
+  edge-routing: "manual",
   edge-customizations: (),
   node-customizations: (),
   node-labels: (:),
@@ -37,7 +38,7 @@
   let _ = _validate-graph-arguments(
     "graph()", adjacency, directed, labels, positions, layout, radius, gap,
     layout-options,
-    edge-customizations, node-customizations, node-labels, style,
+    edge-customizations, node-customizations, node-labels, style, edge-routing: edge-routing,
   )
   let resolved-style = resolve(style)
   let node-positions = _resolve-graph-layout(
@@ -50,6 +51,7 @@
     resolved-style,
     node-customizations,
   )
+  _validate-resolved-graph-edge-positions("graph()", adjacency, directed, node-positions)
   (
     diagram: _render-graph-at-positions(
       adjacency,
@@ -60,6 +62,7 @@
       node-customizations,
       node-labels,
       resolved-style,
+      edge-routing: edge-routing,
     ),
   )
 }

@@ -1498,3 +1498,40 @@
     style: (indices: (enabled: true, labels: ("1", "2", "3", "4", "5"))),
   ),
 ).diagram)
+
+#pagebreak()
+= Graph self-loops and reciprocal routing
+#section("Self-loop boundary attachment on every node shape", grid(
+  columns: 3, gutter: 1em,
+  ..("circle", "square", "rounded", "capsule", "diamond", "hexagon").map(shape => [
+    #shape
+    #graph(("A": (("A", [repeat]),)), style: (node-shape: shape)).diagram
+  ]),
+))
+#section("Directed reciprocal weights: manual default and automatic bends", grid(
+  columns: 2, gutter: 2em,
+  graph(("A": (("B", 4),), "B": (("A", 7),)), layout: "linear").diagram,
+  graph(("A": (("B", 4),), "B": (("A", 7),)), layout: "linear", edge-routing: "auto").diagram,
+))
+#section("Lower loop, custom radius, label override, and arrow", graph(
+  ("A": (("A", [original]), ("B", 4)), "B": (("A", 7),)),
+  layout: "linear", gap: 3, edge-routing: "auto",
+  node-customizations: (("A", (shape: "capsule", node-radius: 0.6)),),
+  edge-customizations: (
+    ("A", "A", (bend: true, pattern: "dashed", arrow: "both", label: (body: [repeat], color: red, size: 12pt))),
+    ("A", "B", (bend: "left", color: blue)),
+  ),
+).diagram)
+#section("Undirected reciprocal deduplication and loop", graph(
+  ("A": (("A", [stay]), ("B", 4)), "B": (("A", 4),)),
+  directed: false, layout: "linear", edge-routing: "auto",
+).diagram)
+#section("Explicit straight override wins over automatic routing", graph(
+  ("A": (("B", 4),), "B": (("A", 7),)), layout: "linear", gap: 3, edge-routing: "auto",
+  edge-customizations: (("A", "B", (bend: false, label: [straight])),),
+).diagram)
+#pagebreak()
+#section("BFS trace with loop and reciprocal edges", bfs(
+  ("A": ("A", "B"), "B": ("A",)), "A", edge-routing: "auto", columns: 3,
+  style: graph-style(scale: 0.65),
+).diagram)

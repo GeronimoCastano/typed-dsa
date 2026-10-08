@@ -131,6 +131,13 @@ therefore reintroduce an overlap.
 
 ![Circular, force-directed, layered, and manual graph layouts](assets/readme/graphs.png)
 
+Self-loops are drawn automatically. Pass `edge-routing: "auto"` to bend
+reciprocal directed edges apart; explicit `bend:` customizations take precedence.
+Repeated neighbors in one adjacency entry are errors, and reciprocal declarations
+of an undirected edge must have identical labels. Distinct connected nodes cannot
+share the same resolved position. These validation changes replace previously
+accepted ambiguous or invisible edges.
+
 Graph algorithms return full traces directly on the graph. Visited nodes are
 green, the current node is blue, queued/stacked nodes are yellow, and the edge
 being inspected is highlighted. `dijkstra` also labels every node with its

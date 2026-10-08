@@ -4,13 +4,13 @@
 #import "../shared/style.typ": (
   theme, scaled, edge-stroke, edge-arrow, edge-wave, wavy-parts,
 )
-#import cetz.draw: line, circle, rect, content, bezier-through
+#import cetz.draw: line, circle, rect, content, bezier-through, bezier
 #import "model.typ": (
   _collect-graph-edges, _collect-graph-node-ids, _edge-display-label,
   _normalize-undirected-edge-key,
 )
 #import "layout.typ": (
-  _calculate-graph-edge-bend-point, _calculate-node-boundary-radius,
+  _calculate-graph-edge-bend-point, _calculate-node-boundary-radius, _calculate-graph-loop-geometry,
   _resolve-graph-node-radius,
   _resolve-graph-node-shape, _trim-edge-to-node-boundary,
 )
@@ -32,6 +32,21 @@
     if customized-edge-key == requested-edge-key { return options }
   }
   none
+}
+
+#let _resolve-graph-edge-routing(graph-edges, from-node-id, to-node-id, directed, edge-routing, custom) = {
+  let options = if custom == none { (:) } else { custom }
+  let has-reciprocal-edge = graph-edges.any(edge => (
+    edge.at(0) == to-node-id and edge.at(1) == from-node-id
+  ))
+  let should-route-reciprocal-edge = (
+    edge-routing == "auto" and directed and from-node-id != to-node-id
+      and has-reciprocal-edge and "bend" not in options
+  )
+  if should-route-reciprocal-edge {
+    options.bend = "left"
+  }
+  options
 }
 
 #let _resolve-graph-node-customization(customizations, node-id) = {
@@ -156,7 +171,14 @@
 }
 
 #let _render-graph-edge-label(label, p, q, r, resolved-style, custom) = {
-  if label == none { return }
+  let displayed-label = label
+  let label-options = if custom == none { none } else { custom.at("label", default: none) }
+  if custom != none and "label" in custom {
+    if type(label-options) == dictionary {
+      displayed-label = label-options.at("content", default: label-options.at("body", default: label))
+    } else { displayed-label = label-options }
+  }
+  if displayed-label == none { return }
   let pt = _calculate-edge-label-position(p, q, r, custom, resolved-style)
 
   let label-style = resolved-style.edge-label-text
@@ -165,6 +187,8 @@
   if custom != none and "label" in custom {
     let l-custom = custom.label
     if type(l-custom) == dictionary {
+      if "content" in l-custom { let _ = l-custom.remove("content") }
+      if "body" in l-custom { let _ = l-custom.remove("body") }
       if "color" in l-custom {
         l-custom.fill = l-custom.color
         let _ = l-custom.remove("color")
@@ -191,7 +215,27 @@
     rotation = angle
   }
 
-  content(pt, text(..label-style)[#label], angle: rotation)
+  content(pt, text(..label-style)[#displayed-label], angle: rotation)
+}
+
+#let _render-graph-self-loop(position, boundary, label, directed, resolved-style, custom) = {
+  let geometry = _calculate-graph-loop-geometry(
+    position, boundary, bend: custom.at("bend", default: false),
+  )
+  bezier(
+    geometry.start, geometry.end, geometry.control-start, geometry.control-end,
+    stroke: edge-stroke(resolved-style, custom: custom),
+    mark: edge-arrow(resolved-style, directed, custom: custom),
+  )
+  let label-override = custom.at("label", default: (:))
+  let label-size = if type(label-override) == dictionary {
+    label-override.at("size", default: resolved-style.edge-label-text.at("size", default: 9pt))
+  } else { resolved-style.edge-label-text.at("size", default: 9pt) }
+  let label-gap = if type(label-size) == length {
+    (label-size / 1pt) * 0.6 / 28.346
+  } else { 0.22 }
+  let label-position = (geometry.label.at(0), geometry.label.at(1) + geometry.side * label-gap)
+  _render-graph-edge-label(label, label-position, label-position, 0, resolved-style, custom)
 }
 
 #let _graph-node-label-direction(pos) = {
@@ -318,6 +362,7 @@
   node-customizations,
   node-labels,
   resolved-style,
+  edge-routing: "manual",
 ) = {
   let node-ids = _collect-graph-node-ids(adjacency)
   let graph-edges = _collect-graph-edges(adjacency, directed)
@@ -329,6 +374,9 @@
         from-node-id,
         to-node-id,
         directed,
+      )
+      edge-customization = _resolve-graph-edge-routing(
+        graph-edges, from-node-id, to-node-id, directed, edge-routing, edge-customization,
       )
       let from-node-customization = _resolve-graph-node-customization(
         node-customizations,
@@ -346,23 +394,30 @@
         _resolve-graph-node-shape(resolved-style, to-node-customization),
         _resolve-graph-node-radius(resolved-style, to-node-customization),
       )
-      _render-graph-edge(
-        node-positions.at(from-node-id),
-        node-positions.at(to-node-id),
-        from-boundary,
-        to-boundary,
-        directed,
-        resolved-style,
-        edge-customization,
-      )
-      _render-graph-edge-label(
-        edge-label,
-        node-positions.at(from-node-id),
-        node-positions.at(to-node-id),
-        resolved-style.node-radius,
-        resolved-style,
-        edge-customization,
-      )
+      if from-node-id == to-node-id {
+        _render-graph-self-loop(
+          node-positions.at(from-node-id), from-boundary, edge-label,
+          directed, resolved-style, edge-customization,
+        )
+      } else {
+        _render-graph-edge(
+          node-positions.at(from-node-id),
+          node-positions.at(to-node-id),
+          from-boundary,
+          to-boundary,
+          directed,
+          resolved-style,
+          edge-customization,
+        )
+        _render-graph-edge-label(
+          edge-label,
+          node-positions.at(from-node-id),
+          node-positions.at(to-node-id),
+          resolved-style.node-radius,
+          resolved-style,
+          edge-customization,
+        )
+      }
     }
     for node-id in node-ids {
       let node-customization = _resolve-graph-node-customization(

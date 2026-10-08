@@ -17,7 +17,7 @@
   _lookup-graph-node-value, _render-graph-at-positions,
   _resolve-graph-edge-customization, _resolve-graph-node-customization,
 )
-#import "validation.typ": _validate-graph-arguments
+#import "validation.typ": _validate-graph-arguments, _validate-resolved-graph-edge-positions
 
 // ── Algorithm traces ────────────────────────────────────────────────────────
 
@@ -196,7 +196,7 @@
   label, adjacency, directed, labels, node-positions,
   edge-customizations, node-customizations, node-labels, resolved-style,
   visited, current, queued, active,
-  captions, distances: none, path: (), cat: default-catalog,
+  captions, distances: none, path: (), cat: default-catalog, edge-routing: "manual",
 ) = {
   let node-ids = _collect-graph-node-ids(adjacency)
   let state-node-customizations = _build-graph-state-node-customizations(
@@ -234,6 +234,7 @@
     state-node-customizations,
     state-node-labels,
     resolved-style,
+    edge-routing: edge-routing,
   )
   (
     label: label,
@@ -274,11 +275,12 @@
   where, adjacency, source, target, directed, labels, positions, layout, radius,
   gap, layout-options, edge-customizations, node-customizations, node-labels,
   style, columns, captions,
+  edge-routing: "manual",
 ) = {
   let node-ids = _validate-graph-arguments(
     where, adjacency, directed, labels, positions, layout, radius, gap,
     layout-options,
-    edge-customizations, node-customizations, node-labels, style,
+    edge-customizations, node-customizations, node-labels, style, edge-routing: edge-routing,
   )
   check-integer(where, "columns:", columns, min: 1)
   check-bool(where, "captions:", captions)
@@ -341,7 +343,7 @@
 
 #let bfs(
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
-  layout: "auto", layout-options: (:), radius: auto, gap: auto,
+  layout: "auto", layout-options: (:), radius: auto, gap: auto, edge-routing: "manual",
   edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
   goal-test: "discovery", language: "en", messages: (:),
@@ -351,13 +353,14 @@
   let node-ids = _validate-graph-traversal(
     "bfs()", adjacency, source, target, directed, labels, positions, layout,
     radius, gap, layout-options, edge-customizations, node-customizations,
-    node-labels, style, columns, captions,
+    node-labels, style, columns, captions, edge-routing: edge-routing,
   )
   let resolved-style = resolve(style)
   let node-positions = _resolve-graph-layout(
     adjacency, positions, layout, radius, gap, layout-options, resolved-style,
     node-customizations,
   )
+  _validate-resolved-graph-edge-positions("bfs()", adjacency, directed, node-positions)
   let queue = (source,)
   let discovered-node-ids = (:)
   discovered-node-ids.insert(source, true)
@@ -369,7 +372,7 @@
     label, adjacency, directed, labels, node-positions,
     edge-customizations, node-customizations, node-labels, resolved-style,
     state-visited, current, state-queued, active, captions,
-    cat: message-catalog,
+    cat: message-catalog, edge-routing: edge-routing,
   )
   steps.push(create-step(
     msg(message-catalog, "graph.queue", source),
@@ -490,7 +493,7 @@
 
 #let dfs(
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
-  layout: "auto", layout-options: (:), radius: auto, gap: auto,
+  layout: "auto", layout-options: (:), radius: auto, gap: auto, edge-routing: "manual",
   edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
   language: "en", messages: (:),
@@ -499,13 +502,14 @@
   let node-ids = _validate-graph-traversal(
     "dfs()", adjacency, source, target, directed, labels, positions, layout,
     radius, gap, layout-options, edge-customizations, node-customizations,
-    node-labels, style, columns, captions,
+    node-labels, style, columns, captions, edge-routing: edge-routing,
   )
   let resolved-style = resolve(style)
   let node-positions = _resolve-graph-layout(
     adjacency, positions, layout, radius, gap, layout-options, resolved-style,
     node-customizations,
   )
+  _validate-resolved-graph-edge-positions("dfs()", adjacency, directed, node-positions)
   let stack = (source,)
   let discovered-node-ids = (:)
   discovered-node-ids.insert(source, true)
@@ -517,7 +521,7 @@
     label, adjacency, directed, labels, node-positions,
     edge-customizations, node-customizations, node-labels, resolved-style,
     state-visited, current, state-frontier, active, captions,
-    cat: message-catalog,
+    cat: message-catalog, edge-routing: edge-routing,
   )
   steps.push(create-step(
     msg(message-catalog, "graph.stack", source),
@@ -600,7 +604,7 @@
 
 #let dijkstra(
   adjacency, source, target: none, directed: true, labels: (:), positions: (:),
-  layout: "auto", layout-options: (:), radius: auto, gap: auto,
+  layout: "auto", layout-options: (:), radius: auto, gap: auto, edge-routing: "manual",
   edge-customizations: (), node-customizations: (),
   node-labels: (:), style: (:), columns: 1, row-gap: 0.8em, captions: true,
   language: "en", messages: (:),
@@ -609,7 +613,7 @@
   let node-ids = _validate-graph-traversal(
     "dijkstra()", adjacency, source, target, directed, labels, positions, layout,
     radius, gap, layout-options, edge-customizations, node-customizations,
-    node-labels, style, columns, captions,
+    node-labels, style, columns, captions, edge-routing: edge-routing,
   )
   _validate-dijkstra-weights("dijkstra()", adjacency)
   let resolved-style = resolve(style)
@@ -617,6 +621,7 @@
     adjacency, positions, layout, radius, gap, layout-options, resolved-style,
     node-customizations,
   )
+  _validate-resolved-graph-edge-positions("dijkstra()", adjacency, directed, node-positions)
   let distances = (:)
   for node-id in node-ids {
     distances.insert(node-id, if node-id == source { 0 } else { none })
@@ -642,7 +647,7 @@
     captions,
     distances: state-distances,
     path: path,
-    cat: message-catalog,
+    cat: message-catalog, edge-routing: edge-routing,
   )
   steps.push(create-step(
     msg(message-catalog, "graph.distance-init", source),

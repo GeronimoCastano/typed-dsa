@@ -25,6 +25,7 @@
   _done,
   _value-precedes,
   _value-precedes-or-equals,
+  _sorting-trace-shows-indices,
   _resolve-sorting-array-style,
   _render-algorithm-caption,
   _create-cell-marks,
@@ -51,6 +52,7 @@
   _check-sort-role-override(_where, "swap:", swap)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let (values, style) = _resolve-sorting-input(_where, arr)
+  let show-indices = _sorting-trace-shows-indices(style)
   let sorted-values = values.map(value => value)
   let comparison-style = _resolve-sort-role-style(_active, compare)
   let swap-style = _resolve-sort-role-style(_changed, swap)
@@ -59,7 +61,7 @@
     sorted-values,
     (),
     style,
-    true,
+    show-indices,
     reserve: pointers,
     labels: labels,
   ),)
@@ -115,7 +117,7 @@
         sorted-values,
         _create-range-marks(settled-index, sorted-values.len(), _done),
         style,
-        true,
+        show-indices,
         reserve: pointers,
         labels: labels,
       ))
@@ -126,7 +128,7 @@
     sorted-values,
     _create-range-marks(0, sorted-values.len(), _done),
     style,
-    true,
+    show-indices,
     reserve: pointers,
     labels: labels,
   ))
@@ -142,6 +144,7 @@
   _check-sort-role-override(_where, "swap:", swap)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let (values, style) = _resolve-sorting-input(_where, arr)
+  let show-indices = _sorting-trace-shows-indices(style)
   let sorted-values = values.map(value => value)
   let comparison-style = _resolve-sort-role-style(_active, compare)
   let swap-style = _resolve-sort-role-style(_changed, swap)
@@ -150,7 +153,7 @@
     sorted-values,
     (),
     style,
-    true,
+    show-indices,
     reserve: pointers,
     labels: labels,
   ),)
@@ -193,7 +196,7 @@
     sorted-values,
     _create-range-marks(0, sorted-values.len(), _done),
     style,
-    true,
+    show-indices,
     reserve: pointers,
     labels: labels,
   ))
@@ -211,6 +214,7 @@
   _check-sort-role-override(_where, "swap:", swap)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let (values, style) = _resolve-sorting-input(_where, arr)
+  let show-indices = _sorting-trace-shows-indices(style)
   let sorted-values = values.map(value => value)
   let current-style = _resolve-sort-role-style(_current, current)
   let minimum-style = _resolve-sort-role-style(_minimum, minimum)
@@ -221,7 +225,7 @@
     sorted-values,
     (),
     style,
-    true,
+    show-indices,
     reserve: pointers,
     labels: labels,
   ),)
@@ -261,7 +265,7 @@
         sorted-values,
         cell-marks,
         style,
-        true,
+        show-indices,
         pointers: pointer-marks,
         labels: labels,
       ))
@@ -298,7 +302,7 @@
         sorted-values,
         _create-range-marks(0, selection-index + 1, _done),
         style,
-        true,
+        show-indices,
         reserve: pointers,
         labels: labels,
       ))
@@ -309,7 +313,7 @@
     sorted-values,
     _create-range-marks(0, sorted-values.len(), _done),
     style,
-    true,
+    show-indices,
     reserve: pointers,
     labels: labels,
   ))

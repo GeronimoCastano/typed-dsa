@@ -19,6 +19,29 @@ Use it for lecture notes, problem sets, and explanations where the shape of a
 tree, heap, list, queue, stack, hash table, array, matrix, or graph matters more than
 hand-positioning every node.
 
+## Examples
+
+<table>
+<tr>
+  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/main/assets/readme/examples/rotations.typ"><img src="assets/readme/examples/rotations.png" width="400"></a></td>
+  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/main/assets/readme/examples/dijkstra-city-map.typ"><img src="assets/readme/examples/dijkstra-city-map.png" width="400"></a></td>
+</tr>
+<tr>
+  <td>Tree rotation: a right rotation at <i>x</i> and its left inverse at <i>y</i>.</td>
+  <td>Dijkstra on a city map, with distances and the shortest path to Castle.</td>
+</tr>
+<tr>
+  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/main/assets/readme/examples/avl-insertion.typ"><img src="assets/readme/examples/avl-insertion.png" width="400"></a></td>
+  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/main/assets/readme/examples/merge-sort-trace.typ"><img src="assets/readme/examples/merge-sort-trace.png" width="400"></a></td>
+</tr>
+<tr>
+  <td>AVL insertion: a single rotation, then a left-right double rotation.</td>
+  <td>Merge sort: seven values split into halves, then merged back in order.</td>
+</tr>
+</table>
+
+*Click an example to see its source.*
+
 ## Static Structures
 
 Every builder returns an object. Show its `.diagram` field to render the

@@ -8,4 +8,4 @@ description = "Declarative data-structure and algorithm diagrams with operation 
 repository = "https://github.com/GeronimoCastano/typed-dsa"
 keywords = ["data-structures", "algorithms", "diagrams", "trees", "education"]
 categories = ["visualization"]
-exclude = ["assets/readme/*.png"]
+exclude = ["assets/readme/*.png", "assets/readme/examples/*.png"]

@@ -262,6 +262,7 @@
   subargtable([Nested keys for #c("style")],
     [#c("style.node-radius")], [`float`], [`0.34`], [Circle radius or base size for other node shapes.],
     [#c("style.node-shape")], [`str`], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"rounded\""), #c("\"capsule\""), #c("\"diamond\""), or #c("\"hexagon\"").],
+    [#c("style.node-fit")], [`bool`], [`false`], [Widens square, rounded, or capsule nodes to their label width, with padding. The height stays at #c("node-radius"). Other shapes, including per-node #c("node-customizations") shapes, are rejected.],
     [#c("style.node-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Node outline.],
     [#c("style.node-fill")], [`color`], [`white`], [Default node fill.],
     [#c("style.edge-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Default edge stroke.],
@@ -275,6 +276,7 @@
     [#c("style.label-text")], [`dictionary`], [#c("(fill: rgb(\"#555555\"))")], [Edge label text dictionary. See nested keys below.],
     [#c("style.edge-label-text")], [`dictionary`], [inherits #c("label-text")], [Edge-label typography.],
     [#c("style.algorithm-label-text")], [`dictionary`], [#c("(size: 8pt)")], [BFS/DFS/Dijkstra trace captions.],
+    [#c("style.distance-text")], [`dictionary`], [#c("(fill: rgb(\"#7048E8\"), weight: \"bold\")")], [Dijkstra #c("d = ...") labels. Unlike the other annotation roles it does not inherit #c("label-text"). Per-node #c("node-labels") keys still override it.],
     [#c("style.visited-style")], [`dictionary`], [green], [Visited-node fill/stroke/text/shape overrides.],
     [#c("style.current-style")], [`dictionary`], [blue], [Current-node overrides.],
     [#c("style.queued-style")], [`dictionary`], [yellow/orange], [Queued or stacked node overrides.],
@@ -282,6 +284,7 @@
     [#c("style.scale")], [`float`], [`1.0`], [Uniform scale on the rendered graph.],
   )
   text-style-reference("style.node-text", label: [Nested keys for #c("style.node-text")])
+  text-style-reference("style.distance-text", label: [Nested keys for #c("style.distance-text")])
   label-style-reference("style.label-text")
 }
 
@@ -1164,7 +1167,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 
 #linear-style-reference("array")
 #subargtable([Nested keys for #c("style.indices")],
-  [#c("style.indices.enabled")], [`bool`], [`false`], [Draw index labels below array cells.],
+  [#c("style.indices.enabled")], [`bool`], [`false`], [Draw index labels below array cells. Sorting traces draw them by default; #c("false") hides them in every step and tree of the trace.],
   [#c("style.indices.labels")], [`auto` / `array`], [`auto`], [#c("auto") draws zero-based numeric indices; an array supplies custom labels. Merge sort's divide and merge trees address the array by each cell's position in the original array.],
   [#c("style.indices.offset")], [`tuple`], [#c("(0, -0.28)")], [Canvas offset from the bottom-center index position.],
   [#c("style.indices.size")], [`length`], [#c("style.label-text.size")], [Index text size.],
@@ -1281,7 +1284,11 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   array: its style (fills, text, and index configuration) is carried through
   every step of the trace. Custom #c("style.indices.labels") entries are
   addressed by each cell's position in the original array, so a labelled trace
-  keeps the same indices in every divided and merged subtree. Bubble sort adds
+  keeps the same indices in every divided and merged subtree. Sorting traces
+  draw zero-based index labels unless the style turns them off: pass
+  #c("indices: indices-style(enabled: false)"), #c("indices: false"), or
+  #c("indices: none") to hide every index label in the trace, including those
+  under merge sort's divide and merge trees. Bubble sort adds
   a pointer-free settled frame after each pass to highlight its green suffix,
   and selection sort adds one after each minimum swap to highlight its sorted
   prefix. Settled frames name the newly settled value, and selection scan
@@ -1367,6 +1374,22 @@ separate a label from its array or make neighbouring frames overlap.
   let trace = merge-sort(array-view(
     38, 27, 43, 3, 9,
     style: (indices: (enabled: true, labels: ("1", "2", "3", "4", "5"))),
+  ))
+  sorting-diagram(trace.diagram)
+})
+
+*Merge sort without index labels*
+
+#sorting-example(```typ
+#let trace = merge-sort(array-view(
+  38, 27, 43, 3, 9,
+  style: (indices: indices-style(enabled: false)),
+))
+#trace.diagram
+```, {
+  let trace = merge-sort(array-view(
+    38, 27, 43, 3, 9,
+    style: (indices: indices-style(enabled: false)),
   ))
   sorting-diagram(trace.diagram)
 })
@@ -1912,6 +1935,32 @@ automatic layout and can intentionally reintroduce node-edge overlaps.]
   ```, side: false)
 ]
 
+== Fitted node sizes
+
+#demo[
+  A long label overflows a fixed-radius node. #c("style.node-fit: true") widens
+  each square, rounded, or capsule node to its own label, with padding, while
+  its height stays at #c("style.node-radius"). Edges still meet the widened
+  outline. Shorter labels keep the default width, so only the wider nodes change.
+
+  #example(```typ
+  #graph(
+    ("Harbor": ("Campus", "Old Town"), "Campus": ("Airport",), "Old Town": ("Airport",), "Airport": ()),
+    layout: "manual",
+    positions: ("Harbor": (0, 0), "Campus": (3.6, 0), "Old Town": (0, -2.4), "Airport": (3.6, -2.4)),
+    style: (node-shape: "capsule", node-fit: true),
+  ).diagram
+  ```, side: false)
+]
+
+#note[#c("node-fit") needs a #c("square"), #c("rounded"), or #c("capsule") node
+shape. Circle, diamond, and hexagon nodes are rejected, and so is a per-node
+#c("node-customizations") shape of those kinds. The automatic, linear, force,
+and layered layouts place nodes without measuring labels, so they space nodes
+by #c("node-radius") and ignore fitted widths. Give wide labels room with
+#c("positions"), #c("gap"), or #c("radius"). The height is not fitted: a label
+with several lines can extend past the top and bottom of its node.]
+
 == #raw("labels") and #raw("positions")
 
 #demo[
@@ -2037,9 +2086,24 @@ queued nodes before the target is removed.]
 
 #note[#c("dijkstra") treats an unlabeled edge as weight #c("1"). Weighted
 entries must use non-negative numeric values such as #c("(\"B\", 4)"). It
-draws a distinct purple #c("d = ...") label beside every node on every step;
-the default label gap is #c("0.5") canvas units. #c("style.node-labels.gap")
-or per-node #c("node-labels") options can override it.]
+draws a distinct #c("d = ...") label beside every node on every step, styled by
+#c("style.distance-text") (purple and bold by default). The default label gap is
+#c("0.5") canvas units. #c("style.node-labels.gap") or per-node #c("node-labels")
+options can override it.]
+
+#demo[
+  #c("style.distance-text") changes the look of every distance label. A per-node
+  #c("node-labels") color still wins, so one label can keep its own color.
+
+  #example(```typ
+  #dijkstra(
+    ("S": (("A", 4), ("B", 1)), "B": (("A", 2),), "A": ()),
+    "S",
+    node-labels: ("A": (color: rgb("#2F9E44"))),
+    style: (distance-text: (fill: rgb("#0B7285"), size: 10pt)),
+  ).steps.last().diagram
+  ```, side: false)
+]
 
 #note[Each trace step exposes #c("node-positions"), the resolved coordinate
 dictionary used for that panel. Every step in one trace shares the same value,

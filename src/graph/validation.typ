@@ -95,6 +95,25 @@
   }
 }
 
+// node-fit widens a node's box to its label, so only shapes with a flat,
+// rectangular outline have a width that can follow the label.
+#let fit-node-shapes = ("square", "rounded", "capsule")
+
+#let _validate-graph-node-fit(where, resolved-style, node-customizations, node-ids) = {
+  if not resolved-style.node-fit { return }
+  for node-id in node-ids {
+    let node-customization = node-customizations.find(entry => entry.at(0) == node-id)
+    let node-options = if node-customization == none { (:) } else { node-customization.at(1) }
+    let node-shape = node-options.at("shape", default: resolved-style.node-shape)
+    if node-shape in fit-node-shapes { continue }
+    fail(where,
+      "style: node-fit: true cannot widen node " + show-value(node-id) + " with shape " + show-value(node-shape),
+      expected: "a node-shape of " + fit-node-shapes.map(shape => "\"" + shape + "\"").join(", ") + " (or node-fit: false)",
+      fix: "use one of those shapes for this node, or remove node-fit",
+    )
+  }
+}
+
 #let _validate-graph-loop-options(where, adjacency, edge-customizations, style) = {
   let resolved-style = resolve(style)
   for (from-node-id, to-node-id, _) in _collect-graph-edges(adjacency, true) {
@@ -478,5 +497,6 @@
   }
   _validate-graph-edge-references(where, adjacency, directed, edge-customizations)
   _validate-graph-loop-options(where, adjacency, edge-customizations, style)
+  _validate-graph-node-fit(where, resolve(style), node-customizations, node-ids)
   node-ids
 }

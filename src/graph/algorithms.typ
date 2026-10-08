@@ -177,10 +177,7 @@
       "graph.distance",
       distance-value,
     )
-    let label-customization = (
-      color: rgb("#7048E8"),
-      weight: "bold",
-    )
+    let label-customization = resolved-style.distance-text
     let label-defaults = resolved-style.at("node-labels", default: (:))
     if "gap" not in label-defaults { label-customization.gap = 0.5 }
     if type(supplied-label) == dictionary {

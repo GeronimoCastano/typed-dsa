@@ -4,6 +4,7 @@
 
 #import "../src/tree/facade.typ": _build-search-tree, _calculate-balance-factor, _remove-bst-node, _insert-bst-node, _remove-avl-node
 #import "../src/graph/layout.typ": _project-point-to-graph-edge
+#import "../src/sorting/common.typ": _sorting-trace-shows-indices
 
 #let inorder(tree-node) = if tree-node == none {
   ()
@@ -91,6 +92,8 @@
   array-view, bfs, bst, dfs, dijkstra, doubly-linked-list, graph, hash-table,
   linked-list, matrix, merge-sort, min-heap, skip-list, stack, theme-preset,
   transition, tree, node, subtree, queue, tree-search, quick-sort,
+  merge-operation, partition-step, bubble-sort, insertion-sort, selection-sort,
+  indices-style,
 )
 
 // An unsuccessful search reports itself instead of failing.
@@ -438,6 +441,37 @@
 ))
 #assert.eq(merge-index-labels-trace.result, (1, 2, 3, 4))
 #let _ = merge-index-labels-trace.diagram
+
+// Sorting traces show index labels by default and hide them whenever the
+// caller's style switches them off, in any accepted spelling.
+#assert(_sorting-trace-shows-indices((:)))
+#assert(_sorting-trace-shows-indices((indices: true)))
+#assert(_sorting-trace-shows-indices((indices: indices-style(labels: ("a", "b")))))
+#assert(_sorting-trace-shows-indices((indices: indices-style(enabled: true))))
+#assert(not _sorting-trace-shows-indices((indices: false)))
+#assert(not _sorting-trace-shows-indices((indices: none)))
+#assert(not _sorting-trace-shows-indices((indices: indices-style(enabled: false))))
+#assert(not _sorting-trace-shows-indices((indices: indices-style(enabled: false, labels: ("a", "b")))))
+#for hidden-index-style in (
+  (indices: indices-style(enabled: false)),
+  (indices: false),
+  (indices: none),
+) {
+  let unsorted = array-view(4, 2, 3, 1, style: hidden-index-style)
+  let merge-trace = merge-sort(unsorted)
+  assert.eq(merge-trace.result, (1, 2, 3, 4))
+  let _ = merge-trace.diagram
+  let _ = merge-trace.steps.map(step => step.diagram)
+  let _ = merge-operation(
+    array-view(1, 4, style: hidden-index-style),
+    array-view(2, 3, style: hidden-index-style),
+  ).diagram
+  let _ = partition-step(unsorted).diagram
+  assert.eq(quick-sort(unsorted).result, (1, 2, 3, 4))
+  assert.eq(bubble-sort(unsorted).result, (1, 2, 3, 4))
+  assert.eq(insertion-sort(unsorted).result, (1, 2, 3, 4))
+  assert.eq(selection-sort(unsorted).result, (1, 2, 3, 4))
+}
 #let _ = array-view().diagram
 #let _ = matrix(((1, 2), (3, 4)), row-labels: ([r],)).diagram
 #let _ = tree(node("a", left: node("b"), right: subtree("T")))
@@ -507,3 +541,45 @@ All invariant checks passed.
   style: (tree-layout: "tidy"),
 )
 #let _ = ((bst(20, 10, 30, style: (tree-layout: "tidy")).insert)(40)).diagram
+
+// Distance labels take their default look from distance-text. label-text does
+// not reach them, and an explicit color is folded into fill.
+#import "../src/shared/style.typ": resolve
+#import "../src/graph/layout.typ": _calculate-node-boundary-radius, _default-node-half-width, _fitted-node-half-width
+#let _is-close(actual, expected) = calc.abs(actual - expected) < 0.000001
+#assert(resolve((:)).distance-text.fill == rgb("#7048E8"))
+#assert(resolve((:)).distance-text.weight == "bold")
+#assert(resolve((label-text: (fill: blue))).distance-text.fill == rgb("#7048E8"))
+#assert(resolve((distance-text: (color: red))).distance-text.fill == red)
+#assert(resolve((distance-text: (color: red))).distance-text.at("color", default: none) == none)
+
+// Default boundaries: squares and rounded boxes exit through their corner on
+// diagonals, and capsules are 1.4r half-wide.
+#assert(_is-close(_default-node-half-width("capsule", 0.34), 0.476))
+#assert(_is-close(_calculate-node-boundary-radius("square", 0.4, 0.6, 0.8), 0.5))
+#assert(_is-close(_calculate-node-boundary-radius("capsule", 0.4, 1, 0), 0.56))
+#assert(_is-close(_calculate-node-boundary-radius("capsule", 0.4, 0, 1), 0.4))
+
+// A widened box leaves through its flat side for shallow rays and through its
+// corner for steep ones, so the exit distance follows the measured half-width.
+#assert(_is-close(_calculate-node-boundary-radius("rounded", 0.4, 1, 0, half-width: 0.8), 0.8))
+#assert(_is-close(_calculate-node-boundary-radius("square", 0.4, 0.6, 0.8, half-width: 1.0), 0.5))
+
+// A widened capsule: the flat top covers rays within the straight part, and
+// the end cap takes over beyond it. Both branches agree at the boundary.
+#assert(_is-close(_calculate-node-boundary-radius("capsule", 0.4, 0.6, 0.8, half-width: 1.0), 0.5))
+#assert(_is-close(_calculate-node-boundary-radius("capsule", 0.4, 1, 0, half-width: 1.0), 1.0))
+#assert(_is-close(_calculate-node-boundary-radius("capsule", 0.4, 0.6, 0.8, half-width: 1.35), 0.5))
+#assert(_is-close(_calculate-node-boundary-radius("capsule", 1, 0.6, 0.8, half-width: 1.75), 1.25))
+#assert(_is-close(_calculate-node-boundary-radius("capsule", 1, 0.6, 0.8, half-width: 1.35), 1.17))
+
+// node-fit never shrinks a node below its default width, and pads a long label
+// on each side: a rectangle by half a radius, a capsule by a full radius.
+#assert(_is-close(_fitted-node-half-width(0.2, "square", 0.34), 0.34))
+#assert(_is-close(_fitted-node-half-width(1.0, "rounded", 0.34), 0.67))
+#assert(_is-close(_fitted-node-half-width(1.0, "capsule", 0.34), 0.84))
+
+// Fitted graphs compile through the measured render path.
+#let _ = graph(("Harbor": ("Campus",), "Campus": ()), layout: "linear", style: (node-shape: "capsule", node-fit: true)).diagram
+#let _ = graph(("A": (("B", [long label]),), "B": ()), style: (node-shape: "rounded", node-fit: true)).diagram
+#let _ = dijkstra(("A": (("B", 2),), "B": ()), "A", style: (node-shape: "rounded", node-fit: true, distance-text: (fill: red))).diagram

@@ -32,16 +32,53 @@
   resolved-style.node-radius
 }
 
-#let _calculate-node-boundary-radius(shape, r, ux, uy) = {
+// Half-width of a node's default box. Capsules are wider than the other
+// rectangular shapes so their rounded ends keep the default proportions.
+#let _default-node-half-width(shape, r) = if shape == "capsule" { 1.4 * r } else { r }
+
+// Half-width of a node that wraps a label `label-width` wide (both in diagram
+// units). The label gets its own half-width plus end padding. A capsule needs a
+// full radius there so the label corners stay inside its rounded ends. The
+// default width is a floor, so short labels keep the default node size.
+#let _fitted-node-half-width(label-width, shape, r) = {
+  let label-half-width = label-width / 2
+  let end-padding = if shape == "capsule" { r } else { 0.5 * r }
+  calc.max(_default-node-half-width(shape, r), label-half-width + end-padding)
+}
+
+// Distance along one axis from the box center to its edge, along a ray whose
+// component on that axis is `direction-component`.
+#let _distance-to-box-edge(half-extent, direction-component) = {
+  if direction-component == 0 { return float.inf }
+  half-extent / calc.abs(direction-component)
+}
+
+// Distance from a node center to its outline along the unit direction (ux, uy).
+// `r` is the half-height (and the corner or end-cap radius for capsules), and
+// `half-width` defaults to the shape's default width.
+#let _calculate-node-boundary-radius(shape, r, ux, uy, half-width: auto) = {
+  let width = if half-width == auto { _default-node-half-width(shape, r) } else { half-width }
   if shape in ("square", "rounded") {
-    return r / calc.max(calc.abs(ux), calc.abs(uy))
+    return calc.min(
+      _distance-to-box-edge(width, ux),
+      _distance-to-box-edge(r, uy),
+    )
   }
   if shape == "diamond" {
     return r / (calc.abs(ux) + calc.abs(uy))
   }
   if shape == "capsule" {
-    let a = 0.4 * r
-    return a * calc.abs(ux) + calc.sqrt(r * r - a * a * uy * uy)
+    // A capsule is a straight box of half-length `straight-half-length` with
+    // semicircular ends of radius r. A ray leaves through the flat top or
+    // bottom while it stays within the straight part, and through an end cap
+    // otherwise.
+    let straight-half-length = width - r
+    let flat-distance = _distance-to-box-edge(r, uy)
+    if calc.abs(flat-distance * ux) <= straight-half-length { return flat-distance }
+    return (
+      straight-half-length * calc.abs(ux)
+        + calc.sqrt(r * r - straight-half-length * straight-half-length * uy * uy)
+    )
   }
   r
 }
@@ -1087,7 +1124,13 @@
   )
 }
 
-#let _trim-edge-to-node-boundary(node-position, toward-position, node-radius, shape: "circle") = {
+#let _trim-edge-to-node-boundary(
+  node-position,
+  toward-position,
+  node-radius,
+  shape: "circle",
+  half-width: auto,
+) = {
   let delta-x = toward-position.at(0) - node-position.at(0)
   let delta-y = toward-position.at(1) - node-position.at(1)
   let edge-length = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
@@ -1099,6 +1142,7 @@
     node-radius,
     unit-x,
     unit-y,
+    half-width: half-width,
   )
   (
     node-position.at(0) + unit-x * boundary-distance,
@@ -1108,7 +1152,8 @@
 
 // Attach in the flat upper/lower portions of rounded shapes, away from corners.
 #let _calculate-graph-loop-geometry(position, boundary, bend: false) = {
-  let (shape, radius) = boundary
+  let shape = boundary.at(0)
+  let radius = boundary.at(1)
   let side = if bend in ("right", true) { -1 } else { 1 }
   let attachment-x = 0.35 * radius
   let attachment-y = if shape == "circle" {

@@ -11,8 +11,8 @@
 )
 #import "layout.typ": (
   _calculate-graph-edge-bend-point, _calculate-node-boundary-radius, _calculate-graph-loop-geometry,
-  _resolve-graph-node-radius,
-  _resolve-graph-node-shape, _trim-edge-to-node-boundary,
+  _default-node-half-width, _fitted-node-half-width,
+  _resolve-graph-node-radius, _resolve-graph-node-shape, _trim-edge-to-node-boundary,
 )
 
 // Looks up an edge's customization dict. Order matters for a directed graph
@@ -137,6 +137,16 @@
   (base.at(0) + ox * gap, base.at(1) + oy * gap)
 }
 
+// A node boundary is `(shape, radius, half-width)`: `radius` is the half-height,
+// and `half-width` is the measured width for node-fit nodes.
+#let _trim-edge-to-boundary(node-position, toward-position, boundary) = _trim-edge-to-node-boundary(
+  node-position,
+  toward-position,
+  boundary.at(1),
+  shape: boundary.at(0),
+  half-width: boundary.at(2),
+)
+
 #let _render-graph-edge(p, q, from-boundary, to-boundary, directed, resolved-style, custom) = {
   let stroke = edge-stroke(resolved-style, custom: custom)
   let mark = edge-arrow(resolved-style, directed, custom: custom)
@@ -148,8 +158,8 @@
     if len == 0 { return }
     let ux = dx / len
     let uy = dy / len
-    let a = _trim-edge-to-node-boundary(p, q, from-boundary.at(1), shape: from-boundary.at(0))
-    let b = _trim-edge-to-node-boundary(q, p, to-boundary.at(1), shape: to-boundary.at(0))
+    let a = _trim-edge-to-boundary(p, q, from-boundary)
+    let b = _trim-edge-to-boundary(q, p, to-boundary)
     if edge-wave(resolved-style, custom: custom) {
       let start-tip = mark != none and "start" in mark
       let end-tip = mark != none and "end" in mark
@@ -164,8 +174,8 @@
   } else {
     let angle = if custom != none { custom.at("angle", default: 25deg) } else { 25deg }
     let bp = _calculate-graph-edge-bend-point(p, q, bend, angle)
-    let p2 = _trim-edge-to-node-boundary(p, bp, from-boundary.at(1), shape: from-boundary.at(0))
-    let q2 = _trim-edge-to-node-boundary(q, bp, to-boundary.at(1), shape: to-boundary.at(0))
+    let p2 = _trim-edge-to-boundary(p, bp, from-boundary)
+    let q2 = _trim-edge-to-boundary(q, bp, to-boundary)
     bezier-through(p2, bp, q2, stroke: stroke, mark: mark)
   }
 }
@@ -303,6 +313,7 @@
     boundary.at(1),
     label-direction.at(0),
     label-direction.at(1),
+    half-width: boundary.at(2),
   )
   let label-position = (
     node-position.at(0)
@@ -318,23 +329,63 @@
   content(label-position, text(..text-style)[#label.body], angle: rotation)
 }
 
-#let _render-graph-node(label, p, resolved-style, custom) = {
-  let r = _resolve-graph-node-radius(resolved-style, custom)
-  let shape = _resolve-graph-node-shape(resolved-style, custom)
-  let fill = if custom != none and "fill" in custom { custom.fill } else { resolved-style.node-fill }
-  let stroke = if custom != none and "stroke" in custom { custom.stroke } else { resolved-style.node-stroke }
+// The text a node label is drawn with: the value-text role plus the node's
+// `text:` customization. The rotation is split off because `text()` does not
+// take it. Measuring and drawing both use this, so node-fit sees drawn text.
+#let _resolve-graph-node-text(resolved-style, custom) = {
   let text-style = resolved-style.value-text
   if custom != none and "text" in custom { text-style = text-style + custom.text }
   text-style = _normalize-graph-text-style(text-style)
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
+  (style: text-style, rotation: rotation)
+}
+
+// Labels are measured in their drawn text style. `measure` needs the document
+// styles, so callers must invoke this inside a `context` block.
+#let _measure-fitted-node-half-widths(node-ids, labels, resolved-style, node-customizations) = {
+  let measured-half-widths = (:)
+  for node-id in node-ids {
+    let node-customization = _resolve-graph-node-customization(node-customizations, node-id)
+    let shape = _resolve-graph-node-shape(resolved-style, node-customization)
+    let radius = _resolve-graph-node-radius(resolved-style, node-customization)
+    let node-text = _resolve-graph-node-text(resolved-style, node-customization)
+    let label-box = measure(text(..node-text.style, labels.at(node-id, default: node-id)))
+    measured-half-widths.insert(
+      node-id,
+      _fitted-node-half-width(label-box.width / 1cm, shape, radius),
+    )
+  }
+  measured-half-widths
+}
+
+// A node's boundary is `(shape, radius, half-width)`. Nodes that are not
+// fitted use the default half-width for their shape.
+#let _resolve-graph-node-boundary(resolved-style, custom, measured-half-width) = {
+  let shape = _resolve-graph-node-shape(resolved-style, custom)
+  let radius = _resolve-graph-node-radius(resolved-style, custom)
+  let half-width = if measured-half-width == none {
+    _default-node-half-width(shape, radius)
+  } else {
+    measured-half-width
+  }
+  (shape, radius, half-width)
+}
+
+#let _render-graph-node(label, p, boundary, resolved-style, custom) = {
+  let shape = boundary.at(0)
+  let r = boundary.at(1)
+  let half-width = boundary.at(2)
+  let fill = if custom != none and "fill" in custom { custom.fill } else { resolved-style.node-fill }
+  let stroke = if custom != none and "stroke" in custom { custom.stroke } else { resolved-style.node-stroke }
+  let node-text = _resolve-graph-node-text(resolved-style, custom)
   let polygon = pts => line(..pts, close: true, fill: fill, stroke: stroke)
   if shape == "square" {
-    rect((p.at(0) - r, p.at(1) - r), (p.at(0) + r, p.at(1) + r), fill: fill, stroke: stroke)
+    rect((p.at(0) - half-width, p.at(1) - r), (p.at(0) + half-width, p.at(1) + r), fill: fill, stroke: stroke)
   } else if shape == "rounded" {
-    rect((p.at(0) - r, p.at(1) - r), (p.at(0) + r, p.at(1) + r), radius: 25%, fill: fill, stroke: stroke)
+    rect((p.at(0) - half-width, p.at(1) - r), (p.at(0) + half-width, p.at(1) + r), radius: 25%, fill: fill, stroke: stroke)
   } else if shape == "capsule" {
-    rect((p.at(0) - 1.4 * r, p.at(1) - r), (p.at(0) + 1.4 * r, p.at(1) + r), radius: 50%, fill: fill, stroke: stroke)
+    rect((p.at(0) - half-width, p.at(1) - r), (p.at(0) + half-width, p.at(1) + r), radius: 50%, fill: fill, stroke: stroke)
   } else if shape == "diamond" {
     polygon(((p.at(0), p.at(1) + r), (p.at(0) + r, p.at(1)), (p.at(0), p.at(1) - r), (p.at(0) - r, p.at(1))))
   } else if shape == "hexagon" {
@@ -350,10 +401,12 @@
   } else {
     circle(p, radius: r, fill: fill, stroke: stroke)
   }
-  content(p, text(..text-style, label), angle: rotation)
+  content(p, text(..node-text.style, label), angle: node-text.rotation)
 }
 
-#let _render-graph-at-positions(
+// Draws the graph once every node's boundary is known. `measured-half-widths`
+// maps node ids to fitted half-widths, or is empty when no node is fitted.
+#let _draw-graph-at-positions(
   adjacency,
   directed,
   labels,
@@ -362,10 +415,23 @@
   node-customizations,
   node-labels,
   resolved-style,
-  edge-routing: "manual",
+  edge-routing,
+  measured-half-widths,
 ) = {
   let node-ids = _collect-graph-node-ids(adjacency)
   let graph-edges = _collect-graph-edges(adjacency, directed)
+  let node-boundaries = (:)
+  for node-id in node-ids {
+    let node-customization = _resolve-graph-node-customization(
+      node-customizations,
+      node-id,
+    )
+    node-boundaries.insert(node-id, _resolve-graph-node-boundary(
+      resolved-style,
+      node-customization,
+      measured-half-widths.at(node-id, default: none),
+    ))
+  }
 
   scaled(resolved-style, cetz.canvas({
     for (from-node-id, to-node-id, edge-label) in graph-edges {
@@ -378,22 +444,8 @@
       edge-customization = _resolve-graph-edge-routing(
         graph-edges, from-node-id, to-node-id, directed, edge-routing, edge-customization,
       )
-      let from-node-customization = _resolve-graph-node-customization(
-        node-customizations,
-        from-node-id,
-      )
-      let to-node-customization = _resolve-graph-node-customization(
-        node-customizations,
-        to-node-id,
-      )
-      let from-boundary = (
-        _resolve-graph-node-shape(resolved-style, from-node-customization),
-        _resolve-graph-node-radius(resolved-style, from-node-customization),
-      )
-      let to-boundary = (
-        _resolve-graph-node-shape(resolved-style, to-node-customization),
-        _resolve-graph-node-radius(resolved-style, to-node-customization),
-      )
+      let from-boundary = node-boundaries.at(from-node-id)
+      let to-boundary = node-boundaries.at(to-node-id)
       if from-node-id == to-node-id {
         _render-graph-self-loop(
           node-positions.at(from-node-id), from-boundary, edge-label,
@@ -424,15 +476,13 @@
         node-customizations,
         node-id,
       )
+      let node-boundary = node-boundaries.at(node-id)
       _render-graph-node(
         labels.at(node-id, default: node-id),
         node-positions.at(node-id),
+        node-boundary,
         resolved-style,
         node-customization,
-      )
-      let node-boundary = (
-        _resolve-graph-node-shape(resolved-style, node-customization),
-        _resolve-graph-node-radius(resolved-style, node-customization),
       )
       _render-graph-node-label(
         node-positions.at(node-id),
@@ -442,4 +492,29 @@
       )
     }
   }))
+}
+
+#let _render-graph-at-positions(
+  adjacency,
+  directed,
+  labels,
+  node-positions,
+  edge-customizations,
+  node-customizations,
+  node-labels,
+  resolved-style,
+  edge-routing: "manual",
+) = {
+  if not resolved-style.node-fit {
+    return _draw-graph-at-positions(
+      adjacency, directed, labels, node-positions, edge-customizations,
+      node-customizations, node-labels, resolved-style, edge-routing, (:),
+    )
+  }
+  let node-ids = _collect-graph-node-ids(adjacency)
+  context _draw-graph-at-positions(
+    adjacency, directed, labels, node-positions, edge-customizations,
+    node-customizations, node-labels, resolved-style, edge-routing,
+    _measure-fitted-node-half-widths(node-ids, labels, resolved-style, node-customizations),
+  )
 }

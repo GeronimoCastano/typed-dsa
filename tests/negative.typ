@@ -537,6 +537,11 @@
     code: "#operation-sequence(bst(5), object => 7)",
   ),
   (
+    name: "merge-sort: an index-label switch that is not a boolean",
+    expect: "style.indices.enabled must be boolean",
+    code: "#merge-sort((values: (3, 1, 2), style: (indices: (enabled: \"no\")))).diagram",
+  ),
+  (
     name: "quick-sort: an unknown order",
     expect: "not a supported value",
     code: "#quick-sort((3, 1, 2), order: \"up\")",
@@ -837,6 +842,41 @@
     code: "#graph((\"A\": (\"B\",)), layout: \"manual\", positions: (\"A\": (1, 2), \"B\": (1, 2))).diagram",
   ),
 
+  (
+    name: "dijkstra: distance-text with an unknown key",
+    expect: "has unknown key \"colour\"",
+    code: "#dijkstra((\"A\": ()), \"A\", style: (distance-text: (colour: red))).diagram",
+  ),
+  (
+    name: "dijkstra: distance-text with a non-color fill",
+    expect: "style.distance-text.fill must be",
+    code: "#dijkstra((\"A\": ()), \"A\", style: (distance-text: (fill: 3))).diagram",
+  ),
+  (
+    name: "dijkstra: distance-text that is not a dictionary",
+    expect: "style.distance-text must be dictionary",
+    code: "#dijkstra((\"A\": ()), \"A\", style: (distance-text: red)).diagram",
+  ),
+  (
+    name: "dijkstra: distance-text with a size that is not a length",
+    expect: "style.distance-text.size must be length",
+    code: "#dijkstra((\"A\": ()), \"A\", style: (distance-text: (size: \"big\"))).diagram",
+  ),
+  (
+    name: "graph: node-fit with a non-boolean value",
+    expect: "style.node-fit must be bool",
+    code: "#graph((\"A\": ()), style: (node-fit: \"yes\")).diagram",
+  ),
+  (
+    name: "graph: node-fit on a circle node",
+    expect: "cannot widen node \"A\" with shape \"circle\"",
+    code: "#graph((\"A\": (\"B\",), \"B\": ()), style: (node-fit: true)).diagram",
+  ),
+  (
+    name: "graph: node-fit with a per-node shape that cannot widen",
+    expect: "cannot widen node \"B\" with shape \"hexagon\"",
+    code: "#graph((\"A\": (\"B\",), \"B\": ()), style: (node-shape: \"rounded\", node-fit: true), node-customizations: ((\"B\", (shape: \"hexagon\")),)).diagram",
+  ),
 )
 
 // Every case is evaluated with the whole public API in scope, exactly as a

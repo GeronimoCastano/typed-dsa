@@ -40,6 +40,18 @@
   }
 )
 
+// Sorting traces label every cell with its index unless the caller's style
+// turns index labels off with `indices: false`, `indices: none`, or
+// `indices-style(enabled: false)`.
+#let _sorting-trace-shows-indices(style) = {
+  let index-options = style.at("indices", default: auto)
+  if index-options in (false, none) { return false }
+  if type(index-options) == dictionary {
+    return index-options.at("enabled", default: true)
+  }
+  true
+}
+
 #let _resolve-sorting-array-style(style, show-indices) = {
   if show-indices and "indices" not in style {
     return style + array-style(indices: indices-style(enabled: true, labels: auto))
@@ -141,7 +153,7 @@
     values,
     cell-marks,
     style,
-    true,
+    _sorting-trace-shows-indices(style),
     pointers: pointer-marks,
     labels: labels,
   )

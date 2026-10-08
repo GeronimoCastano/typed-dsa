@@ -25,6 +25,7 @@
   _done,
   _value-precedes,
   _value-precedes-or-equals,
+  _sorting-trace-shows-indices,
   _resolve-sorting-array-style,
   _render-algorithm-caption,
   _create-cell-marks,
@@ -95,7 +96,7 @@
   let _create-partition-step = _create-partition-step.with(message-catalog: message-catalog)
   let pivot-mode = pivot
   let (values, style) = _resolve-sorting-input(_where, arr)
-  let show-indices = true
+  let show-indices = _sorting-trace-shows-indices(style)
   let partition-values = values.map(value => value)
   let pivot = calc.floor(partition-values.len() / 2)
   let pivot-value = if partition-values.len() == 0 { none } else { partition-values.at(pivot) }
@@ -340,6 +341,7 @@
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let _sort-quick-range = _sort-quick-range.with(message-catalog: message-catalog)
   let (values, style) = _resolve-sorting-input(_where, arr)
+  let show-indices = _sorting-trace-shows-indices(style)
   if type(pivot) == int {
     check-index(_where, "pivot:", pivot, values.len(), subject: "array")
   } else {
@@ -348,18 +350,18 @@
       fix: "use \"first\", \"last\", or an index into the array",
     )
   }
-  let steps = (_create-sorting-step(msg(message-catalog, "sort.start"), values, (), style, true, labels: labels),)
-  let (result, generated) = _sort-quick-range(values, 0, values.len() - 1, order, pivot, steps, style, true, labels: labels)
-  generated.push(_create-sorting-step(msg(message-catalog, "sort.sorted"), result, _create-range-marks(0, result.len(), _done), style, true, labels: labels))
+  let steps = (_create-sorting-step(msg(message-catalog, "sort.start"), values, (), style, show-indices, labels: labels),)
+  let (result, generated) = _sort-quick-range(values, 0, values.len() - 1, order, pivot, steps, style, show-indices, labels: labels)
+  generated.push(_create-sorting-step(msg(message-catalog, "sort.sorted"), result, _create-range-marks(0, result.len(), _done), style, show-indices, labels: labels))
   let (_, levels) = _build-quick-sort-levels(values, order, pivot)
   let diagram = align(center)[
     #if labels [#_render-algorithm-caption(style, msg(message-catalog, "sort.original")) #v(0.25em)]
-    #array-view(..values, style: _resolve-sorting-array-style(style, true)).diagram
+    #array-view(..values, style: _resolve-sorting-array-style(style, show-indices)).diagram
     #v(0.8em)
-    #grid(columns: (auto, auto), column-gutter: 0.8em, _render-sort-phase-indicator(if labels { msg(message-catalog, "sort.partition-phase") } else { none }, levels, style), _render-partition-tree-rows(levels, style, true))
+    #grid(columns: (auto, auto), column-gutter: 0.8em, _render-sort-phase-indicator(if labels { msg(message-catalog, "sort.partition-phase") } else { none }, levels, style), _render-partition-tree-rows(levels, style, show-indices))
     #v(0.8em)
     #if labels [#_render-algorithm-caption(style, msg(message-catalog, "sort.sorted-array")) #v(0.25em)]
-    #array-view(..result, style: _resolve-sorting-array-style(style, true), cell-customizations: _create-range-marks(0, result.len(), _done)).diagram
+    #array-view(..result, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: _create-range-marks(0, result.len(), _done)).diagram
   ]
   _create-sort-result(generated, result, 1, 1em, 0.8em, diagram: diagram)
 }

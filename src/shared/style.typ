@@ -19,6 +19,7 @@
   // Trees
   node-radius: 0.34,
   node-shape: "circle", // circle, square, rounded, capsule, diamond, or hexagon
+  node-fit: false, // graph(): widen square, rounded, or capsule nodes to their label
   x-gap: 1.05,
   y-gap: 1.2,
   tree-layout: "columns", // "columns" reserves a column per leaf; "tidy" packs subtrees by contour
@@ -55,6 +56,9 @@
   operation-text: (size: 8pt), // transition arrow captions
   edge-label-text: (:), // inherits label-text
   algorithm-label-text: (size: 8pt), // sorting and graph trace captions
+  // Dijkstra distance labels. Unlike the other annotation roles this does not
+  // inherit label-text, so its color and weight are set here directly.
+  distance-text: (fill: rgb("#7048E8"), weight: "bold"),
   scale: 1.0, // uniform scale applied to the whole rendered diagram
   diff-colors: true, // false keeps operation marks but uses the normal fill
 
@@ -141,7 +145,7 @@
 
 #let text-style-roles = (
   "node-text", "value-text", "label-text", "index-text", "pointer-text",
-  "operation-text", "edge-label-text", "algorithm-label-text",
+  "operation-text", "edge-label-text", "algorithm-label-text", "distance-text",
 )
 
 #let mark-style-roles = (
@@ -177,10 +181,6 @@
 #let _fill-types = (color, gradient, tiling, type(none))
 #let _stroke-types = (stroke, length, color, gradient, dictionary, type(none))
 
-#let check-text-style(where, what, value) = {
-  check-known-keys(where, what, value, text-style-keys)
-}
-
 #let check-fill(where, what, value) = check-type(
   where, what, value, _fill-types,
   fix: "pass a color, for example " + what + ": rgb(\"#C8E6C9\")",
@@ -190,6 +190,31 @@
   where, what, value, _stroke-types,
   fix: "pass a stroke, for example " + what + ": 1pt + black",
 )
+
+// A typography role is a `text()` parameter dictionary. The color and size
+// values are checked against the types `text()` accepts, so a wrong value is
+// reported here instead of inside Typst's text constructor.
+#let check-text-style(where, what, value) = {
+  check-dictionary(
+    where, what, value,
+    fix: "pass a text dictionary, for example " + what + ": (fill: blue, weight: \"bold\")",
+  )
+  check-known-keys(where, what, value, text-style-keys)
+  if "fill" in value { check-fill(where, what + ".fill", value.fill) }
+  if "color" in value { check-fill(where, what + ".color", value.color) }
+  if "size" in value {
+    check-type(
+      where, what + ".size", value.size, (length,),
+      fix: "pass a length, for example " + what + ": (size: 8pt)",
+    )
+  }
+  if "weight" in value {
+    check-type(
+      where, what + ".weight", value.weight, (str, int),
+      fix: "pass a font weight name or number, for example " + what + ": (weight: \"bold\")",
+    )
+  }
+}
 
 // A highlight role is either a plain color (shorthand for `(fill: color)`) or
 // a dictionary of drawing overrides for the marked node or cell.
@@ -355,6 +380,7 @@
   if key == "box-shape" { return check-enum(where, what, value, box-shapes) }
   if key == "edge-arrow" { return check-enum(where, what, value, edge-arrows) }
   if key == "diff-colors" { return check-bool(where, what, value) }
+  if key == "node-fit" { return check-bool(where, what, value) }
   if key == "node-labels" { return check-node-label-defaults(where, what, value) }
   if key == "indices" { return check-indices(where, what, value) }
   if key in ("edge-pattern", "edge-dash") {
@@ -479,6 +505,7 @@
 #let _build-style-dictionary(
   node-radius: auto,
   node-shape: auto,
+  node-fit: auto,
   x-gap: auto,
   y-gap: auto,
   tree-layout: auto,
@@ -509,6 +536,7 @@
   operation-text: auto,
   edge-label-text: auto,
   algorithm-label-text: auto,
+  distance-text: auto,
   node-labels: auto,
   indices: auto,
   scale: auto,
@@ -525,6 +553,7 @@
   let result = (:)
   if node-radius != auto { result.node-radius = node-radius }
   if node-shape != auto { result.node-shape = node-shape }
+  if node-fit != auto { result.node-fit = node-fit }
   if x-gap != auto { result.x-gap = x-gap }
   if y-gap != auto { result.y-gap = y-gap }
   if tree-layout != auto { result.tree-layout = tree-layout }
@@ -555,6 +584,7 @@
   if operation-text != auto { result.operation-text = operation-text }
   if edge-label-text != auto { result.edge-label-text = edge-label-text }
   if algorithm-label-text != auto { result.algorithm-label-text = algorithm-label-text }
+  if distance-text != auto { result.distance-text = distance-text }
   if node-labels != auto { result.node-labels = node-labels }
   if indices != auto { result.indices = indices }
   if scale != auto { result.scale = scale }
@@ -616,19 +646,20 @@
 )
 
 #let graph-style(
-  node-radius: auto, node-shape: auto, node-stroke: auto, node-fill: auto,
+  node-radius: auto, node-shape: auto, node-fit: auto, node-stroke: auto, node-fill: auto,
   edge-stroke: auto, edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
   edge-wave-amplitude: auto, edge-wave-step: auto,
   node-text: auto, value-text: auto, label-text: auto, edge-label-text: auto,
-  algorithm-label-text: auto, node-labels: auto, scale: auto,
+  algorithm-label-text: auto, distance-text: auto, node-labels: auto, scale: auto,
   visited-style: auto, current-style: auto, queued-style: auto, active-edge-style: auto,
 ) = _build-style-dictionary(
-  node-radius: node-radius, node-shape: node-shape,
+  node-radius: node-radius, node-shape: node-shape, node-fit: node-fit,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
   edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
   edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
   node-text: node-text, value-text: value-text, label-text: label-text,
   edge-label-text: edge-label-text, algorithm-label-text: algorithm-label-text,
+  distance-text: distance-text,
   node-labels: node-labels, scale: scale,
   visited-style: visited-style, current-style: current-style,
   queued-style: queued-style, active-edge-style: active-edge-style,
@@ -728,6 +759,7 @@
       + theme.value-text
       + style.at("value-text", default: (:))
   )
+  resolved-style.distance-text = theme.distance-text + style.at("distance-text", default: (:))
   let label-text-roles = (
     "index-text",
     "pointer-text",
@@ -753,7 +785,7 @@
     resolved-style.label-text.fill = resolved-style.label-text.color
     let _ = resolved-style.label-text.remove("color")
   }
-  for text-role in ("value-text",) + label-text-roles {
+  for text-role in ("value-text", "distance-text") + label-text-roles {
     let role-style = resolved-style.at(text-role)
     if "color" in role-style {
       role-style.fill = role-style.color

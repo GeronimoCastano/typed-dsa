@@ -25,6 +25,7 @@
   _done,
   _value-precedes,
   _value-precedes-or-equals,
+  _sorting-trace-shows-indices,
   _resolve-sorting-array-style,
   _render-algorithm-caption,
   _create-cell-marks,
@@ -159,7 +160,7 @@
   let (right, right-style) = _resolve-array-input(_where, right)
   let style = if left-style != (:) { left-style } else { right-style }
   validate-style(_where, style)
-  let show-indices = true
+  let show-indices = _sorting-trace-shows-indices(style)
   check-non-empty(_where, "left and right", left + right, fix: "pass at least one value to merge")
   check-comparable(_where, "left and right values", left + right)
   _check-merge-input-sorted(_where, "left", left, order)
@@ -399,26 +400,27 @@
   let _render-merge-divide-tree = _render-merge-divide-tree.with(message-catalog: message-catalog)
   let _render-merge-tree-diagram = _render-merge-tree-diagram.with(message-catalog: message-catalog)
   let (values, style) = _resolve-sorting-input(_where, arr)
+  let show-indices = _sorting-trace-shows-indices(style)
   let (result, divide-levels, merge-levels) = _build-merge-sort-levels(values, order)
   let steps = (
-    (label: msg(message-catalog, "sort.original"), values: values, diagram: _render-sorting-panel(msg(message-catalog, "sort.original"), values, (), style, true, labels: labels)),
+    (label: msg(message-catalog, "sort.original"), values: values, diagram: _render-sorting-panel(msg(message-catalog, "sort.original"), values, (), style, show-indices, labels: labels)),
   )
   for depth in range(1, divide-levels.len()) {
     let level = divide-levels.at(depth)
-    steps.push((label: msg(message-catalog, "sort.divide"), values: level, diagram: _render-sorting-array-row(level, style, true)))
+    steps.push((label: msg(message-catalog, "sort.divide"), values: level, diagram: _render-sorting-array-row(level, style, show-indices)))
   }
   for depth in range(0, calc.max(merge-levels.len() - 1, 0)) {
     let level = merge-levels.at(depth)
     if level.len() > 0 {
-      steps.push((label: msg(message-catalog, "sort.merge"), values: level, diagram: _render-sorting-array-row(level, style, true)))
+      steps.push((label: msg(message-catalog, "sort.merge"), values: level, diagram: _render-sorting-array-row(level, style, show-indices)))
     }
   }
-  steps.push(_create-sorting-step(msg(message-catalog, "sort.sorted"), result, _create-range-marks(0, result.len(), _done), style, true, labels: labels))
+  steps.push(_create-sorting-step(msg(message-catalog, "sort.sorted"), result, _create-range-marks(0, result.len(), _done), style, show-indices, labels: labels))
   let diagram = align(center)[
     #if labels [#_render-algorithm-caption(style, msg(message-catalog, "sort.original")) #v(0.25em)]
-    #_render-merge-divide-tree(values, style, true, labels: labels)
+    #_render-merge-divide-tree(values, style, show-indices, labels: labels)
     #v(1em)
-    #_render-merge-tree-diagram(values, order, style, true, labels: labels)
+    #_render-merge-tree-diagram(values, order, style, show-indices, labels: labels)
   ]
   _create-sort-result(steps, result, 3, 1em, 1em, diagram: diagram)
 }

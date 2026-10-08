@@ -1579,3 +1579,63 @@
 #section("Layout comparison 3: columns (left) vs. tidy (right), AVL after sequential inserts", {
   _compare-tree-layouts(avl, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20)
 })
+
+#pagebreak()
+= Sorting traces without index labels
+#let _hidden-index-style = (indices: indices-style(enabled: false))
+#section("Merge sort: default index labels (left) vs. indices-style(enabled: false) (right)", grid(
+  columns: 2, column-gutter: 1.5em,
+  merge-sort(array-view(38, 27, 43, 3, 9, 82, 10, style: (scale: 0.6))).diagram,
+  merge-sort(array-view(38, 27, 43, 3, 9, 82, 10, style: _hidden-index-style + (scale: 0.6))).diagram,
+))
+#section("Merge sort steps and merge operation with index labels disabled", {
+  let trace = merge-sort(array-view(4, 2, 3, 1, style: _hidden-index-style))
+  grid(columns: 3, row-gutter: 0.8em, ..trace.steps.map(step => step.diagram))
+  v(0.8em)
+  merge-operation(
+    array-view(1, 4, 7, style: _hidden-index-style),
+    array-view(2, 3, 8, style: _hidden-index-style),
+  ).diagram
+})
+#section("Quick sort and partition step with index labels disabled", {
+  quick-sort(array-view(7, 2, 9, 3, 6, style: _hidden-index-style)).diagram
+  v(0.8em)
+  partition-step(array-view(7, 2, 9, 3, 6, style: _hidden-index-style)).diagram
+})
+#section("Bubble, insertion, and selection sort with index labels disabled", {
+  let values = (3, 1, 2)
+  bubble-sort(array-view(..values, style: _hidden-index-style)).diagram
+  v(0.8em)
+  insertion-sort(array-view(..values, style: (indices: false))).diagram
+  v(0.8em)
+  selection-sort(array-view(..values, style: (indices: none))).diagram
+})
+
+#pagebreak()
+= Graph distance labels and fitted nodes
+#let _distance-roads = ("A": (("B", 2), ("C", 5)), "B": (("C", 1),), "C": ())
+#section("Dijkstra distance labels: default purple (left) vs. distance-text override (right)", grid(
+  columns: 2, column-gutter: 2em,
+  dijkstra(_distance-roads, "A").steps.last().diagram,
+  dijkstra(_distance-roads, "A", style: (distance-text: (fill: rgb("#0B7285"), size: 10pt))).steps.last().diagram,
+))
+#section("A per-node node-labels color still wins over distance-text", 
+  dijkstra(
+    _distance-roads, "A",
+    node-labels: ("C": (color: rgb("#2F9E44"))),
+    style: (distance-text: (fill: rgb("#0B7285"))),
+  ).steps.last().diagram
+)
+
+#let _fit-stops = ("Harbor": ("Campus", "Old Town"), "Campus": ("Airport",), "Old Town": ("Airport",), "Airport": ())
+#let _fit-positions = ("Harbor": (0, 0), "Campus": (3.6, 0), "Old Town": (0, -2.4), "Airport": (3.6, -2.4))
+#section("Rounded nodes at a fixed radius (left) vs. node-fit: true (right)", grid(
+  columns: 2, column-gutter: 2em,
+  graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "rounded")).diagram,
+  graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "rounded", node-fit: true)).diagram,
+))
+#section("Capsule nodes at a fixed radius (left) vs. node-fit: true (right); the vertical edge meets the widened outline", grid(
+  columns: 2, column-gutter: 2em,
+  graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "capsule")).diagram,
+  graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "capsule", node-fit: true)).diagram,
+))

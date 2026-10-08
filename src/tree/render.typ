@@ -6,7 +6,7 @@
   wavy-parts,
 )
 #import cetz.draw: line, circle, rect, content, bezier-through
-#import "layout.typ": _calculate-tree-layout
+#import "layout.typ": _calculate-tree-layout, _calculate-tidy-tree-layout
 #import "state.typ": _tree-node-id, _visible-tree-children
 
 // ── Render ───────────────────────────────────────────────────────────────────
@@ -602,7 +602,11 @@
 // default.
 #let _render-tree(root, marks: (:), resolved-style: theme, edge-customizations: (), node-customizations: (), node-labels: (:)) = {
   if root == none { return scaled(resolved-style, cetz.canvas({ circle((0, 0), radius: 0.01, stroke: none) })) }
-  let (placed, _) = _calculate-tree-layout(root, 0, 0)
+  let placed = if resolved-style.tree-layout == "tidy" {
+    _calculate-tidy-tree-layout(root, resolved-style)
+  } else {
+    _calculate-tree-layout(root, 0, 0).first()
+  }
   scaled(resolved-style, cetz.canvas({
     _render-tree-edges(placed, resolved-style, edge-customizations, node-customizations)
     _render-tree-nodes(placed, resolved-style, marks, node-customizations, node-labels)

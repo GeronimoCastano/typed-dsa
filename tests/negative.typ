@@ -657,6 +657,11 @@
     code: "#bst(5, style: (node-shape: \"blob\")).diagram",
   ),
   (
+    name: "style: an unknown tree layout",
+    expect: "not a supported value",
+    code: "#bst(5, style: (tree-layout: \"compact\")).diagram",
+  ),
+  (
     name: "style: an unknown box shape",
     expect: "not a supported value",
     code: "#linked-list(1, style: (box-shape: \"oval\")).diagram",

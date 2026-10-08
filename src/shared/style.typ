@@ -21,6 +21,7 @@
   node-shape: "circle", // circle, square, rounded, capsule, diamond, or hexagon
   x-gap: 1.05,
   y-gap: 1.2,
+  tree-layout: "columns", // "columns" reserves a column per leaf; "tidy" packs subtrees by contour
   node-stroke: 0.6pt + rgb("#333333"),
   node-fill: white,
   edge-stroke: 0.6pt + rgb("#333333"),
@@ -117,6 +118,7 @@
 // dictionary or a customization option is reported instead of silently
 // dropped. Each list is also the "accepted values" text of its diagnostic.
 
+#let tree-layouts = ("columns", "tidy")
 #let node-shapes = ("circle", "square", "rounded", "capsule", "diamond", "hexagon")
 #let box-shapes = ("square", "rounded", "capsule")
 #let edge-patterns = (
@@ -349,6 +351,7 @@
   if key in text-style-roles { return check-text-style(where, what, value) }
   if key in mark-style-roles { return check-mark-style(where, what, value) }
   if key == "node-shape" { return check-enum(where, what, value, node-shapes) }
+  if key == "tree-layout" { return check-enum(where, what, value, tree-layouts) }
   if key == "box-shape" { return check-enum(where, what, value, box-shapes) }
   if key == "edge-arrow" { return check-enum(where, what, value, edge-arrows) }
   if key == "diff-colors" { return check-bool(where, what, value) }
@@ -478,6 +481,7 @@
   node-shape: auto,
   x-gap: auto,
   y-gap: auto,
+  tree-layout: auto,
   node-stroke: auto,
   node-fill: auto,
   edge-stroke: auto,
@@ -523,6 +527,7 @@
   if node-shape != auto { result.node-shape = node-shape }
   if x-gap != auto { result.x-gap = x-gap }
   if y-gap != auto { result.y-gap = y-gap }
+  if tree-layout != auto { result.tree-layout = tree-layout }
   if node-stroke != auto { result.node-stroke = node-stroke }
   if node-fill != auto { result.node-fill = node-fill }
   if edge-stroke != auto { result.edge-stroke = edge-stroke }
@@ -566,7 +571,7 @@
 }
 
 #let tree-style(
-  node-radius: auto, node-shape: auto, x-gap: auto, y-gap: auto,
+  node-radius: auto, node-shape: auto, x-gap: auto, y-gap: auto, tree-layout: auto,
   node-stroke: auto, node-fill: auto, edge-stroke: auto,
   edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
   edge-wave-amplitude: auto, edge-wave-step: auto,
@@ -577,7 +582,7 @@
   new-style: auto, path-style: auto, remove-style: auto, rotate-style: auto,
   visited-style: auto, current-style: auto, queued-style: auto, active-edge-style: auto,
 ) = _build-style-dictionary(
-  node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap,
+  node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap, tree-layout: tree-layout,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
   edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
   edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
@@ -592,7 +597,7 @@
 )
 
 #let heap-style(
-  node-radius: auto, node-shape: auto, x-gap: auto, y-gap: auto,
+  node-radius: auto, node-shape: auto, x-gap: auto, y-gap: auto, tree-layout: auto,
   node-stroke: auto, node-fill: auto, edge-stroke: auto,
   edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
   edge-wave-amplitude: auto, edge-wave-step: auto,
@@ -600,7 +605,7 @@
   edge-label-text: auto, scale: auto, diff-colors: auto,
   new-style: auto, path-style: auto, remove-style: auto,
 ) = _build-style-dictionary(
-  node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap,
+  node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap, tree-layout: tree-layout,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
   edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
   edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,

@@ -499,3 +499,11 @@ All invariant checks passed.
 #let _ = graph(("A": ("A",)), edge-customizations: (("A", "A", (label: (body: [repeat], size: 12pt))),)).diagram
 
 #let _ = graph(("A": ("A",)), layout: "force").diagram
+
+// Tidy tree layout accepts binary, multiway, and triangle trees.
+#let _ = bst(5, 3, 8, 1, 4, 9, style: (tree-layout: "tidy")).diagram
+#let _ = tree(
+  node("r", children: (node("a"), subtree("T"), node("c", children: (node("d"),)))),
+  style: (tree-layout: "tidy"),
+)
+#let _ = ((bst(20, 10, 30, style: (tree-layout: "tidy")).insert)(40)).diagram

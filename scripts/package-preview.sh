@@ -54,11 +54,15 @@ cp "$repo_root/typst.toml" "$target/typst.toml"
 cp "$repo_root/README.md" "$target/README.md"
 cp "$repo_root/LICENSE" "$target/LICENSE"
 cp -R "$repo_root/src/." "$target/src/"
+# Finder metadata such as .DS_Store is not part of the package.
+find "$target/src" -type f -name '.*' -exec rm -f {} +
 
 found_png=0
-for image in "$repo_root"/assets/readme/*.png; do
+for image in "$repo_root"/assets/readme/*.png "$repo_root"/assets/readme/examples/*.png; do
   if [ -f "$image" ]; then
-    cp "$image" "$target/assets/readme/"
+    image_relative=${image#"$repo_root/"}
+    mkdir -p "$(dirname -- "$target/$image_relative")"
+    cp "$image" "$target/$image_relative"
     found_png=1
   fi
 done

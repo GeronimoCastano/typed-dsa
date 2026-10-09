@@ -23,16 +23,16 @@ hand-positioning every node.
 
 <table>
 <tr>
-  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/main/assets/readme/examples/rotations.typ"><img src="assets/readme/examples/rotations.png" width="400"></a></td>
-  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/main/assets/readme/examples/dijkstra-city-map.typ"><img src="assets/readme/examples/dijkstra-city-map.png" width="400"></a></td>
+  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/88c5f38b7ae494348a79caf85fba4df4da565c4e/assets/readme/examples/rotations.typ"><img src="assets/readme/examples/rotations.png" alt="Right and left tree rotations" width="400"></a></td>
+  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/88c5f38b7ae494348a79caf85fba4df4da565c4e/assets/readme/examples/dijkstra-city-map.typ"><img src="assets/readme/examples/dijkstra-city-map.png" alt="Dijkstra shortest paths on a city map" width="400"></a></td>
 </tr>
 <tr>
   <td>Tree rotation: a right rotation at <i>x</i> and its left inverse at <i>y</i>.</td>
   <td>Dijkstra on a city map, with distances and the shortest path to Castle.</td>
 </tr>
 <tr>
-  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/main/assets/readme/examples/avl-insertion.typ"><img src="assets/readme/examples/avl-insertion.png" width="400"></a></td>
-  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/main/assets/readme/examples/merge-sort-trace.typ"><img src="assets/readme/examples/merge-sort-trace.png" width="400"></a></td>
+  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/88c5f38b7ae494348a79caf85fba4df4da565c4e/assets/readme/examples/avl-insertion.typ"><img src="assets/readme/examples/avl-insertion.png" alt="AVL insertions with single and double rotations" width="400"></a></td>
+  <td><a href="https://github.com/GeronimoCastano/typed-dsa/blob/88c5f38b7ae494348a79caf85fba4df4da565c4e/assets/readme/examples/merge-sort-trace.typ"><img src="assets/readme/examples/merge-sort-trace.png" alt="Merge sort split and merge trees" width="400"></a></td>
 </tr>
 <tr>
   <td>AVL insertion: a single rotation, then a left-right double rotation.</td>

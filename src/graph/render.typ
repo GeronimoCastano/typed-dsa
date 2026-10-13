@@ -1,18 +1,13 @@
 // CeTZ rendering for validated graph state and resolved graph layouts.
 
 #import "@preview/cetz:0.5.2"
-#import "../shared/style.typ": (
-  theme, scaled, edge-stroke, edge-arrow, edge-wave, wavy-parts,
-)
-#import cetz.draw: line, circle, rect, content, bezier-through, bezier
-#import "model.typ": (
-  _collect-graph-edges, _collect-graph-node-ids, _edge-display-label,
-  _normalize-undirected-edge-key,
-)
+#import "../shared/style.typ": edge-arrow, edge-stroke, edge-wave, scaled, theme, wavy-parts
+#import cetz.draw: bezier, bezier-through, circle, content, line, rect
+#import "model.typ": _collect-graph-edges, _collect-graph-node-ids, _edge-display-label, _normalize-undirected-edge-key
 #import "layout.typ": (
-  _calculate-graph-edge-bend-point, _calculate-node-boundary-radius, _calculate-graph-loop-geometry,
-  _default-node-half-width, _fitted-node-half-width,
-  _resolve-graph-node-radius, _resolve-graph-node-shape, _trim-edge-to-node-boundary,
+  _calculate-graph-edge-bend-point, _calculate-graph-loop-geometry, _calculate-node-boundary-radius,
+  _default-node-half-width, _fitted-node-half-width, _resolve-graph-node-radius, _resolve-graph-node-shape,
+  _trim-edge-to-node-boundary,
 )
 
 // Looks up an edge's customization dict. Order matters for a directed graph
@@ -40,8 +35,7 @@
     edge.at(0) == to-node-id and edge.at(1) == from-node-id
   ))
   let should-route-reciprocal-edge = (
-    edge-routing == "auto" and directed and from-node-id != to-node-id
-      and has-reciprocal-edge and "bend" not in options
+    edge-routing == "auto" and directed and from-node-id != to-node-id and has-reciprocal-edge and "bend" not in options
   )
   if should-route-reciprocal-edge {
     options.bend = "left"
@@ -166,8 +160,8 @@
       let parts = wavy-parts(a, b, resolved-style, start-tip: start-tip, end-tip: end-tip)
       line(..parts.points, stroke: stroke)
       let fill = if mark == none { none } else { mark.at("fill", default: none) }
-      if start-tip { line(a, parts.start-cap, stroke: stroke, mark: (start: ">", fill: fill)) }
-      if end-tip { line(parts.end-cap, b, stroke: stroke, mark: (end: ">", fill: fill)) }
+      if start-tip { line(a, parts.start-cap, stroke: stroke, mark: (start: mark.start, fill: fill)) }
+      if end-tip { line(parts.end-cap, b, stroke: stroke, mark: (end: mark.end, fill: fill)) }
     } else {
       line(a, b, stroke: stroke, mark: mark)
     }
@@ -230,10 +224,15 @@
 
 #let _render-graph-self-loop(position, boundary, label, directed, resolved-style, custom) = {
   let geometry = _calculate-graph-loop-geometry(
-    position, boundary, bend: custom.at("bend", default: false),
+    position,
+    boundary,
+    bend: custom.at("bend", default: false),
   )
   bezier(
-    geometry.start, geometry.end, geometry.control-start, geometry.control-end,
+    geometry.start,
+    geometry.end,
+    geometry.control-start,
+    geometry.control-end,
     stroke: edge-stroke(resolved-style, custom: custom),
     mark: edge-arrow(resolved-style, directed, custom: custom),
   )
@@ -316,12 +315,8 @@
     half-width: boundary.at(2),
   )
   let label-position = (
-    node-position.at(0)
-      + label-direction.at(0) * (boundary-distance + label-gap)
-      + offset-x,
-    node-position.at(1)
-      + label-direction.at(1) * (boundary-distance + label-gap)
-      + offset-y,
+    node-position.at(0) + label-direction.at(0) * (boundary-distance + label-gap) + offset-x,
+    node-position.at(1) + label-direction.at(1) * (boundary-distance + label-gap) + offset-y,
   )
   let text-style = label.style
   let rotation = text-style.at("rotation", default: 0deg)
@@ -383,9 +378,21 @@
   if shape == "square" {
     rect((p.at(0) - half-width, p.at(1) - r), (p.at(0) + half-width, p.at(1) + r), fill: fill, stroke: stroke)
   } else if shape == "rounded" {
-    rect((p.at(0) - half-width, p.at(1) - r), (p.at(0) + half-width, p.at(1) + r), radius: 25%, fill: fill, stroke: stroke)
+    rect(
+      (p.at(0) - half-width, p.at(1) - r),
+      (p.at(0) + half-width, p.at(1) + r),
+      radius: 25%,
+      fill: fill,
+      stroke: stroke,
+    )
   } else if shape == "capsule" {
-    rect((p.at(0) - half-width, p.at(1) - r), (p.at(0) + half-width, p.at(1) + r), radius: 50%, fill: fill, stroke: stroke)
+    rect(
+      (p.at(0) - half-width, p.at(1) - r),
+      (p.at(0) + half-width, p.at(1) + r),
+      radius: 50%,
+      fill: fill,
+      stroke: stroke,
+    )
   } else if shape == "diamond" {
     polygon(((p.at(0), p.at(1) + r), (p.at(0) + r, p.at(1)), (p.at(0), p.at(1) - r), (p.at(0) - r, p.at(1))))
   } else if shape == "hexagon" {
@@ -442,14 +449,23 @@
         directed,
       )
       edge-customization = _resolve-graph-edge-routing(
-        graph-edges, from-node-id, to-node-id, directed, edge-routing, edge-customization,
+        graph-edges,
+        from-node-id,
+        to-node-id,
+        directed,
+        edge-routing,
+        edge-customization,
       )
       let from-boundary = node-boundaries.at(from-node-id)
       let to-boundary = node-boundaries.at(to-node-id)
       if from-node-id == to-node-id {
         _render-graph-self-loop(
-          node-positions.at(from-node-id), from-boundary, edge-label,
-          directed, resolved-style, edge-customization,
+          node-positions.at(from-node-id),
+          from-boundary,
+          edge-label,
+          directed,
+          resolved-style,
+          edge-customization,
         )
       } else {
         _render-graph-edge(
@@ -507,14 +523,29 @@
 ) = {
   if not resolved-style.node-fit {
     return _draw-graph-at-positions(
-      adjacency, directed, labels, node-positions, edge-customizations,
-      node-customizations, node-labels, resolved-style, edge-routing, (:),
+      adjacency,
+      directed,
+      labels,
+      node-positions,
+      edge-customizations,
+      node-customizations,
+      node-labels,
+      resolved-style,
+      edge-routing,
+      (:),
     )
   }
   let node-ids = _collect-graph-node-ids(adjacency)
   context _draw-graph-at-positions(
-    adjacency, directed, labels, node-positions, edge-customizations,
-    node-customizations, node-labels, resolved-style, edge-routing,
+    adjacency,
+    directed,
+    labels,
+    node-positions,
+    edge-customizations,
+    node-customizations,
+    node-labels,
+    resolved-style,
+    edge-routing,
     _measure-fitted-node-half-widths(node-ids, labels, resolved-style, node-customizations),
   )
 }

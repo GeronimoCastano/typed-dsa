@@ -1,12 +1,9 @@
 // CeTZ rendering for validated, laid-out tree state.
 
 #import "@preview/cetz:0.5.2"
-#import "../shared/style.typ": (
-  theme, scaled, resolve-mark-style, edge-mark, edge-stroke, edge-wave,
-  wavy-parts,
-)
-#import cetz.draw: line, circle, rect, content, bezier-through
-#import "layout.typ": _calculate-tree-layout, _calculate-tidy-tree-layout
+#import "../shared/style.typ": edge-mark, edge-stroke, edge-wave, resolve-mark-style, scaled, theme, wavy-parts
+#import cetz.draw: bezier-through, circle, content, line, rect
+#import "layout.typ": _calculate-tidy-tree-layout, _calculate-tree-layout
 #import "state.typ": _tree-node-id, _visible-tree-children
 
 // ── Render ───────────────────────────────────────────────────────────────────
@@ -75,9 +72,11 @@
   }
   if shape == "capsule" {
     let horizontal-radius-offset = 0.4 * node-radius
-    return horizontal-radius-offset * calc.abs(unit-x) + calc.sqrt(
-      node-radius * node-radius
-        - horizontal-radius-offset * horizontal-radius-offset * unit-y * unit-y,
+    return (
+      horizontal-radius-offset * calc.abs(unit-x)
+        + calc.sqrt(
+          node-radius * node-radius - horizontal-radius-offset * horizontal-radius-offset * unit-y * unit-y,
+        )
     )
   }
   node-radius
@@ -120,6 +119,7 @@
     } else {
       resolved-style.edge-arrow
     },
+    symbol: resolved-style.edge-arrow-symbol,
   )
   let stroke = edge-stroke(resolved-style, custom: customization)
   let bend-direction = if customization != none {
@@ -187,7 +187,7 @@
           trimmed-start,
           wave-parts.start-cap,
           stroke: stroke,
-          mark: (start: ">", fill: arrow-fill),
+          mark: (start: arrow-mark.start, fill: arrow-fill),
         )
       }
       if has-end-tip {
@@ -195,7 +195,7 @@
           wave-parts.end-cap,
           trimmed-end,
           stroke: stroke,
-          mark: (end: ">", fill: arrow-fill),
+          mark: (end: arrow-mark.end, fill: arrow-fill),
         )
       }
     } else {
@@ -314,12 +314,8 @@
     label-direction.at(1),
   )
   let label-position = (
-    node-position.at(0)
-      + label-direction.at(0) * (boundary-distance + label-gap)
-      + offset-x,
-    node-position.at(1)
-      + label-direction.at(1) * (boundary-distance + label-gap)
-      + offset-y,
+    node-position.at(0) + label-direction.at(0) * (boundary-distance + label-gap) + offset-x,
+    node-position.at(1) + label-direction.at(1) * (boundary-distance + label-gap) + offset-y,
   )
   let text-style = label.style
   let rotation = text-style.at("rotation", default: 0deg)
@@ -438,7 +434,9 @@
 #let _render-tree-node-shape(p, label, resolved-style, fill, mark: none, custom: none) = {
   let shape = _resolve-node-shape(resolved-style, mark: mark, custom: custom)
   let r = _resolve-node-radius(resolved-style, mark: mark, custom: custom)
-  let stroke = if custom != none and "stroke" in custom { custom.stroke } else if mark != none { mark.stroke } else { resolved-style.node-stroke }
+  let stroke = if custom != none and "stroke" in custom { custom.stroke } else if mark != none { mark.stroke } else {
+    resolved-style.node-stroke
+  }
   let f = if custom != none and "fill" in custom { custom.fill } else if mark != none { mark.fill } else { fill }
   let text-style = if mark != none { mark.text } else { resolved-style.value-text }
   if custom != none and "text" in custom { text-style = text-style + custom.text }
@@ -600,7 +598,14 @@
 // resolved against `resolved-style`'s `<kind>-style` via `mark-style` at draw time — so a
 // per-call `style:` override actually reaches the mark, not just the theme
 // default.
-#let _render-tree(root, marks: (:), resolved-style: theme, edge-customizations: (), node-customizations: (), node-labels: (:)) = {
+#let _render-tree(
+  root,
+  marks: (:),
+  resolved-style: theme,
+  edge-customizations: (),
+  node-customizations: (),
+  node-labels: (:),
+) = {
   if root == none { return scaled(resolved-style, cetz.canvas({ circle((0, 0), radius: 0.01, stroke: none) })) }
   let placed = if resolved-style.tree-layout == "tidy" {
     _calculate-tidy-tree-layout(root, resolved-style)

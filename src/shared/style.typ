@@ -11,8 +11,8 @@
 // `resolve` then assumes a valid dictionary.
 
 #import "validate.typ": (
-  check-bool, check-dictionary, check-enum, check-known-keys, check-non-negative,
-  check-number, check-positive, check-type, fail, is-number, show-value,
+  check-bool, check-dictionary, check-enum, check-known-keys, check-non-negative, check-number, check-positive,
+  check-type, fail, is-number, show-value,
 )
 
 #let theme = (
@@ -28,6 +28,8 @@
   edge-stroke: 0.6pt + rgb("#333333"),
   edge-arrow: none, // edge arrowheads: none/false, "end" (or true), "start", "both"
   edge-arrow-fill: none, // graph() directed arrowheads: none (open) or a fill color (solid)
+  // CeTZ mark shared by every tree, heap, and graph arrowhead in the diagram.
+  edge-arrow-symbol: ">",
   edge-pattern: "normal", // "normal", "dashed", "dotted", or "wavy"
   edge-wave-amplitude: 0.07,
   edge-wave-step: 0.14,
@@ -65,10 +67,10 @@
   // Diff highlight styles, used by operation transitions. Each is a plain
   // color (shorthand for `(fill: color)`) or a dict of `fill:`, `shape:`,
   // `stroke:`, `node-radius:`, and `text:` overrides for a marked node/cell.
-  new-style: rgb("#C8E6C9"),     // node added by the operation
-  path-style: rgb("#FFE9A8"),    // nodes on the traversal path
-  remove-style: rgb("#FFCDD2"),  // node removed by the operation
-  rotate-style: rgb("#BBDEFB"),  // pivot of an AVL rotation
+  new-style: rgb("#C8E6C9"), // node added by the operation
+  path-style: rgb("#FFE9A8"), // nodes on the traversal path
+  remove-style: rgb("#FFCDD2"), // node removed by the operation
+  rotate-style: rgb("#BBDEFB"), // pivot of an AVL rotation
 
   // Graph-algorithm state roles.
   visited-style: (fill: rgb("#C8E6C9"), stroke: 1pt + rgb("#2E7D32")),
@@ -82,32 +84,50 @@
 #let themes = (
   "default": (:),
   "dark": (
-    node-fill: rgb("#20242B"), node-stroke: 0.8pt + rgb("#E9ECEF"),
-    edge-stroke: 0.8pt + rgb("#CED4DA"), box-fill: rgb("#20242B"),
-    box-stroke: 0.8pt + rgb("#E9ECEF"), ptr-fill: rgb("#364152"),
-    prev-ptr-fill: rgb("#364152"), next-ptr-fill: rgb("#364152"),
-    node-text: (fill: rgb("#F8F9FA")), label-text: (fill: rgb("#CED4DA")),
+    node-fill: rgb("#20242B"),
+    node-stroke: 0.8pt + rgb("#E9ECEF"),
+    edge-stroke: 0.8pt + rgb("#CED4DA"),
+    box-fill: rgb("#20242B"),
+    box-stroke: 0.8pt + rgb("#E9ECEF"),
+    ptr-fill: rgb("#364152"),
+    prev-ptr-fill: rgb("#364152"),
+    next-ptr-fill: rgb("#364152"),
+    node-text: (fill: rgb("#F8F9FA")),
+    label-text: (fill: rgb("#CED4DA")),
   ),
   "print": (
-    node-fill: white, node-stroke: 0.9pt + black, edge-stroke: 0.9pt + black,
-    box-fill: white, box-stroke: 0.9pt + black, ptr-fill: luma(225),
-    prev-ptr-fill: luma(225), next-ptr-fill: luma(225),
-    label-text: (fill: black), diff-colors: false,
+    node-fill: white,
+    node-stroke: 0.9pt + black,
+    edge-stroke: 0.9pt + black,
+    box-fill: white,
+    box-stroke: 0.9pt + black,
+    ptr-fill: luma(225),
+    prev-ptr-fill: luma(225),
+    next-ptr-fill: luma(225),
+    label-text: (fill: black),
+    diff-colors: false,
   ),
   "colorblind": (
-    new-style: rgb("#009E73"), path-style: rgb("#F0E442"),
-    remove-style: rgb("#D55E00"), rotate-style: rgb("#56B4E9"),
+    new-style: rgb("#009E73"),
+    path-style: rgb("#F0E442"),
+    remove-style: rgb("#D55E00"),
+    rotate-style: rgb("#56B4E9"),
     visited-style: (fill: rgb("#009E73").lighten(65%), stroke: 1pt + rgb("#007A5A")),
     current-style: (fill: rgb("#56B4E9").lighten(55%), stroke: 1pt + rgb("#0072B2")),
     queued-style: (fill: rgb("#F0E442").lighten(45%), stroke: 1pt + rgb("#B28B00")),
     active-edge-style: (stroke: 2pt + rgb("#CC79A7")),
   ),
   "chalkboard": (
-    node-fill: rgb("#254B3C"), node-stroke: 1pt + rgb("#173C30"),
-    edge-stroke: 1pt + rgb("#254B3C"), box-fill: rgb("#254B3C"),
-    box-stroke: 1pt + rgb("#173C30"), ptr-fill: rgb("#315F4D"),
-    prev-ptr-fill: rgb("#315F4D"), next-ptr-fill: rgb("#315F4D"),
-    node-text: (fill: white), label-text: (fill: rgb("#254B3C")),
+    node-fill: rgb("#254B3C"),
+    node-stroke: 1pt + rgb("#173C30"),
+    edge-stroke: 1pt + rgb("#254B3C"),
+    box-fill: rgb("#254B3C"),
+    box-stroke: 1pt + rgb("#173C30"),
+    ptr-fill: rgb("#315F4D"),
+    prev-ptr-fill: rgb("#315F4D"),
+    next-ptr-fill: rgb("#315F4D"),
+    node-text: (fill: white),
+    label-text: (fill: rgb("#254B3C")),
   ),
 )
 
@@ -126,9 +146,50 @@
 #let node-shapes = ("circle", "square", "rounded", "capsule", "diamond", "hexagon")
 #let box-shapes = ("square", "rounded", "capsule")
 #let edge-patterns = (
-  "normal", "solid", "dashed", "dotted", "wavy", "wave", "dash", "dot", "dots",
+  "normal",
+  "solid",
+  "dashed",
+  "dotted",
+  "wavy",
+  "wave",
+  "dash",
+  "dot",
+  "dots",
 )
 #let edge-arrows = (none, false, true, "start", "end", "both")
+// CeTZ 0.5 mark mnemonics, then the shape names those mnemonics resolve to.
+#let edge-arrow-symbols = (
+  ">",
+  "<",
+  "<>",
+  ">>",
+  ")>",
+  "[]",
+  "[",
+  "]",
+  "|",
+  "o",
+  "+",
+  "x",
+  "*",
+  ")",
+  "triangle",
+  "stealth",
+  "curved-stealth",
+  "bar",
+  "ellipse",
+  "circle",
+  "bracket",
+  "diamond",
+  "rect",
+  "hook",
+  "straight",
+  "barbed",
+  "plus",
+  "x",
+  "star",
+  "parenthesis",
+)
 // `true` is the shorthand spelling of `"right"` that the bend renderer has
 // always accepted.
 #let bend-directions = (none, false, true, "left", "right")
@@ -137,38 +198,88 @@
 // Typography roles all accept the same `text()` parameters, plus the `color`
 // alias `resolve` folds into `fill`.
 #let text-style-keys = (
-  "size", "color", "fill", "font", "weight", "style", "rotation", "tracking",
-  "spacing", "baseline", "stretch", "features", "fallback", "lang", "region",
-  "dir", "hyphenate", "number-type", "number-width", "slashed-zero",
-  "top-edge", "bottom-edge",
+  "size",
+  "color",
+  "fill",
+  "font",
+  "weight",
+  "style",
+  "rotation",
+  "tracking",
+  "spacing",
+  "baseline",
+  "stretch",
+  "features",
+  "fallback",
+  "lang",
+  "region",
+  "dir",
+  "hyphenate",
+  "number-type",
+  "number-width",
+  "slashed-zero",
+  "top-edge",
+  "bottom-edge",
 )
 
 #let text-style-roles = (
-  "node-text", "value-text", "label-text", "index-text", "pointer-text",
-  "operation-text", "edge-label-text", "algorithm-label-text", "distance-text",
+  "node-text",
+  "value-text",
+  "label-text",
+  "index-text",
+  "pointer-text",
+  "operation-text",
+  "edge-label-text",
+  "algorithm-label-text",
+  "distance-text",
 )
 
 #let mark-style-roles = (
-  "new-style", "path-style", "remove-style", "rotate-style",
-  "visited-style", "current-style", "queued-style", "active-edge-style",
+  "new-style",
+  "path-style",
+  "remove-style",
+  "rotate-style",
+  "visited-style",
+  "current-style",
+  "queued-style",
+  "active-edge-style",
 )
 
 #let mark-style-keys = ("fill", "shape", "stroke", "node-radius", "text", "stripe-fill")
 #let node-customization-keys = ("shape", "fill", "stroke", "node-radius", "text")
 #let edge-customization-keys = (
-  "stroke", "color", "pattern", "dash", "wave", "arrow", "bend", "angle", "label",
+  "stroke",
+  "color",
+  "pattern",
+  "dash",
+  "wave",
+  "arrow",
+  "bend",
+  "angle",
+  "label",
 )
 #let cell-customization-keys = ("fill", "stroke", "text", "stripe-fill")
 #let node-label-keys = ("content", "body", "position", "offset", "gap") + text-style-keys
 #let indices-keys = ("enabled", "labels", "offset", "text") + text-style-keys
 
 #let _positive-style-keys = (
-  "node-radius", "x-gap", "y-gap", "tri-w", "tri-h", "box-w", "box-h",
-  "scale", "edge-wave-step",
+  "node-radius",
+  "x-gap",
+  "y-gap",
+  "tri-w",
+  "tri-h",
+  "box-w",
+  "box-h",
+  "scale",
+  "edge-wave-step",
 )
 #let _non-negative-style-keys = ("box-gap", "edge-wave-amplitude")
 #let _fill-style-keys = (
-  "node-fill", "box-fill", "ptr-fill", "prev-ptr-fill", "next-ptr-fill",
+  "node-fill",
+  "box-fill",
+  "ptr-fill",
+  "prev-ptr-fill",
+  "next-ptr-fill",
   "edge-arrow-fill",
 )
 #let _stroke-style-keys = ("node-stroke", "edge-stroke", "box-stroke")
@@ -182,12 +293,18 @@
 #let _stroke-types = (stroke, length, color, gradient, dictionary, type(none))
 
 #let check-fill(where, what, value) = check-type(
-  where, what, value, _fill-types,
+  where,
+  what,
+  value,
+  _fill-types,
   fix: "pass a color, for example " + what + ": rgb(\"#C8E6C9\")",
 )
 
 #let check-stroke(where, what, value) = check-type(
-  where, what, value, _stroke-types,
+  where,
+  what,
+  value,
+  _stroke-types,
   fix: "pass a stroke, for example " + what + ": 1pt + black",
 )
 
@@ -196,7 +313,9 @@
 // reported here instead of inside Typst's text constructor.
 #let check-text-style(where, what, value) = {
   check-dictionary(
-    where, what, value,
+    where,
+    what,
+    value,
     fix: "pass a text dictionary, for example " + what + ": (fill: blue, weight: \"bold\")",
   )
   check-known-keys(where, what, value, text-style-keys)
@@ -204,13 +323,19 @@
   if "color" in value { check-fill(where, what + ".color", value.color) }
   if "size" in value {
     check-type(
-      where, what + ".size", value.size, (length,),
+      where,
+      what + ".size",
+      value.size,
+      (length,),
       fix: "pass a length, for example " + what + ": (size: 8pt)",
     )
   }
   if "weight" in value {
     check-type(
-      where, what + ".weight", value.weight, (str, int),
+      where,
+      what + ".weight",
+      value.weight,
+      (str, int),
       fix: "pass a font weight name or number, for example " + what + ": (weight: \"bold\")",
     )
   }
@@ -239,7 +364,10 @@
 #let check-label-position(where, what, value) = {
   if type(value) == angle { return }
   check-enum(
-    where, what, value, label-positions,
+    where,
+    what,
+    value,
+    label-positions,
     fix: "use a side name or an angle, for example " + what + ": 45deg",
   )
 }
@@ -276,7 +404,9 @@
 #let check-indices(where, what, value) = {
   if value in (true, false, none) { return }
   check-dictionary(
-    where, what, value,
+    where,
+    what,
+    value,
     fix: "pass true/false, or a dictionary built with indices-style(...)",
   )
   check-known-keys(where, what, value, indices-keys)
@@ -284,7 +414,10 @@
   if "offset" in value { check-coordinate-pair(where, what + ".offset", value.offset) }
   if "labels" in value and value.labels != auto {
     check-type(
-      where, what + ".labels", value.labels, (array,),
+      where,
+      what + ".labels",
+      value.labels,
+      (array,),
       fix: "pass auto, or one label per cell",
     )
   }
@@ -293,7 +426,10 @@
 #let _check-edge-pattern(where, what, value) = {
   if type(value) == str { return check-enum(where, what, value, edge-patterns) }
   check-type(
-    where, what, value, (array, type(none), bool),
+    where,
+    what,
+    value,
+    (array, type(none), bool),
     fix: "use a pattern name, or a dash array such as (2pt, 2pt)",
   )
 }
@@ -329,13 +465,18 @@
   if "dash" in options { _check-edge-pattern(where, what + ".dash", options.dash) }
   if "angle" in options {
     check-type(
-      where, what + ".angle", options.angle, (angle,),
+      where,
+      what + ".angle",
+      options.angle,
+      (angle,),
       fix: "pass an angle, for example angle: 25deg",
     )
   }
   if "label" in options {
     check-label-override(
-      where, what + ".label", options.label,
+      where,
+      what + ".label",
+      options.label,
       require-content: require-label-content,
     )
   }
@@ -379,6 +520,15 @@
   if key == "tree-layout" { return check-enum(where, what, value, tree-layouts) }
   if key == "box-shape" { return check-enum(where, what, value, box-shapes) }
   if key == "edge-arrow" { return check-enum(where, what, value, edge-arrows) }
+  if key == "edge-arrow-symbol" {
+    return check-enum(
+      where,
+      what,
+      value,
+      edge-arrow-symbols,
+      fix: "use a CeTZ mark name, for example " + what + ": \">>\"",
+    )
+  }
   if key == "diff-colors" { return check-bool(where, what, value) }
   if key == "node-fit" { return check-bool(where, what, value) }
   if key == "node-labels" { return check-node-label-defaults(where, what, value) }
@@ -386,7 +536,10 @@
   if key in ("edge-pattern", "edge-dash") {
     if type(value) == str { return check-enum(where, what, value, edge-patterns) }
     return check-type(
-      where, what, value, (array, type(none), bool),
+      where,
+      what,
+      value,
+      (array, type(none), bool),
       fix: "use a pattern name, or a dash array such as (2pt, 2pt)",
     )
   }
@@ -396,7 +549,9 @@
 // The single entry point every public builder calls before touching `style:`.
 #let validate-style(where, style) = {
   check-dictionary(
-    where, "style:", style,
+    where,
+    "style:",
+    style,
     fix: "pass a dictionary, for example style: (node-radius: 0.4)",
   )
   check-known-keys(where, "style:", style, style-keys)
@@ -514,6 +669,7 @@
   edge-stroke: auto,
   edge-arrow: auto,
   edge-arrow-fill: auto,
+  edge-arrow-symbol: auto,
   edge-pattern: auto,
   edge-wave-amplitude: auto,
   edge-wave-step: auto,
@@ -562,6 +718,7 @@
   if edge-stroke != auto { result.edge-stroke = edge-stroke }
   if edge-arrow != auto { result.edge-arrow = edge-arrow }
   if edge-arrow-fill != auto { result.edge-arrow-fill = edge-arrow-fill }
+  if edge-arrow-symbol != auto { result.edge-arrow-symbol = edge-arrow-symbol }
   if edge-pattern != auto { result.edge-pattern = edge-pattern }
   if edge-wave-amplitude != auto { result.edge-wave-amplitude = edge-wave-amplitude }
   if edge-wave-step != auto { result.edge-wave-step = edge-wave-step }
@@ -601,132 +758,345 @@
 }
 
 #let tree-style(
-  node-radius: auto, node-shape: auto, x-gap: auto, y-gap: auto, tree-layout: auto,
-  node-stroke: auto, node-fill: auto, edge-stroke: auto,
-  edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
-  edge-wave-amplitude: auto, edge-wave-step: auto,
-  tri-w: auto, tri-h: auto, node-text: auto, value-text: auto, label-text: auto,
-  index-text: auto, pointer-text: auto, operation-text: auto,
-  edge-label-text: auto, algorithm-label-text: auto,
-  node-labels: auto, scale: auto, diff-colors: auto,
-  new-style: auto, path-style: auto, remove-style: auto, rotate-style: auto,
-  visited-style: auto, current-style: auto, queued-style: auto, active-edge-style: auto,
+  node-radius: auto,
+  node-shape: auto,
+  x-gap: auto,
+  y-gap: auto,
+  tree-layout: auto,
+  node-stroke: auto,
+  node-fill: auto,
+  edge-stroke: auto,
+  edge-arrow: auto,
+  edge-arrow-fill: auto,
+  edge-arrow-symbol: auto,
+  edge-pattern: auto,
+  edge-wave-amplitude: auto,
+  edge-wave-step: auto,
+  tri-w: auto,
+  tri-h: auto,
+  node-text: auto,
+  value-text: auto,
+  label-text: auto,
+  index-text: auto,
+  pointer-text: auto,
+  operation-text: auto,
+  edge-label-text: auto,
+  algorithm-label-text: auto,
+  node-labels: auto,
+  scale: auto,
+  diff-colors: auto,
+  new-style: auto,
+  path-style: auto,
+  remove-style: auto,
+  rotate-style: auto,
+  visited-style: auto,
+  current-style: auto,
+  queued-style: auto,
+  active-edge-style: auto,
 ) = _build-style-dictionary(
-  node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap, tree-layout: tree-layout,
-  node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
-  edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
-  edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
-  tri-w: tri-w, tri-h: tri-h, node-text: node-text, value-text: value-text, label-text: label-text,
-  index-text: index-text, pointer-text: pointer-text, operation-text: operation-text,
-  edge-label-text: edge-label-text, algorithm-label-text: algorithm-label-text,
-  node-labels: node-labels, scale: scale, diff-colors: diff-colors,
-  new-style: new-style, path-style: path-style,
-  remove-style: remove-style, rotate-style: rotate-style,
-  visited-style: visited-style, current-style: current-style,
-  queued-style: queued-style, active-edge-style: active-edge-style,
+  node-radius: node-radius,
+  node-shape: node-shape,
+  x-gap: x-gap,
+  y-gap: y-gap,
+  tree-layout: tree-layout,
+  node-stroke: node-stroke,
+  node-fill: node-fill,
+  edge-stroke: edge-stroke,
+  edge-arrow: edge-arrow,
+  edge-arrow-fill: edge-arrow-fill,
+  edge-arrow-symbol: edge-arrow-symbol,
+  edge-pattern: edge-pattern,
+  edge-wave-amplitude: edge-wave-amplitude,
+  edge-wave-step: edge-wave-step,
+  tri-w: tri-w,
+  tri-h: tri-h,
+  node-text: node-text,
+  value-text: value-text,
+  label-text: label-text,
+  index-text: index-text,
+  pointer-text: pointer-text,
+  operation-text: operation-text,
+  edge-label-text: edge-label-text,
+  algorithm-label-text: algorithm-label-text,
+  node-labels: node-labels,
+  scale: scale,
+  diff-colors: diff-colors,
+  new-style: new-style,
+  path-style: path-style,
+  remove-style: remove-style,
+  rotate-style: rotate-style,
+  visited-style: visited-style,
+  current-style: current-style,
+  queued-style: queued-style,
+  active-edge-style: active-edge-style,
 )
 
 #let heap-style(
-  node-radius: auto, node-shape: auto, x-gap: auto, y-gap: auto, tree-layout: auto,
-  node-stroke: auto, node-fill: auto, edge-stroke: auto,
-  edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
-  edge-wave-amplitude: auto, edge-wave-step: auto,
-  node-text: auto, value-text: auto, label-text: auto, operation-text: auto,
-  edge-label-text: auto, scale: auto, diff-colors: auto,
-  new-style: auto, path-style: auto, remove-style: auto,
+  node-radius: auto,
+  node-shape: auto,
+  x-gap: auto,
+  y-gap: auto,
+  tree-layout: auto,
+  node-stroke: auto,
+  node-fill: auto,
+  edge-stroke: auto,
+  edge-arrow: auto,
+  edge-arrow-fill: auto,
+  edge-arrow-symbol: auto,
+  edge-pattern: auto,
+  edge-wave-amplitude: auto,
+  edge-wave-step: auto,
+  node-text: auto,
+  value-text: auto,
+  label-text: auto,
+  operation-text: auto,
+  edge-label-text: auto,
+  scale: auto,
+  diff-colors: auto,
+  new-style: auto,
+  path-style: auto,
+  remove-style: auto,
 ) = _build-style-dictionary(
-  node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap, tree-layout: tree-layout,
-  node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
-  edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
-  edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
-  node-text: node-text, value-text: value-text, label-text: label-text,
-  operation-text: operation-text, edge-label-text: edge-label-text,
-  scale: scale, diff-colors: diff-colors,
-  new-style: new-style, path-style: path-style, remove-style: remove-style,
+  node-radius: node-radius,
+  node-shape: node-shape,
+  x-gap: x-gap,
+  y-gap: y-gap,
+  tree-layout: tree-layout,
+  node-stroke: node-stroke,
+  node-fill: node-fill,
+  edge-stroke: edge-stroke,
+  edge-arrow: edge-arrow,
+  edge-arrow-fill: edge-arrow-fill,
+  edge-arrow-symbol: edge-arrow-symbol,
+  edge-pattern: edge-pattern,
+  edge-wave-amplitude: edge-wave-amplitude,
+  edge-wave-step: edge-wave-step,
+  node-text: node-text,
+  value-text: value-text,
+  label-text: label-text,
+  operation-text: operation-text,
+  edge-label-text: edge-label-text,
+  scale: scale,
+  diff-colors: diff-colors,
+  new-style: new-style,
+  path-style: path-style,
+  remove-style: remove-style,
 )
 
 #let graph-style(
-  node-radius: auto, node-shape: auto, node-fit: auto, node-stroke: auto, node-fill: auto,
-  edge-stroke: auto, edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
-  edge-wave-amplitude: auto, edge-wave-step: auto,
-  node-text: auto, value-text: auto, label-text: auto, edge-label-text: auto,
-  algorithm-label-text: auto, distance-text: auto, node-labels: auto, scale: auto,
-  visited-style: auto, current-style: auto, queued-style: auto, active-edge-style: auto,
+  node-radius: auto,
+  node-shape: auto,
+  node-fit: auto,
+  node-stroke: auto,
+  node-fill: auto,
+  edge-stroke: auto,
+  edge-arrow: auto,
+  edge-arrow-fill: auto,
+  edge-arrow-symbol: auto,
+  edge-pattern: auto,
+  edge-wave-amplitude: auto,
+  edge-wave-step: auto,
+  node-text: auto,
+  value-text: auto,
+  label-text: auto,
+  edge-label-text: auto,
+  algorithm-label-text: auto,
+  distance-text: auto,
+  node-labels: auto,
+  scale: auto,
+  visited-style: auto,
+  current-style: auto,
+  queued-style: auto,
+  active-edge-style: auto,
 ) = _build-style-dictionary(
-  node-radius: node-radius, node-shape: node-shape, node-fit: node-fit,
-  node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
-  edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
-  edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
-  node-text: node-text, value-text: value-text, label-text: label-text,
-  edge-label-text: edge-label-text, algorithm-label-text: algorithm-label-text,
+  node-radius: node-radius,
+  node-shape: node-shape,
+  node-fit: node-fit,
+  node-stroke: node-stroke,
+  node-fill: node-fill,
+  edge-stroke: edge-stroke,
+  edge-arrow: edge-arrow,
+  edge-arrow-fill: edge-arrow-fill,
+  edge-arrow-symbol: edge-arrow-symbol,
+  edge-pattern: edge-pattern,
+  edge-wave-amplitude: edge-wave-amplitude,
+  edge-wave-step: edge-wave-step,
+  node-text: node-text,
+  value-text: value-text,
+  label-text: label-text,
+  edge-label-text: edge-label-text,
+  algorithm-label-text: algorithm-label-text,
   distance-text: distance-text,
-  node-labels: node-labels, scale: scale,
-  visited-style: visited-style, current-style: current-style,
-  queued-style: queued-style, active-edge-style: active-edge-style,
+  node-labels: node-labels,
+  scale: scale,
+  visited-style: visited-style,
+  current-style: current-style,
+  queued-style: queued-style,
+  active-edge-style: active-edge-style,
 )
 
 #let list-style(
-  box-w: auto, box-h: auto, box-shape: auto, box-gap: auto, box-stroke: auto, box-fill: auto,
-  ptr-fill: auto, prev-ptr-fill: auto, next-ptr-fill: auto,
-  node-text: auto, value-text: auto, label-text: auto, pointer-text: auto,
-  operation-text: auto, scale: auto, diff-colors: auto,
-  new-style: auto, path-style: auto, remove-style: auto,
+  box-w: auto,
+  box-h: auto,
+  box-shape: auto,
+  box-gap: auto,
+  box-stroke: auto,
+  box-fill: auto,
+  ptr-fill: auto,
+  prev-ptr-fill: auto,
+  next-ptr-fill: auto,
+  node-text: auto,
+  value-text: auto,
+  label-text: auto,
+  pointer-text: auto,
+  operation-text: auto,
+  scale: auto,
+  diff-colors: auto,
+  new-style: auto,
+  path-style: auto,
+  remove-style: auto,
 ) = _build-style-dictionary(
-  box-w: box-w, box-h: box-h, box-shape: box-shape, box-gap: box-gap,
-  box-stroke: box-stroke, box-fill: box-fill,
-  ptr-fill: ptr-fill, prev-ptr-fill: prev-ptr-fill, next-ptr-fill: next-ptr-fill,
-  node-text: node-text, value-text: value-text, label-text: label-text,
-  pointer-text: pointer-text, operation-text: operation-text,
-  scale: scale, diff-colors: diff-colors,
-  new-style: new-style, path-style: path-style, remove-style: remove-style,
+  box-w: box-w,
+  box-h: box-h,
+  box-shape: box-shape,
+  box-gap: box-gap,
+  box-stroke: box-stroke,
+  box-fill: box-fill,
+  ptr-fill: ptr-fill,
+  prev-ptr-fill: prev-ptr-fill,
+  next-ptr-fill: next-ptr-fill,
+  node-text: node-text,
+  value-text: value-text,
+  label-text: label-text,
+  pointer-text: pointer-text,
+  operation-text: operation-text,
+  scale: scale,
+  diff-colors: diff-colors,
+  new-style: new-style,
+  path-style: path-style,
+  remove-style: remove-style,
 )
 
 #let stack-style(
-  box-w: auto, box-h: auto, box-shape: auto, box-gap: auto, box-stroke: auto, box-fill: auto,
-  node-text: auto, value-text: auto, label-text: auto, pointer-text: auto,
-  operation-text: auto, scale: auto, diff-colors: auto,
-  new-style: auto, remove-style: auto,
+  box-w: auto,
+  box-h: auto,
+  box-shape: auto,
+  box-gap: auto,
+  box-stroke: auto,
+  box-fill: auto,
+  node-text: auto,
+  value-text: auto,
+  label-text: auto,
+  pointer-text: auto,
+  operation-text: auto,
+  scale: auto,
+  diff-colors: auto,
+  new-style: auto,
+  remove-style: auto,
 ) = _build-style-dictionary(
-  box-w: box-w, box-h: box-h, box-shape: box-shape, box-gap: box-gap,
-  box-stroke: box-stroke, box-fill: box-fill,
-  node-text: node-text, value-text: value-text, label-text: label-text,
-  pointer-text: pointer-text, operation-text: operation-text,
-  scale: scale, diff-colors: diff-colors,
-  new-style: new-style, remove-style: remove-style,
+  box-w: box-w,
+  box-h: box-h,
+  box-shape: box-shape,
+  box-gap: box-gap,
+  box-stroke: box-stroke,
+  box-fill: box-fill,
+  node-text: node-text,
+  value-text: value-text,
+  label-text: label-text,
+  pointer-text: pointer-text,
+  operation-text: operation-text,
+  scale: scale,
+  diff-colors: diff-colors,
+  new-style: new-style,
+  remove-style: remove-style,
 )
 
 #let queue-style(
-  box-w: auto, box-h: auto, box-shape: auto, box-gap: auto, box-stroke: auto, box-fill: auto,
-  node-text: auto, value-text: auto, label-text: auto, pointer-text: auto,
-  operation-text: auto, scale: auto, diff-colors: auto,
-  new-style: auto, remove-style: auto,
+  box-w: auto,
+  box-h: auto,
+  box-shape: auto,
+  box-gap: auto,
+  box-stroke: auto,
+  box-fill: auto,
+  node-text: auto,
+  value-text: auto,
+  label-text: auto,
+  pointer-text: auto,
+  operation-text: auto,
+  scale: auto,
+  diff-colors: auto,
+  new-style: auto,
+  remove-style: auto,
 ) = stack-style(
-  box-w: box-w, box-h: box-h, box-shape: box-shape, box-gap: box-gap,
-  box-stroke: box-stroke, box-fill: box-fill,
-  node-text: node-text, value-text: value-text, label-text: label-text,
-  pointer-text: pointer-text, operation-text: operation-text,
-  scale: scale, diff-colors: diff-colors,
-  new-style: new-style, remove-style: remove-style,
+  box-w: box-w,
+  box-h: box-h,
+  box-shape: box-shape,
+  box-gap: box-gap,
+  box-stroke: box-stroke,
+  box-fill: box-fill,
+  node-text: node-text,
+  value-text: value-text,
+  label-text: label-text,
+  pointer-text: pointer-text,
+  operation-text: operation-text,
+  scale: scale,
+  diff-colors: diff-colors,
+  new-style: new-style,
+  remove-style: remove-style,
 )
 
 #let array-style(
-  box-w: auto, box-h: auto, box-shape: auto, box-stroke: auto, box-fill: auto,
-  node-text: auto, value-text: auto, label-text: auto, index-text: auto,
-  pointer-text: auto, algorithm-label-text: auto, indices: auto, scale: auto,
+  box-w: auto,
+  box-h: auto,
+  box-shape: auto,
+  box-stroke: auto,
+  box-fill: auto,
+  node-text: auto,
+  value-text: auto,
+  label-text: auto,
+  index-text: auto,
+  pointer-text: auto,
+  algorithm-label-text: auto,
+  indices: auto,
+  scale: auto,
 ) = _build-style-dictionary(
-  box-w: box-w, box-h: box-h, box-shape: box-shape, box-stroke: box-stroke, box-fill: box-fill,
-  node-text: node-text, value-text: value-text, label-text: label-text,
-  index-text: index-text, pointer-text: pointer-text,
-  algorithm-label-text: algorithm-label-text, indices: indices, scale: scale,
+  box-w: box-w,
+  box-h: box-h,
+  box-shape: box-shape,
+  box-stroke: box-stroke,
+  box-fill: box-fill,
+  node-text: node-text,
+  value-text: value-text,
+  label-text: label-text,
+  index-text: index-text,
+  pointer-text: pointer-text,
+  algorithm-label-text: algorithm-label-text,
+  indices: indices,
+  scale: scale,
 )
 
 #let matrix-style(
-  box-w: auto, box-h: auto, box-shape: auto, box-stroke: auto, box-fill: auto,
-  node-text: auto, value-text: auto, label-text: auto, index-text: auto, scale: auto,
+  box-w: auto,
+  box-h: auto,
+  box-shape: auto,
+  box-stroke: auto,
+  box-fill: auto,
+  node-text: auto,
+  value-text: auto,
+  label-text: auto,
+  index-text: auto,
+  scale: auto,
 ) = _build-style-dictionary(
-  box-w: box-w, box-h: box-h, box-shape: box-shape, box-stroke: box-stroke, box-fill: box-fill,
-  node-text: node-text, value-text: value-text, label-text: label-text,
-  index-text: index-text, scale: scale,
+  box-w: box-w,
+  box-h: box-h,
+  box-shape: box-shape,
+  box-stroke: box-stroke,
+  box-fill: box-fill,
+  node-text: node-text,
+  value-text: value-text,
+  label-text: label-text,
+  index-text: index-text,
+  scale: scale,
 )
 
 // Merge a per-call override dict over the defaults.
@@ -737,8 +1107,11 @@
   }
 
   let label-defaults = theme.label-text
-  let label-size-is-unspecified = "size" not in label-defaults and (
-    "label-text" not in style or "size" not in style.label-text
+  let label-size-is-unspecified = (
+    "size" not in label-defaults
+      and (
+        "label-text" not in style or "size" not in style.label-text
+      )
   )
   // Annotation text scales from node text unless the theme or caller supplies
   // an explicit label size.
@@ -755,9 +1128,7 @@
   }
 
   resolved-style.value-text = (
-    resolved-style.node-text
-      + theme.value-text
-      + style.at("value-text", default: (:))
+    resolved-style.node-text + theme.value-text + style.at("value-text", default: (:))
   )
   resolved-style.distance-text = theme.distance-text + style.at("distance-text", default: (:))
   let label-text-roles = (
@@ -770,9 +1141,7 @@
   for text-role in label-text-roles {
     resolved-style.insert(
       text-role,
-      resolved-style.label-text
-        + theme.at(text-role)
-        + style.at(text-role, default: (:)),
+      resolved-style.label-text + theme.at(text-role) + style.at(text-role, default: (:)),
     )
   }
 
@@ -809,12 +1178,11 @@
   }
 }
 
-#let edge-mark(spec, fill: none) = {
+#let edge-mark(spec, fill: none, symbol: ">") = {
   let arrow-specification = spec
-  if arrow-specification == "both" { (start: ">", end: ">", fill: fill) }
-  else if arrow-specification == "start" { (start: ">", fill: fill) }
-  else if arrow-specification == "end" or arrow-specification == true { (end: ">", fill: fill) }
-  else { none }
+  if arrow-specification == "both" { (start: symbol, end: symbol, fill: fill) } else if arrow-specification == "start" {
+    (start: symbol, fill: fill)
+  } else if arrow-specification == "end" or arrow-specification == true { (end: symbol, fill: fill) } else { none }
 }
 
 #let _apply-dash-to-stroke(stroke, dash) = {
@@ -874,7 +1242,7 @@
   } else {
     none
   }
-  edge-mark(arrow-specification, fill: resolved-style.edge-arrow-fill)
+  edge-mark(arrow-specification, fill: resolved-style.edge-arrow-fill, symbol: resolved-style.edge-arrow-symbol)
 }
 
 #let edge-wave(th, custom: none) = {
@@ -945,8 +1313,7 @@
     let x = from-position.at(0) + delta-x * edge-ratio
     let y = from-position.at(1) + delta-y * edge-ratio
     let perpendicular-offset = (
-      calc.sin(360deg * wave-count * sample-ratio)
-        * resolved-style.edge-wave-amplitude
+      calc.sin(360deg * wave-count * sample-ratio) * resolved-style.edge-wave-amplitude
     )
     points.push((
       x - unit-y * perpendicular-offset,

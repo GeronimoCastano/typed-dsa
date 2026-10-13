@@ -590,3 +590,29 @@ All invariant checks passed.
 #let _ = graph(("Harbor": ("Campus",), "Campus": ()), layout: "linear", style: (node-shape: "capsule", node-fit: true)).diagram
 #let _ = graph(("A": (("B", [long label]),), "B": ()), style: (node-shape: "rounded", node-fit: true)).diagram
 #let _ = dijkstra(("A": (("B", 2),), "B": ()), "A", style: (node-shape: "rounded", node-fit: true, distance-text: (fill: red))).diagram
+
+// Empty adjacency is a valid empty graph in every automatic layout.
+#let _ = graph((:)).diagram
+#let _ = graph((:), layout: "layered").diagram
+#let _ = graph((:), layout: "linear").diagram
+#let _ = bfs(("A": ("B",), "B": ()), "A", style: (algorithm-label-text: (rotation: 12deg))).diagram
+#let _ = graph(("A": ("B",), "B": ()), node-labels: ("A": [note]), style: (node-labels: (enabled: false))).diagram
+#let _ = bst(2, 1, 3, node-labels: ((2, [note]),), style: (node-labels: (enabled: false))).diagram
+#let _ = bfs(
+  ("A": ("B",), "B": ()), "A",
+  style: (
+    visited-style: rgb("#C8E6C9"), current-style: rgb("#90CAF9"),
+    queued-style: rgb("#FFE082"), active-edge-style: rgb("#1971C2"),
+  ),
+).diagram
+#let _ = dijkstra(
+  ("S": (("A", 4),), "A": ()), "S",
+  node-labels: ("A": (color: green)),
+).steps.last().diagram
+
+#import "../src/graph/model.typ": _collect-graph-edges
+#let _canonical-undirected-edges-forward = _collect-graph-edges(("A": ("B",), "B": ("A",)), false)
+#let _canonical-undirected-edges-reverse = _collect-graph-edges(("B": ("A",), "A": ("B",)), false)
+#assert(_canonical-undirected-edges-forward == _canonical-undirected-edges-reverse)
+
+#assert(_is-close(_calculate-node-boundary-radius("hexagon", 0.5, 0.8660254, 0.5), 0.432256))

@@ -912,6 +912,26 @@
     expect: "rows entry 1 must be array",
     code: "#matrix(((), none)).diagram",
   ),
+  (
+    name: "graph: undirected edge customized in both endpoint orders",
+    expect: "is customized more than once",
+    code: "#graph((\"A\": (\"B\",), \"B\": ()), directed: false, edge-customizations: ((\"A\", \"B\", (stroke: red)), (\"B\", \"A\", (stroke: blue)))).diagram",
+  ),
+  (
+    name: "graph: edge label typography override without label content",
+    expect: "the edge has no label content",
+    code: "#graph((\"A\": (\"B\",), \"B\": ()), edge-customizations: ((\"A\", \"B\", (label: (size: 12pt))),)).diagram",
+  ),
+  (
+    name: "graph: bent edge cannot use a wavy pattern",
+    expect: "combines a bend with a wavy pattern",
+    code: "#graph((\"A\": (\"B\",), \"B\": ()), style: (edge-pattern: \"wavy\"), edge-customizations: ((\"A\", \"B\", (bend: \"left\")),)).diagram",
+  ),
+  (
+    name: "node: children array cannot contain an empty entry",
+    expect: "children: entry 0 is none",
+    code: "#tree(node(\"A\", children: (none, node(\"B\"))))",
+  )
 )
 
 // Every case is evaluated with the whole public API in scope, exactly as a

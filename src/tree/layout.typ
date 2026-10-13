@@ -17,8 +17,12 @@
   if tree-node == none { return (none, next-column) }
   tree-node._depth = depth
   if tree-node.kind == "subtree" {
-    tree-node._col = next-column
-    return (tree-node, next-column + 2)
+    if tree-node.h-label == none {
+      tree-node._col = next-column
+      return (tree-node, next-column + 2)
+    }
+    tree-node._col = next-column + 1
+    return (tree-node, next-column + 3)
   }
   let explicit-children = tree-node.at("children", default: none)
   if explicit-children != none {
@@ -105,11 +109,16 @@
 
 #let _calculate-column-half-width(tree-node, resolved-style) = {
   let drawn-half-width = if tree-node.kind == "subtree" {
-    resolved-style.tri-w / 2 * tree-node.tscale
+    let triangle-half-width = resolved-style.tri-w / 2 * tree-node.tscale
+    if tree-node.h-label == none {
+      triangle-half-width
+    } else {
+      triangle-half-width + 0.72
+    }
   } else {
     resolved-style.node-radius
   }
-  calc.max(0.5, drawn-half-width / resolved-style.x-gap)
+  calc.max(0.5, (drawn-half-width + 0.1) / resolved-style.x-gap)
 }
 
 // A subtree triangle hangs below its row; it blocks every row whose nodes

@@ -32,7 +32,7 @@
     node-labels,
     root,
   )
-  _render-tree(root, resolved-style: resolve(style), edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
+  _render-tree(root, resolved-style: resolve(style), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)
 }
 
 // ── Operations ───────────────────────────────────────────────────────────────
@@ -57,11 +57,10 @@
 
 // Every visible schematic part in a rotation: the pivot, the child promoted
 // above it, and the roots of T_A/T_B/T_C when those subtrees exist.
-#let _rotation-event-keys(event) = {
-  let keys = (event.pivot, event.new-top)
-  keys += event.subs
-  keys
-}
+#let _rotation-event-keys(event) = (
+  (event.pivot, event.new-top)
+    + if event.moved-subtree == none { () } else { (event.moved-subtree,) }
+)
 #let _rotated-node-keys(rotation-events) = {
   let keys = ()
   for rotation-event in rotation-events {
@@ -157,12 +156,12 @@
         "rotate",
       )
     } else {
+      let rotated-node-keys = _rotated-node-keys(rotation-events).filter(
+        rotated-node-key => rotated-node-key != key,
+      )
       (
         _create-value-marks((key,), "new")
-          + _create-value-marks(
-            _rotated-node-keys(rotation-events),
-            "rotate",
-          )
+          + _create-value-marks(rotated-node-keys, "rotate")
       )
     }
     let rotation-summary-label = if intermediate-panels.len() == 2 {
@@ -302,6 +301,7 @@
     tree-before-operation,
     marks: before-marks,
     resolved-style: resolved-style,
+    style: style,
     edge-customizations: edge-customizations,
     node-customizations: node-customizations,
     node-labels: node-labels,
@@ -310,6 +310,7 @@
     tree-after-operation,
     marks: after-marks,
     resolved-style: resolved-style,
+    style: style,
     edge-customizations: edge-customizations,
     node-customizations: node-customizations,
     node-labels: node-labels,
@@ -331,6 +332,7 @@
         panel.tree,
         marks: panel.marks,
         resolved-style: resolved-style,
+        style: style,
         edge-customizations: edge-customizations,
         node-customizations: node-customizations,
         node-labels: node-labels,
@@ -397,7 +399,7 @@
     )
   }
   (
-    diagram: _render-tree(root, resolved-style: resolve(style), edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels),
+    diagram: _render-tree(root, resolved-style: resolve(style), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels),
     insert: (key, rebalance: (:), step-label: none) => apply-operation(
       tree-insert(
         key,

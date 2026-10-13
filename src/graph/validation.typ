@@ -164,7 +164,7 @@
   ).join(", ")
 }
 
-#let _validate-graph-edge-references(where, adjacency, directed, edge-customizations) = {
+#let _validate-graph-edge-references(where, adjacency, directed, edge-customizations, style) = {
   check-customization-entries(
     where,
     "edge-customizations:",
@@ -172,12 +172,57 @@
     3,
     check-edge-customization-options,
   )
+  let customized-edge-keys = ()
+  for customization in edge-customizations {
+    let custom-from-id = customization.at(0)
+    let custom-to-id = customization.at(1)
+    let customized-edge-key = _graph-edge-key(custom-from-id, custom-to-id, directed)
+    if customized-edge-key in customized-edge-keys {
+      fail(
+        where,
+        "edge-customizations: edge " + show-value(custom-from-id) + " -> " + show-value(custom-to-id) + " is customized more than once",
+        expected: "at most one customization for each graph edge",
+        fix: "combine the options in one customization entry",
+      )
+    }
+    customized-edge-keys.push(customized-edge-key)
+  }
   let graph-edges = _collect-graph-edges(adjacency, directed)
   let declared-edge-keys = graph-edges.map(
     edge => _graph-edge-key(edge.at(0), edge.at(1), directed),
   )
-  for (custom-from-id, custom-to-id, _) in edge-customizations {
+  let resolved-style = resolve(style)
+  for (custom-from-id, custom-to-id, options) in edge-customizations {
     let customized-edge-key = _graph-edge-key(custom-from-id, custom-to-id, directed)
+    let has-bend = options.at("bend", default: false) not in (false, none)
+    if has-bend and edge-wave(resolved-style, custom: options) {
+      fail(
+        where,
+        "edge-customizations: edge " + show-value(custom-from-id) + " -> " + show-value(custom-to-id) + " combines a bend with a wavy pattern",
+        expected: "a bent edge with a solid, dashed, or dotted pattern",
+        fix: "set pattern: \"solid\" and wave: false, or remove bend:",
+      )
+    }
+    if "label" in options and customized-edge-key in declared-edge-keys {
+      let graph-edge-index = 0
+      for declared-edge-key in declared-edge-keys {
+        if declared-edge-key == customized-edge-key { break }
+        graph-edge-index += 1
+      }
+      let graph-edge-label = graph-edges.at(graph-edge-index).at(2)
+      let label-override = options.label
+      if graph-edge-label == none and type(label-override) == dictionary {
+        let has-content = "content" in label-override or "body" in label-override
+        if not has-content {
+          fail(
+            where,
+            "edge-customizations: label override for edge " + show-value(custom-from-id) + " -> " + show-value(custom-to-id) + " sets typography but the edge has no label content",
+            expected: "a content (or body) override, or an edge label in adjacency",
+            fix: "add an edge label or set label: (content: [text], size: 9pt)",
+          )
+        }
+      }
+    }
     if customized-edge-key in declared-edge-keys { continue }
     fail(
       where,
@@ -458,6 +503,7 @@
   node-labels,
   style,
   edge-routing: "manual",
+  require-node-label-content: true,
 ) = {
   _validate-graph-adjacency(where, adjacency)
   check-bool(where, "directed:", directed)
@@ -483,7 +529,12 @@
   check-id-value-references(where, "labels:", labels, node-ids)
   check-id-value-references(where, "node-labels:", node-labels, node-ids)
   for (_, label-value) in normalize-id-value-entries(where, "node-labels:", node-labels) {
-    check-node-label-override(where, "node-labels: entry", label-value)
+    check-node-label-override(
+      where,
+      "node-labels: entry",
+      label-value,
+      require-content: require-node-label-content,
+    )
   }
   check-customization-entries(
     where,
@@ -495,7 +546,7 @@
   for (node-id, _) in node-customizations {
     check-reference(where, "node-customizations:", node-id, node-ids)
   }
-  _validate-graph-edge-references(where, adjacency, directed, edge-customizations)
+  _validate-graph-edge-references(where, adjacency, directed, edge-customizations, style)
   _validate-graph-loop-options(where, adjacency, edge-customizations, style)
   _validate-graph-node-fit(where, resolve(style), node-customizations, node-ids)
   node-ids

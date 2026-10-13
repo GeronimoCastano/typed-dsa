@@ -55,7 +55,12 @@
         )
         if edge-key not in seen-edge-keys {
           seen-edge-keys.insert(edge-key, true)
-          graph-edges.push((from-node-id, to-node-id, edge-label))
+          let (canonical-from-node-id, canonical-to-node-id) = if from-node-id < to-node-id {
+            (from-node-id, to-node-id)
+          } else {
+            (to-node-id, from-node-id)
+          }
+          graph-edges.push((canonical-from-node-id, canonical-to-node-id, edge-label))
         }
       }
     }

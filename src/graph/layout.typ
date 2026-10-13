@@ -67,6 +67,19 @@
   if shape == "diamond" {
     return r / (calc.abs(ux) + calc.abs(uy))
   }
+  if shape == "hexagon" {
+    let absolute-x = calc.abs(ux)
+    let absolute-y = calc.abs(uy)
+    let flat-edge-distance = if absolute-y == 0 {
+      float.inf
+    } else {
+      0.86 * r / absolute-y
+    }
+    let slanted-edge-distance = (
+      0.86 * r / (0.86 * absolute-x + 0.5 * absolute-y)
+    )
+    return calc.min(flat-edge-distance, slanted-edge-distance)
+  }
   if shape == "capsule" {
     // A capsule is a straight box of half-length `straight-half-length` with
     // semicircular ends of radius r. A ray leaves through the flat top or
@@ -88,6 +101,7 @@
 #let _calculate-circular-graph-layout(node-ids, resolved-style, radius) = {
   let node-count = node-ids.len()
   let node-positions = (:)
+  if node-count == 0 { return node-positions }
   if node-count == 1 {
     node-positions.insert(node-ids.at(0), (0.0, 0.0))
     return node-positions

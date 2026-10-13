@@ -62,6 +62,7 @@
     _tree-node-key(middle-subtree),
     _tree-node-key(right-subtree),
   ).filter(subtree-key => subtree-key != none),
+  moved-subtree: _tree-node-key(middle-subtree),
 )
 
 // AVL insertion returns the balanced subtree, its rotation events, and the
@@ -376,6 +377,14 @@
       fix: "pass an array of node(...) values",
     )
     for (child-index, child) in children.enumerate() {
+      if child == none {
+        fail(
+          "node()",
+          "children: entry " + str(child-index) + " is none",
+          expected: "a node(...) value or subtree(...) value at every array position",
+          fix: "remove the empty entry or provide a node(...) value",
+        )
+      }
       _check-tree-node("node()", "children: entry " + str(child-index), child)
     }
     if left != none or right != none {

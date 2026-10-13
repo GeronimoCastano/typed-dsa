@@ -11,6 +11,29 @@
 
 // ── Render ───────────────────────────────────────────────────────────────────
 
+#let _calculate-tree-layout-style(resolved-style, node-customizations, style) = {
+  if "x-gap" in style { return resolved-style }
+  let layout-style = resolved-style
+  let maximum-node-half-width = resolved-style.node-radius
+  if resolved-style.node-shape == "capsule" {
+    maximum-node-half-width = 1.4 * resolved-style.node-radius
+  }
+  for (_, customization) in node-customizations {
+    let shape = customization.at("shape", default: resolved-style.node-shape)
+    let radius = customization.at("node-radius", default: resolved-style.node-radius)
+    let half-width = if shape == "capsule" { 1.4 * radius } else { radius }
+    maximum-node-half-width = calc.max(maximum-node-half-width, half-width)
+  }
+  let required-node-gap = 2 * maximum-node-half-width + 0.2
+  let required-subtree-gap = (resolved-style.tri-w + 0.2) / 2
+  layout-style.x-gap = calc.max(
+    resolved-style.x-gap,
+    required-node-gap,
+    required-subtree-gap,
+  )
+  layout-style
+}
+
 #let _tree-node-position(tree-node, resolved-style) = (
   tree-node._col * resolved-style.x-gap,
   -tree-node._depth * resolved-style.y-gap,
@@ -101,6 +124,28 @@
     from-position.at(1) + unit-y * boundary-distance,
   )
 }
+
+#let _calculate-edge-bend-point(from-position, to-position, bend-direction, angle) = {
+  let delta-x = to-position.at(0) - from-position.at(0)
+  let delta-y = to-position.at(1) - from-position.at(1)
+  let distance = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+  let midpoint-x = (from-position.at(0) + to-position.at(0)) / 2
+  let midpoint-y = (from-position.at(1) + to-position.at(1)) / 2
+  if distance == 0 { return (midpoint-x, midpoint-y) }
+  let unit-x = delta-x / distance
+  let unit-y = delta-y / distance
+  let (perpendicular-x, perpendicular-y) = if bend-direction == "left" {
+    (-unit-y, unit-x)
+  } else {
+    (unit-y, -unit-x)
+  }
+  let sagitta = (distance / 2) * calc.tan(angle)
+  (
+    midpoint-x + perpendicular-x * sagitta,
+    midpoint-y + perpendicular-y * sagitta,
+  )
+}
+
 
 #let _render-tree-edge(
   from-position,
@@ -204,26 +249,6 @@
   }
 }
 
-#let _calculate-edge-bend-point(from-position, to-position, bend-direction, angle) = {
-  let delta-x = to-position.at(0) - from-position.at(0)
-  let delta-y = to-position.at(1) - from-position.at(1)
-  let distance = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
-  let midpoint-x = (from-position.at(0) + to-position.at(0)) / 2
-  let midpoint-y = (from-position.at(1) + to-position.at(1)) / 2
-  if distance == 0 { return (midpoint-x, midpoint-y) }
-  let unit-x = delta-x / distance
-  let unit-y = delta-y / distance
-  let (perpendicular-x, perpendicular-y) = if bend-direction == "left" {
-    (-unit-y, unit-x)
-  } else {
-    (unit-y, -unit-x)
-  }
-  let sagitta = (distance / 2) * calc.tan(angle)
-  (
-    midpoint-x + perpendicular-x * sagitta,
-    midpoint-y + perpendicular-y * sagitta,
-  )
-}
 
 #let _resolve-tree-edge-label(resolved-style, custom) = {
   let style = resolved-style.edge-label-text
@@ -262,6 +287,7 @@
   let body = raw
   let style = resolved-style.label-text
   let defaults = resolved-style.at("node-labels", default: (:))
+  if not defaults.at("enabled", default: true) { return none }
   let position = defaults.at("position", default: "right")
   let offset = defaults.at("offset", default: (0, 0))
   let gap = defaults.at("gap", default: 0.22)
@@ -313,17 +339,33 @@
     label-direction.at(0),
     label-direction.at(1),
   )
-  let label-position = (
-    node-position.at(0)
-      + label-direction.at(0) * (boundary-distance + label-gap)
-      + offset-x,
-    node-position.at(1)
-      + label-direction.at(1) * (boundary-distance + label-gap)
-      + offset-y,
-  )
   let text-style = label.style
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
+  let label-size = measure(text(..text-style)[#label.body])
+  let half-label-width = label-size.width / 1cm / 2
+  let half-label-height = label-size.height / 1cm / 2
+  let rotation-radians = rotation
+  let rotated-half-width = (
+    calc.abs(calc.cos(rotation-radians)) * half-label-width
+      + calc.abs(calc.sin(rotation-radians)) * half-label-height
+  )
+  let rotated-half-height = (
+    calc.abs(calc.sin(rotation-radians)) * half-label-width
+      + calc.abs(calc.cos(rotation-radians)) * half-label-height
+  )
+  let projected-label-half-size = (
+    calc.abs(label-direction.at(0)) * rotated-half-width
+      + calc.abs(label-direction.at(1)) * rotated-half-height
+  )
+  let label-position = (
+    node-position.at(0)
+      + label-direction.at(0) * (boundary-distance + label-gap + projected-label-half-size)
+      + offset-x,
+    node-position.at(1)
+      + label-direction.at(1) * (boundary-distance + label-gap + projected-label-half-size)
+      + offset-y,
+  )
   content(label-position, text(..text-style)[#label.body], angle: rotation)
 }
 
@@ -481,8 +523,11 @@
   } else {
     1pt + fill-tint
   }
-  let text-fill = if fill-tint == none { black } else { fill-tint }
-  let text-style = resolved-style.value-text + (fill: text-fill)
+  let text-style = if fill-tint == none {
+    resolved-style.value-text
+  } else {
+    resolved-style.value-text + (fill: fill-tint)
+  }
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
   line(
@@ -507,7 +552,8 @@
     angle: rotation,
   )
   if subtree-node.h-label != none {
-    let bracket-x = node-position.at(0) - half-width - 0.32
+    let bracket-gap = 0.32
+    let bracket-x = node-position.at(0) - half-width - bracket-gap
     line(
       (bracket-x, node-position.at(1)),
       (bracket-x, node-position.at(1) - triangle-height),
@@ -600,15 +646,20 @@
 // resolved against `resolved-style`'s `<kind>-style` via `mark-style` at draw time — so a
 // per-call `style:` override actually reaches the mark, not just the theme
 // default.
-#let _render-tree(root, marks: (:), resolved-style: theme, edge-customizations: (), node-customizations: (), node-labels: (:)) = {
+#let _render-tree(root, marks: (:), resolved-style: theme, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
   if root == none { return scaled(resolved-style, cetz.canvas({ circle((0, 0), radius: 0.01, stroke: none) })) }
-  let placed = if resolved-style.tree-layout == "tidy" {
-    _calculate-tidy-tree-layout(root, resolved-style)
+  let layout-style = _calculate-tree-layout-style(
+    resolved-style,
+    node-customizations,
+    style,
+  )
+  let placed = if layout-style.tree-layout == "tidy" {
+    _calculate-tidy-tree-layout(root, layout-style)
   } else {
     _calculate-tree-layout(root, 0, 0).first()
   }
-  scaled(resolved-style, cetz.canvas({
-    _render-tree-edges(placed, resolved-style, edge-customizations, node-customizations)
-    _render-tree-nodes(placed, resolved-style, marks, node-customizations, node-labels)
+  context scaled(layout-style, cetz.canvas({
+    _render-tree-edges(placed, layout-style, edge-customizations, node-customizations)
+    _render-tree-nodes(placed, layout-style, marks, node-customizations, node-labels)
   }))
 }

@@ -94,7 +94,7 @@
     "node-labels:",
     node-labels,
   ) {
-    check-node-label-override(where, "node-labels: entry", label-value)
+    check-node-label-override(where, "node-labels: entry", label-value, require-content: true)
   }
 }
 

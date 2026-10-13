@@ -277,7 +277,7 @@
     [#c("style.label-text")], [`dictionary`], [#c("(fill: rgb(\"#555555\"))")], [Edge label text dictionary. See nested keys below.],
     [#c("style.edge-label-text")], [`dictionary`], [inherits #c("label-text")], [Edge-label typography.],
     [#c("style.algorithm-label-text")], [`dictionary`], [#c("(size: 8pt)")], [BFS/DFS/Dijkstra trace captions.],
-    [#c("style.distance-text")], [`dictionary`], [#c("(fill: rgb(\"#7048E8\"), weight: \"bold\")")], [Dijkstra #c("d = ...") labels. Unlike the other annotation roles it does not inherit #c("label-text"). Per-node #c("node-labels") keys still override it.],
+    [#c("style.distance-text")], [`dictionary`], [#c("(fill: rgb(\"#7048E8\"), weight: \"bold\")")], [Dijkstra #c("d = ...") labels. Unlike the other annotation roles it does not inherit #c("label-text"). Per-node #c("node-labels") can add content beside the distance and customize its style.],
     [#c("style.visited-style")], [`dictionary`], [green], [Visited-node fill/stroke/text/shape overrides.],
     [#c("style.current-style")], [`dictionary`], [blue], [Current-node overrides.],
     [#c("style.queued-style")], [`dictionary`], [yellow/orange], [Queued or stacked node overrides.],
@@ -354,7 +354,8 @@
     [#c("node-labels[].label.weight")], [`str` / `int`], [#c("style.label-text.weight")], [Typst text weight.],
   )
   subargtable([Nested keys for #c("style.node-labels")],
-    [#c("style.node-labels.position")], [`str` / `angle`], [`"right"`], [Default position for all node labels in this diagram.],
+    [#c("style.node-labels.enabled")], [`bool`], [`true`], [Set #c("false") to hide node labels for this diagram.],
+  [#c("style.node-labels.position")], [`str` / `angle`], [`"right"`], [Default position for all node labels in this diagram.],
     [#c("style.node-labels.offset")], [`point`], [`(0, 0)`], [Default extra #c("(dx, dy)") shift for all node labels.],
     [#c("style.node-labels.gap")], [`float`], [`0.22`], [Default distance from the node boundary in canvas units.],
     [#c("style.node-labels.size")], [`length`], [#c("style.label-text.size")], [Default node-label text size.],
@@ -1563,7 +1564,7 @@ markers together, plus customized bubble-sort marker strokes.
   [#c("layout-options")], [`dictionary`], [`(:)`], [Options for #c("\"force\"") or #c("\"layered\""). Non-empty options with another layout are an error.],
   [#c("radius")], [`auto` / `float`], [`auto`], [Circle radius for #c("layout: \"auto\""). Passing a radius with another layout is an error.],
   [#c("gap")], [`auto` / `float`], [`auto`], [Spacing between nodes for #c("layout: \"linear\""), in canvas units. #c("auto") is #c("1.5"). Passing a gap with another layout is an error.],
-  [#c("edge-routing")], [`str`], [`"manual"`], [#c("auto") bends reciprocal directed edges apart when no explicit #c("bend") is given; #c("manual") preserves ordinary edge geometry.],
+  [#c("edge-routing")], [`str`], [`"manual"`], [#c("auto") bends reciprocal directed edges apart. Straight edges also bend around blocking nodes in linear and layered layouts; explicit #c("bend") values always win. #c("manual") preserves other ordinary edge geometry.],
   [#c("edge-customizations")], [`array`], [`()`], [#c("(from, to, options)") tuples restyling one edge. See below.],
   [#c("node-customizations")], [`array`], [`()`], [#c("(node, options)") tuples restyling one node by graph identity.],
   [#c("node-labels")], [`array` / `dictionary`], [`(:)`], [Labels drawn outside individual graph nodes.],
@@ -1634,10 +1635,13 @@ positions are specified relatively. Coincident unconnected nodes remain allowed.
   ```)
 ]
 
-#note[#c("edge-routing: \"auto\"") uses a left bend relative to each directed
-edge, separating the two directions. Explicit #c("bend") values always win,
-including #c("false") to keep an edge straight. Other overrides such as color
-or labels do not disable routing. Undirected edges are unaffected.]
+#note[#c("edge-routing: \"auto\"") bends reciprocal directed edges apart,
+using a left bend relative to each edge's travel direction. Independently,
+straight edges in linear and layered layouts bend around intermediate nodes
+that block their route. Explicit #c("bend") values always win, including
+#c("false") to keep an edge straight. Other overrides such as color or labels
+do not disable routing. Undirected edges are unaffected. Bent edges cannot use
+the wavy pattern; choose a solid, dashed, or dotted pattern, or remove the bend.]
 
 #methodtable(
   [#c(".diagram")], [n/a], [The rendered graph.],
@@ -1982,6 +1986,8 @@ with several lines can extend past the top and bottom of its node.]
   #c("edge-customizations") still use for identity. With any automatic layout,
   #c("positions") places a node at an absolute #c("(x, y)") point or at
   #c("(rel: other-label, offset: (dx, dy))") on top of the calculated layout.
+  Automatic layouts are centered around the origin before absolute overrides
+  are applied, so overrides share that centered coordinate frame.
 
   #example(```typ
   #graph(
@@ -2075,7 +2081,9 @@ transition yet. See @limitations.]
   inspected. When #c("dijkstra") reaches a target, its final step also
   highlights every edge in the shortest path. #c("source") is required;
   #c("target") is optional so a trace can either stop at a goal or traverse
-  every reachable node.
+  every reachable node. With #c("target:"), Dijkstra stops when the target is
+  settled; distances for nodes that remain unsettled are tentative and may not
+  be their final shortest distances.
 
   ```typ
   #bfs(adjacency, source, target: none, directed: true, goal-test: "discovery", columns: 1, captions: true, language: "en", messages: (:), ..graph-options)
@@ -2104,12 +2112,23 @@ discovery already gives a shortest path. Choose #c("goal-test: \"expansion\"")
 to keep the traditional dequeue-and-test trace, which may show work on other
 queued nodes before the target is removed.]
 
+#note[#c("dfs") uses an explicit stack and marks nodes when it pushes them.
+This is a valid iterative depth-first traversal, though cross-edges can give it
+an order or target path that differs from recursive DFS.]
+
 #note[#c("dijkstra") treats an unlabeled edge as weight #c("1"). Weighted
 entries must use non-negative numeric values such as #c("(\"B\", 4)"). It
 draws a distinct #c("d = ...") label beside every node on every step, styled by
 #c("style.distance-text") (purple and bold by default). The default label gap is
 #c("0.5") canvas units. #c("style.node-labels.gap") or per-node #c("node-labels")
-options can override it.]
+options can override it. The default side is chosen to avoid the node's incident
+edges; an explicit label position remains in control. Supplied node-label
+content is shown beside each distance. With #c("target:"), distances for
+unsettled nodes remain tentative.]
+
+#note[#c("visited-style"), #c("current-style"), and #c("queued-style") accept
+either a bare fill color or a style dictionary. #c("active-edge-style") accepts
+a bare stroke color or a dictionary containing edge stroke options.]
 
 #demo[
   #c("style.distance-text") changes the look of every distance label. A per-node
@@ -2211,6 +2230,14 @@ including force layouts, so state highlighting never makes nodes drift.]
   )
 ]
 
+#note[Automatic tree spacing accounts for node radii and elided-triangle widths.
+Height brackets reserve room in both automatic tree layouts. An explicit
+#c("style.x-gap") remains a layout choice; increase it when using unusually
+wide height-bracket text.]
+
+#note[Subtree triangle labels and height labels use #c("style.node-text"), so
+theme text colors apply to both.]
+
 #demo[
   #example(```typ
   #tree(
@@ -2252,7 +2279,7 @@ including force layouts, so state highlighting never makes nodes drift.]
 ]
 
 #demo[
-  Use #c("children: (...)") for B-tree-style or n-ary schematics.
+  Use #c("children: (...)") for B-tree-style or n-ary schematics. Every entry must be a node or subtree value; omit empty entries.
 
   #example(```typ
   #tree(

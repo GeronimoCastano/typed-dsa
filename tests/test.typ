@@ -1686,3 +1686,42 @@
   graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "capsule")).diagram,
   graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "capsule", node-fit: true)).diagram,
 ))
+
+#section("Tree edge bends and height bracket spacing", grid(
+  columns: 2, column-gutter: 2em,
+  bst(5, 3, edge-customizations: ((5, 3, (bend: "left")),)).diagram,
+  tree(node(0, left: node(2), right: subtree("T", height: [h]))),
+))
+#section("Dark subtree text and AVL inserted-node highlight", grid(
+  columns: 2, column-gutter: 2em,
+  tree(node(1, left: subtree("TA", height: [h]), right: node(3)), style: theme-preset("dark")),
+  transition("avl", (20, 10, 30, 40), tree-insert(50)),
+))
+#section("Graph edge labels at resolved node boundaries", grid(
+  columns: 2, column-gutter: 2em,
+  graph(("A": (("B", [weight]),), "B": ()), layout: "manual", positions: ("A": (0, 0), "B": (3, 0)), node-customizations: (("A", (node-radius: 2.0)),)).diagram,
+  graph(("A": ("B",), "B": ()), layout: "manual", positions: ("A": (0, 0), "B": (3, 1)), style: (node-shape: "hexagon", node-radius: 0.5)).diagram,
+))
+#section("Boolean bent-edge labels sit clear of the curve", graph(
+  ("A": (("B", [weight]),), "B": ()),
+  layout: "manual", positions: ("A": (0, 0), "B": (3, 0)),
+  edge-customizations: (("A", "B", (bend: true)),),
+).diagram)
+#section("Dijkstra target stops with tentative other distances", dijkstra(
+  ("S": (("T", 1), ("Y", 50), ("X", 100)), "Y": (("X", 10),), "T": (), "X": ()),
+  "S", target: "T",
+).steps.last().diagram)
+#section("Wide labels clear their node boundaries", grid(
+  columns: 2, column-gutter: 2em,
+  bst(50, 30, 70, node-labels: ((50, [WWWW]), (30, [mm]))).diagram,
+  graph(("Harbor": ("Campus",), "Campus": ()), layout: "linear", node-labels: ("Harbor": [Harbor District])).diagram,
+))
+#section("Dijkstra keeps supplied annotation content and rotates captions", dijkstra(
+  ("S": (("A", 4), ("B", 1)), "B": (("A", 2),), "A": ()),
+  "S", node-labels: ("A": [note]), style: (algorithm-label-text: (rotation: 12deg)),
+).steps.last().diagram)
+#section("Disable tree and graph node annotations", grid(
+  columns: 2, column-gutter: 2em,
+  bst(2, 1, 3, node-labels: ((2, [note]),), style: (node-labels: (enabled: false))).diagram,
+  graph(("A": ("B",), "B": ()), node-labels: ("A": [note]), style: (node-labels: (enabled: false))).diagram,
+))

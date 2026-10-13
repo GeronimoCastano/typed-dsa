@@ -10,7 +10,7 @@
 )
 #import "../shared/messages.typ": default-catalog, resolve-catalog, msg
 #import "model.typ": (
-  _collect-graph-node-ids, _edge-display-label, _edge-target-id,
+  _collect-graph-edges, _collect-graph-node-ids, _edge-display-label, _edge-target-id,
 )
 #import "layout.typ": _resolve-graph-layout
 #import "render.typ": (
@@ -50,6 +50,11 @@
   neighbors
 }
 
+#let _normalize-graph-state-node-style(style) = {
+  if type(style) == color { return (fill: style) }
+  style
+}
+
 #let _build-graph-state-node-customizations(
   base-customizations,
   node-ids,
@@ -74,7 +79,9 @@
     } else {
       none
     }
-    if state-style != none { node-customization += state-style }
+    if state-style != none {
+      node-customization += _normalize-graph-state-node-style(state-style)
+    }
     if node-customization.len() > 0 {
       state-customizations.push((node-id, node-customization))
     }
@@ -157,12 +164,54 @@
   state-customizations
 }
 
+#let _select-distance-label-position(node-id, adjacency, node-positions, directed) = {
+  let node-position = node-positions.at(node-id)
+  let directions = (
+    ("right", (1, 0)),
+    ("left", (-1, 0)),
+    ("top", (0, 1)),
+    ("bottom", (0, -1)),
+  )
+  let maximum-edge-alignment = (right: -1, left: -1, top: -1, bottom: -1)
+  for (from-node-id, to-node-id, _) in _collect-graph-edges(adjacency, directed) {
+    if from-node-id != node-id and to-node-id != node-id { continue }
+    let other-node-id = if from-node-id == node-id { to-node-id } else { from-node-id }
+    if other-node-id == node-id { continue }
+    let other-position = node-positions.at(other-node-id)
+    let delta-x = other-position.at(0) - node-position.at(0)
+    let delta-y = other-position.at(1) - node-position.at(1)
+    let distance = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+    if distance == 0 { continue }
+    let unit-edge = (delta-x / distance, delta-y / distance)
+    for (side, direction) in directions {
+      let alignment = direction.at(0) * unit-edge.at(0) + direction.at(1) * unit-edge.at(1)
+      maximum-edge-alignment.insert(
+        side,
+        calc.max(maximum-edge-alignment.at(side), alignment),
+      )
+    }
+  }
+  let selected-side = "right"
+  let selected-alignment = maximum-edge-alignment.right
+  for (side, _) in directions.slice(1) {
+    if maximum-edge-alignment.at(side) < selected-alignment {
+      selected-side = side
+      selected-alignment = maximum-edge-alignment.at(side)
+    }
+  }
+  selected-side
+}
+
 #let _build-distance-node-labels(
   node-ids,
   distances,
   supplied-labels,
   resolved-style,
   message-catalog,
+  adjacency,
+  node-positions,
+  directed,
+  style,
 ) = {
   let distance-labels = ()
   for node-id in node-ids {
@@ -180,10 +229,33 @@
     let label-customization = resolved-style.distance-text
     let label-defaults = resolved-style.at("node-labels", default: (:))
     if "gap" not in label-defaults { label-customization.gap = 0.5 }
-    if type(supplied-label) == dictionary {
-      label-customization += supplied-label
+    let requested-node-label-style = style.at("node-labels", default: (:))
+    let supplied-position = if type(supplied-label) == dictionary {
+      supplied-label.at("position", default: none)
+    } else {
+      none
     }
-    label-customization.content = label-body
+    if supplied-position == none and "position" not in requested-node-label-style {
+      label-customization.position = _select-distance-label-position(
+        node-id, adjacency, node-positions, directed,
+      )
+    }
+    let supplied-body = supplied-label
+    if type(supplied-label) == dictionary {
+      supplied-body = supplied-label.at(
+        "content",
+        default: supplied-label.at("body", default: none),
+      )
+      let supplied-style = supplied-label
+      let _ = supplied-style.remove("content", default: none)
+      let _ = supplied-style.remove("body", default: none)
+      label-customization += supplied-style
+    }
+    label-customization.content = if supplied-body == none {
+      label-body
+    } else {
+      [#label-body #h(0.2em) #supplied-body]
+    }
     distance-labels.push((node-id, label-customization))
   }
   distance-labels
@@ -191,7 +263,7 @@
 
 #let _create-graph-algorithm-step(
   label, adjacency, directed, labels, node-positions,
-  edge-customizations, node-customizations, node-labels, resolved-style,
+  edge-customizations, node-customizations, node-labels, resolved-style, style,
   visited, current, queued, active,
   captions, distances: none, path: (), cat: default-catalog, edge-routing: "manual",
 ) = {
@@ -220,6 +292,10 @@
       node-labels,
       resolved-style,
       cat,
+      adjacency,
+      node-positions,
+      directed,
+      style,
     )
   }
   let graph-diagram = _render-graph-at-positions(
@@ -242,7 +318,17 @@
     path: path,
     node-positions: node-positions,
     diagram: align(center)[
-      #if captions [#text(..resolved-style.algorithm-label-text)[#label] #v(0.25em)]
+      #if captions {
+        let caption-style = resolved-style.algorithm-label-text
+        let caption-rotation = caption-style.at("rotation", default: 0deg)
+        if "rotation" in caption-style { let _ = caption-style.remove("rotation") }
+        if caption-rotation == 0deg {
+          text(..caption-style)[#label]
+        } else {
+          rotate(caption-rotation)[#text(..caption-style)[#label]]
+        }
+        v(0.25em)
+      }
       #graph-diagram
     ],
   ) + if distances == none { (:) } else { (distances: distances,) }
@@ -273,11 +359,14 @@
   gap, layout-options, edge-customizations, node-customizations, node-labels,
   style, columns, captions,
   edge-routing: "manual",
+  require-node-label-content: true,
 ) = {
   let node-ids = _validate-graph-arguments(
     where, adjacency, directed, labels, positions, layout, radius, gap,
     layout-options,
-    edge-customizations, node-customizations, node-labels, style, edge-routing: edge-routing,
+    edge-customizations, node-customizations, node-labels, style,
+    edge-routing: edge-routing,
+    require-node-label-content: require-node-label-content,
   )
   check-integer(where, "columns:", columns, min: 1)
   check-bool(where, "captions:", captions)
@@ -367,7 +456,7 @@
   let steps = ()
   let create-step(label, state-visited, state-queued, current: none, active: none) = _create-graph-algorithm-step(
     label, adjacency, directed, labels, node-positions,
-    edge-customizations, node-customizations, node-labels, resolved-style,
+    edge-customizations, node-customizations, node-labels, resolved-style, style,
     state-visited, current, state-queued, active, captions,
     cat: message-catalog, edge-routing: edge-routing,
   )
@@ -516,7 +605,7 @@
   let steps = ()
   let create-step(label, state-visited, state-frontier, current: none, active: none) = _create-graph-algorithm-step(
     label, adjacency, directed, labels, node-positions,
-    edge-customizations, node-customizations, node-labels, resolved-style,
+    edge-customizations, node-customizations, node-labels, resolved-style, style,
     state-visited, current, state-frontier, active, captions,
     cat: message-catalog, edge-routing: edge-routing,
   )
@@ -611,6 +700,7 @@
     "dijkstra()", adjacency, source, target, directed, labels, positions, layout,
     radius, gap, layout-options, edge-customizations, node-customizations,
     node-labels, style, columns, captions, edge-routing: edge-routing,
+    require-node-label-content: false,
   )
   _validate-dijkstra-weights("dijkstra()", adjacency)
   let resolved-style = resolve(style)
@@ -636,7 +726,7 @@
   )
   let create-step(label, state-settled, state-distances, current: none, active: none, path: ()) = _create-graph-algorithm-step(
     label, adjacency, directed, labels, node-positions,
-    edge-customizations, node-customizations, node-labels, resolved-style,
+    edge-customizations, node-customizations, node-labels, resolved-style, style,
     state-settled,
     current,
     frontier-node-ids(state-distances, state-settled, current: current),

@@ -34,7 +34,67 @@
   none
 }
 
-#let _resolve-graph-edge-routing(graph-edges, from-node-id, to-node-id, directed, edge-routing, custom) = {
+#let _select-automatic-edge-bend(
+  from-node-id,
+  to-node-id,
+  node-ids,
+  node-positions,
+  node-boundaries,
+) = {
+  let from-position = node-positions.at(from-node-id)
+  let to-position = node-positions.at(to-node-id)
+  let delta-x = to-position.at(0) - from-position.at(0)
+  let delta-y = to-position.at(1) - from-position.at(1)
+  let edge-length = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+  if edge-length == 0 { return none }
+  let closest-obstacle = none
+  let closest-obstacle-distance = float.inf
+  let required-clearance = 0.0
+  for obstacle-node-id in node-ids {
+    if obstacle-node-id == from-node-id or obstacle-node-id == to-node-id { continue }
+    let obstacle-position = node-positions.at(obstacle-node-id)
+    let projection = (
+      (obstacle-position.at(0) - from-position.at(0)) * delta-x
+        + (obstacle-position.at(1) - from-position.at(1)) * delta-y
+    ) / (edge-length * edge-length)
+    if projection <= 0.05 or projection >= 0.95 { continue }
+    let projected-x = from-position.at(0) + projection * delta-x
+    let projected-y = from-position.at(1) + projection * delta-y
+    let distance-x = obstacle-position.at(0) - projected-x
+    let distance-y = obstacle-position.at(1) - projected-y
+    let distance = calc.sqrt(distance-x * distance-x + distance-y * distance-y)
+    let boundary = node-boundaries.at(obstacle-node-id)
+    let obstacle-radius = calc.max(boundary.at(1), boundary.at(2))
+    if distance >= obstacle-radius + 0.15 { continue }
+    if distance < closest-obstacle-distance {
+      closest-obstacle = (obstacle-node-id, distance-x * delta-y - distance-y * delta-x)
+      closest-obstacle-distance = distance
+      required-clearance = obstacle-radius + 0.15
+    }
+  }
+  if closest-obstacle == none { return none }
+  let side-cross-product = closest-obstacle.at(1)
+  let bend-direction = if side-cross-product > 0 { "left" } else { "right" }
+  let required-sagitta = required-clearance - closest-obstacle-distance + 0.15
+  let suggested-angle = calc.min(
+    60deg,
+    calc.atan(2 * required-sagitta / edge-length),
+  )
+  (bend: bend-direction, angle: suggested-angle)
+}
+
+#let _resolve-graph-edge-routing(
+  graph-edges,
+  from-node-id,
+  to-node-id,
+  directed,
+  edge-routing,
+  custom,
+  reciprocal-custom: none,
+  node-ids: (),
+  node-positions: none,
+  node-boundaries: none,
+) = {
   let options = if custom == none { (:) } else { custom }
   let has-reciprocal-edge = graph-edges.any(edge => (
     edge.at(0) == to-node-id and edge.at(1) == from-node-id
@@ -44,7 +104,29 @@
       and has-reciprocal-edge and "bend" not in options
   )
   if should-route-reciprocal-edge {
-    options.bend = "left"
+    let reciprocal-bend = if reciprocal-custom != none {
+      reciprocal-custom.at("bend", default: none)
+    } else {
+      none
+    }
+    options.bend = if reciprocal-bend in ("left", "right") {
+      reciprocal-bend
+    } else {
+      "left"
+    }
+  }
+  if "bend" not in options and node-positions != none {
+    let automatic-bend = _select-automatic-edge-bend(
+      from-node-id,
+      to-node-id,
+      node-ids,
+      node-positions,
+      node-boundaries,
+    )
+    if automatic-bend != none {
+      options.bend = automatic-bend.bend
+      options.angle = automatic-bend.angle
+    }
   }
   options
 }
@@ -79,7 +161,16 @@
 }
 
 
-#let _calculate-edge-label-position(p, q, r, custom, resolved-style) = {
+#let _trim-edge-to-boundary(node-position, toward-position, boundary) = _trim-edge-to-node-boundary(
+  node-position,
+  toward-position,
+  boundary.at(1),
+  shape: boundary.at(0),
+  half-width: boundary.at(2),
+)
+
+
+#let _calculate-edge-label-position(p, q, from-boundary, to-boundary, custom, resolved-style) = {
   let dx = q.at(0) - p.at(0)
   let dy = q.at(1) - p.at(1)
   let len = calc.sqrt(dx * dx + dy * dy)
@@ -89,8 +180,8 @@
     if bend == false or bend == none {
       let ux = dx / len
       let uy = dy / len
-      let a = (p.at(0) + ux * r, p.at(1) + uy * r)
-      let b = (q.at(0) - ux * r, q.at(1) - uy * r)
+      let a = _trim-edge-to-boundary(p, q, from-boundary)
+      let b = _trim-edge-to-boundary(q, p, to-boundary)
       ((a.at(0) + b.at(0)) / 2, (a.at(1) + b.at(1)) / 2)
     } else {
       let angle = if custom != none { custom.at("angle", default: 25deg) } else { 25deg }
@@ -113,7 +204,7 @@
   // Choose the orthogonal shift direction.
   let (ox, oy) = if bend == "left" {
     (-uy, ux) // Shift further outward in the direction of the left bend
-  } else if bend == "right" {
+  } else if bend == "right" or bend == true {
     (uy, -ux) // Shift further outward in the direction of the right bend
   } else {
     // For straight edges, we want the orthogonal vector that points "up" (negative y).
@@ -139,13 +230,6 @@
 
 // A node boundary is `(shape, radius, half-width)`: `radius` is the half-height,
 // and `half-width` is the measured width for node-fit nodes.
-#let _trim-edge-to-boundary(node-position, toward-position, boundary) = _trim-edge-to-node-boundary(
-  node-position,
-  toward-position,
-  boundary.at(1),
-  shape: boundary.at(0),
-  half-width: boundary.at(2),
-)
 
 #let _render-graph-edge(p, q, from-boundary, to-boundary, directed, resolved-style, custom) = {
   let stroke = edge-stroke(resolved-style, custom: custom)
@@ -180,7 +264,7 @@
   }
 }
 
-#let _render-graph-edge-label(label, p, q, r, resolved-style, custom) = {
+#let _render-graph-edge-label(label, p, q, from-boundary, to-boundary, resolved-style, custom) = {
   let displayed-label = label
   let label-options = if custom == none { none } else { custom.at("label", default: none) }
   if custom != none and "label" in custom {
@@ -189,7 +273,7 @@
     } else { displayed-label = label-options }
   }
   if displayed-label == none { return }
-  let pt = _calculate-edge-label-position(p, q, r, custom, resolved-style)
+  let pt = _calculate-edge-label-position(p, q, from-boundary, to-boundary, custom, resolved-style)
 
   let label-style = resolved-style.edge-label-text
   let rotation = label-style.at("rotation", default: 0deg)
@@ -245,7 +329,7 @@
     (label-size / 1pt) * 0.6 / 28.346
   } else { 0.22 }
   let label-position = (geometry.label.at(0), geometry.label.at(1) + geometry.side * label-gap)
-  _render-graph-edge-label(label, label-position, label-position, 0, resolved-style, custom)
+  _render-graph-edge-label(label, label-position, label-position, none, none, resolved-style, custom)
 }
 
 #let _graph-node-label-direction(pos) = {
@@ -263,6 +347,7 @@
   let body = raw
   let style = resolved-style.label-text
   let defaults = resolved-style.at("node-labels", default: (:))
+  if not defaults.at("enabled", default: true) { return none }
   let position = defaults.at("position", default: "right")
   let offset = defaults.at("offset", default: (0, 0))
   let gap = defaults.at("gap", default: 0.22)
@@ -315,17 +400,33 @@
     label-direction.at(1),
     half-width: boundary.at(2),
   )
-  let label-position = (
-    node-position.at(0)
-      + label-direction.at(0) * (boundary-distance + label-gap)
-      + offset-x,
-    node-position.at(1)
-      + label-direction.at(1) * (boundary-distance + label-gap)
-      + offset-y,
-  )
   let text-style = label.style
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
+  let label-size = measure(text(..text-style)[#label.body])
+  let half-label-width = label-size.width / 1cm / 2
+  let half-label-height = label-size.height / 1cm / 2
+  let rotation-radians = rotation
+  let rotated-half-width = (
+    calc.abs(calc.cos(rotation-radians)) * half-label-width
+      + calc.abs(calc.sin(rotation-radians)) * half-label-height
+  )
+  let rotated-half-height = (
+    calc.abs(calc.sin(rotation-radians)) * half-label-width
+      + calc.abs(calc.cos(rotation-radians)) * half-label-height
+  )
+  let projected-label-half-size = (
+    calc.abs(label-direction.at(0)) * rotated-half-width
+      + calc.abs(label-direction.at(1)) * rotated-half-height
+  )
+  let label-position = (
+    node-position.at(0)
+      + label-direction.at(0) * (boundary-distance + label-gap + projected-label-half-size)
+      + offset-x,
+    node-position.at(1)
+      + label-direction.at(1) * (boundary-distance + label-gap + projected-label-half-size)
+      + offset-y,
+  )
   content(label-position, text(..text-style)[#label.body], angle: rotation)
 }
 
@@ -441,8 +542,24 @@
         to-node-id,
         directed,
       )
+      let reciprocal-customization = if directed {
+        _resolve-graph-edge-customization(
+          edge-customizations, to-node-id, from-node-id, directed,
+        )
+      } else {
+        none
+      }
       edge-customization = _resolve-graph-edge-routing(
-        graph-edges, from-node-id, to-node-id, directed, edge-routing, edge-customization,
+        graph-edges,
+        from-node-id,
+        to-node-id,
+        directed,
+        edge-routing,
+        edge-customization,
+        reciprocal-custom: reciprocal-customization,
+        node-ids: node-ids,
+        node-positions: node-positions,
+        node-boundaries: node-boundaries,
       )
       let from-boundary = node-boundaries.at(from-node-id)
       let to-boundary = node-boundaries.at(to-node-id)
@@ -465,7 +582,8 @@
           edge-label,
           node-positions.at(from-node-id),
           node-positions.at(to-node-id),
-          resolved-style.node-radius,
+          from-boundary,
+          to-boundary,
           resolved-style,
           edge-customization,
         )
@@ -506,7 +624,7 @@
   edge-routing: "manual",
 ) = {
   if not resolved-style.node-fit {
-    return _draw-graph-at-positions(
+    return context _draw-graph-at-positions(
       adjacency, directed, labels, node-positions, edge-customizations,
       node-customizations, node-labels, resolved-style, edge-routing, (:),
     )

@@ -687,6 +687,16 @@
     code: "#bst(5, 3, style: (edge-pattern: \"squiggly\")).diagram",
   ),
   (
+    name: "style: an unknown edge arrow symbol",
+    expect: "not a supported value",
+    code: "#bst(5, 3, style: (edge-arrow-symbol: \"latex\")).diagram",
+  ),
+  (
+    name: "style: an edge arrow symbol that is not a mark name",
+    expect: "not a supported value",
+    code: "#graph((\"A\": (\"B\",), \"B\": ()), style: (edge-arrow-symbol: 5)).diagram",
+  ),
+  (
     name: "style: an indices dictionary with an unknown key",
     expect: "unknown key \"enable\"",
     code: "#array-view(1, 2, style: (indices: (enable: true))).diagram",

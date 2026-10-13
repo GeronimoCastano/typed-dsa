@@ -2,7 +2,9 @@
 // any broken invariant aborts compilation with a failed assert.
 //   typst compile --root . tests/check.typ /dev/null
 
-#import "../src/tree/facade.typ": _build-search-tree, _calculate-balance-factor, _remove-bst-node, _insert-bst-node, _remove-avl-node
+#import "../src/tree/facade.typ": (
+  _build-search-tree, _calculate-balance-factor, _insert-bst-node, _remove-avl-node, _remove-bst-node,
+)
 #import "../src/graph/layout.typ": _project-point-to-graph-edge
 #import "../src/sorting/common.typ": _sorting-trace-shows-indices
 
@@ -25,8 +27,8 @@
   if tree-node == none { return true }
   (
     calc.abs(_calculate-balance-factor(tree-node)) <= 1
-    and is-height-balanced(tree-node.left)
-    and is-height-balanced(tree-node.right)
+      and is-height-balanced(tree-node.left)
+      and is-height-balanced(tree-node.right)
   )
 }
 
@@ -77,9 +79,12 @@
 #assert(rotation-events.len() > 0, message: "AVL delete should rotate here")
 
 // Duplicate inserts are ignored.
-#assert(inorder(
-  _insert-bst-node(_build-search-tree("bst", (5, 3, 8)), 3),
-).len() == 3)
+#assert(
+  inorder(
+    _insert-bst-node(_build-search-tree("bst", (5, 3, 8)), 3),
+  ).len()
+    == 3,
+)
 
 // ── Valid input stays valid ──────────────────────────────────────────────────
 //
@@ -89,11 +94,9 @@
 // never become a diagnostic.
 
 #import "../src/lib.typ": (
-  array-view, bfs, bst, dfs, dijkstra, doubly-linked-list, graph, hash-table,
-  linked-list, matrix, merge-sort, min-heap, skip-list, stack, theme-preset,
-  transition, tree, node, subtree, queue, tree-search, quick-sort,
-  merge-operation, partition-step, bubble-sort, insertion-sort, selection-sort,
-  indices-style,
+  array-view, bfs, bst, bubble-sort, dfs, dijkstra, doubly-linked-list, graph, graph-style, hash-table, heap-style,
+  indices-style, insertion-sort, linked-list, matrix, merge-operation, merge-sort, min-heap, node, partition-step,
+  queue, quick-sort, selection-sort, skip-list, stack, subtree, theme-preset, transition, tree, tree-search, tree-style,
 )
 
 // An unsuccessful search reports itself instead of failing.
@@ -125,6 +128,13 @@
 
 // Optional and alternative spellings of style values stay accepted.
 #let _ = bst(5, 3, style: (node-fill: none, edge-arrow: none, edge-pattern: none)).diagram
+#assert.eq(tree-style(edge-arrow-symbol: ">>"), (edge-arrow-symbol: ">>"))
+#assert.eq(heap-style(edge-arrow-symbol: "o"), (edge-arrow-symbol: "o"))
+#assert.eq(graph-style(edge-arrow-symbol: "stealth"), (edge-arrow-symbol: "stealth"))
+#let _ = bst(30, 20, 40, style: (edge-arrow: "both", edge-arrow-symbol: ">>", edge-pattern: "wavy")).diagram
+#let _ = min-heap(4, 2, 3, style: (edge-arrow: "end", edge-arrow-symbol: "o")).diagram
+#let _ = graph(("A": ("B",), "B": ()), style: (edge-arrow-symbol: "stealth", edge-pattern: "wavy")).diagram
+#let _ = graph(("A": ("B",), "B": ()), style: graph-style(edge-arrow-symbol: "parenthesis")).diagram
 #let _ = bst(5, 3, style: theme-preset("dark")).diagram
 #let _ = bst(5, 3, style: (node-text: (color: red), new-style: (fill: red, shape: "square"))).diagram
 #let _ = linked-list(1, 2, style: (box-gap: 0)).diagram
@@ -207,8 +217,12 @@
   layout: "layered",
 )
 #for trace in (
-  force-bfs, force-dfs, force-dijkstra,
-  layered-bfs, layered-dfs, layered-dijkstra,
+  force-bfs,
+  force-dfs,
+  force-dijkstra,
+  layered-bfs,
+  layered-dfs,
+  layered-dijkstra,
 ) {
   let first-node-positions = trace.steps.first().node-positions
   assert(
@@ -244,12 +258,17 @@
   "D": ("E",),
   "E": ("A",),
 )
-#let node-edge-regression-positions = bfs(
-  node-edge-regression-adjacency,
-  "A",
-  directed: false,
-  layout: "force",
-).steps.first().node-positions
+#let node-edge-regression-positions = (
+  bfs(
+    node-edge-regression-adjacency,
+    "A",
+    directed: false,
+    layout: "force",
+  )
+    .steps
+    .first()
+    .node-positions
+)
 #let center-to-hidden-edge = _project-point-to-graph-edge(
   node-edge-regression-positions.at("C"),
   node-edge-regression-positions.at("B"),
@@ -260,8 +279,14 @@
   message: "force layout placed the B-D edge inside node C",
 )
 #let node-edge-regression-edges = (
-  ("A", "B"), ("A", "C"), ("B", "C"), ("B", "D"),
-  ("C", "D"), ("C", "E"), ("D", "E"), ("E", "A"),
+  ("A", "B"),
+  ("A", "C"),
+  ("B", "C"),
+  ("B", "D"),
+  ("C", "D"),
+  ("C", "E"),
+  ("D", "E"),
+  ("E", "A"),
 )
 #for (from-node-id, to-node-id) in node-edge-regression-edges {
   for node-id in node-edge-regression-adjacency.keys() {
@@ -277,13 +302,18 @@
     )
   }
 }
-#let large-center-node-positions = bfs(
-  node-edge-regression-adjacency,
-  "A",
-  directed: false,
-  layout: "force",
-  node-customizations: (("C", (node-radius: 0.6)),),
-).steps.first().node-positions
+#let large-center-node-positions = (
+  bfs(
+    node-edge-regression-adjacency,
+    "A",
+    directed: false,
+    layout: "force",
+    node-customizations: (("C", (node-radius: 0.6)),),
+  )
+    .steps
+    .first()
+    .node-positions
+)
 #let large-center-to-hidden-edge = _project-point-to-graph-edge(
   large-center-node-positions.at("C"),
   large-center-node-positions.at("B"),
@@ -316,10 +346,18 @@
     directed: false,
     layout: "force",
     layout-options: layout-options,
-  ).steps.first().node-positions
-  let minimum-clearance = 0.3 + layout-options.at(
-    "node-edge-clearance", default: 0.25,
-  ) - 0.01
+  )
+    .steps
+    .first()
+    .node-positions
+  let minimum-clearance = (
+    0.3
+      + layout-options.at(
+        "node-edge-clearance",
+        default: 0.25,
+      )
+      - 0.01
+  )
   for from-node-id in adjacency.keys() {
     for to-node-id in adjacency.at(from-node-id) {
       for node-id in adjacency.keys() {
@@ -332,8 +370,7 @@
         assert(
           projection.distance >= minimum-clearance,
           message: (
-            "force layout placed edge " + from-node-id + "-" + to-node-id
-              + " inside node " + node-id
+            "force layout placed edge " + from-node-id + "-" + to-node-id + " inside node " + node-id
           ),
         )
       }
@@ -417,26 +454,39 @@
 )
 #assert.eq(layered-override-trace.steps.first().node-positions.at("merge"), (8, 4))
 #let right-layered-positions = layered-bfs.steps.first().node-positions
-#let left-layered-positions = bfs(
-  layered-adjacency,
-  "source-a",
-  layout: "layered",
-  layout-options: (direction: "left"),
-).steps.first().node-positions
+#let left-layered-positions = (
+  bfs(
+    layered-adjacency,
+    "source-a",
+    layout: "layered",
+    layout-options: (direction: "left"),
+  )
+    .steps
+    .first()
+    .node-positions
+)
 #let down-layered-positions = layered-dfs.steps.first().node-positions
-#let up-layered-positions = bfs(
-  layered-adjacency,
-  "source-a",
-  layout: "layered",
-  layout-options: (direction: "up"),
-).steps.first().node-positions
+#let up-layered-positions = (
+  bfs(
+    layered-adjacency,
+    "source-a",
+    layout: "layered",
+    layout-options: (direction: "up"),
+  )
+    .steps
+    .first()
+    .node-positions
+)
 #assert(right-layered-positions.at("source-a").at(0) < right-layered-positions.at("sink").at(0))
 #assert(left-layered-positions.at("source-a").at(0) > left-layered-positions.at("sink").at(0))
 #assert(down-layered-positions.at("source-a").at(1) > down-layered-positions.at("sink").at(1))
 #assert(up-layered-positions.at("source-a").at(1) < up-layered-positions.at("sink").at(1))
 #let _ = array-view(1, 2, 3, style: (indices: true)).diagram
 #let merge-index-labels-trace = merge-sort(array-view(
-  4, 2, 3, 1,
+  4,
+  2,
+  3,
+  1,
   style: (indices: (enabled: true, labels: ("1", "2", "3", "4"))),
 ))
 #assert.eq(merge-index-labels-trace.result, (1, 2, 3, 4))
@@ -495,7 +545,10 @@ All invariant checks passed.
 #assert(_resolve-graph-edge-routing(reciprocal-edges, "A", "B", true, "manual", none) == (:))
 #assert(_resolve-graph-edge-routing(reciprocal-edges, "A", "B", false, "auto", none) == (:))
 #assert(_resolve-graph-edge-routing(reciprocal-edges, "A", "B", true, "auto", (bend: false)).bend == false)
-#assert(_resolve-graph-edge-routing(reciprocal-edges, "A", "B", true, "auto", (bend: "right", color: red)) == (bend: "right", color: red))
+#assert(
+  _resolve-graph-edge-routing(reciprocal-edges, "A", "B", true, "auto", (bend: "right", color: red))
+    == (bend: "right", color: red),
+)
 #assert(_collect-graph-edges(("A": (("B", 4),), "B": (("A", 4),)), false).len() == 1)
 #assert(_collect-graph-edges(("A": ("A",)), false).len() == 1)
 #let loop-shapes = ("circle", "square", "rounded", "capsule", "diamond", "hexagon")
@@ -521,8 +574,12 @@ All invariant checks passed.
 #let _ = graph(("A": (("B", [same]),), "B": (("A", [same]),)), directed: false).diagram
 #let _ = graph(("A": ("B",), "B": ("A",)), edge-routing: "auto").diagram
 #let _ = graph(("A": (), "B": ()), positions: ("A": (0, 0), "B": (0, 0))).diagram
-#let _ = graph(("A": ("A",)), edge-customizations: (("A", "A", (bend: "right", label: (content: [loop], color: red))),)).diagram
-#let _ = graph(("A": ("A",)), style: (edge-pattern: "wavy"), edge-customizations: (("A", "A", (pattern: "solid", wave: false)),)).diagram
+#let _ = graph(("A": ("A",)), edge-customizations: (
+  ("A", "A", (bend: "right", label: (content: [loop], color: red))),
+)).diagram
+#let _ = graph(("A": ("A",)), style: (edge-pattern: "wavy"), edge-customizations: (
+  ("A", "A", (pattern: "solid", wave: false)),
+)).diagram
 #let loop-traversal-adjacency = ("A": (("A", 0), ("B", 4)), "B": (("A", 7),))
 #assert(bfs(loop-traversal-adjacency, "A", edge-routing: "auto").result.order == ("A", "B"))
 #assert(dfs(loop-traversal-adjacency, "A", edge-routing: "auto").result.order == ("A", "B"))
@@ -552,6 +609,8 @@ All invariant checks passed.
 #assert(resolve((label-text: (fill: blue))).distance-text.fill == rgb("#7048E8"))
 #assert(resolve((distance-text: (color: red))).distance-text.fill == red)
 #assert(resolve((distance-text: (color: red))).distance-text.at("color", default: none) == none)
+#assert(resolve((:)).edge-arrow-symbol == ">")
+#assert(resolve((edge-arrow-symbol: "stealth")).edge-arrow-symbol == "stealth")
 
 // Default boundaries: squares and rounded boxes exit through their corner on
 // diagonals, and capsules are 1.4r half-wide.
@@ -580,6 +639,14 @@ All invariant checks passed.
 #assert(_is-close(_fitted-node-half-width(1.0, "capsule", 0.34), 0.84))
 
 // Fitted graphs compile through the measured render path.
-#let _ = graph(("Harbor": ("Campus",), "Campus": ()), layout: "linear", style: (node-shape: "capsule", node-fit: true)).diagram
+#let _ = graph(
+  ("Harbor": ("Campus",), "Campus": ()),
+  layout: "linear",
+  style: (node-shape: "capsule", node-fit: true),
+).diagram
 #let _ = graph(("A": (("B", [long label]),), "B": ()), style: (node-shape: "rounded", node-fit: true)).diagram
-#let _ = dijkstra(("A": (("B", 2),), "B": ()), "A", style: (node-shape: "rounded", node-fit: true, distance-text: (fill: red))).diagram
+#let _ = dijkstra(
+  ("A": (("B", 2),), "B": ()),
+  "A",
+  style: (node-shape: "rounded", node-fit: true, distance-text: (fill: red)),
+).diagram

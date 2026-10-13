@@ -65,7 +65,11 @@
   max-heap(50, 30, 70, 20, 40, 60, 80).diagram,
 ))
 
-#section("Min-heap insert (new value green, sift-up path yellow)", transition("min-heap", (10, 20, 15, 40, 50, 30), heap-insert(5)))
+#section("Min-heap insert (new value green, sift-up path yellow)", transition(
+  "min-heap",
+  (10, 20, 15, 40, 50, 30),
+  heap-insert(5),
+))
 
 #section("Max-heap extract (root removed in red, sift-down path in yellow)", transition(
   "max-heap",
@@ -465,8 +469,8 @@
       ("v3", "v4", (bend: true)),
     ),
     layout: "linear",
-    gap: 3
-  ).diagram
+    gap: 3,
+  ).diagram,
 )
 
 #section(
@@ -513,19 +517,21 @@
     node-fill: rgb("#E7F5FF"),
     node-stroke: 1pt + rgb("#1971C2"),
   )).diagram,
-  graph(("A": ("B", "C"), "B": (), "C": ()), style: (
-    node-shape: "hexagon",
-    node-radius: 0.42,
-    node-fill: rgb("#F3F0FF"),
-    node-stroke: 1pt + rgb("#7048E8"),
-  )).diagram,
+  graph(
+    ("A": ("B", "C"), "B": (), "C": ()),
+    style: (
+      node-shape: "hexagon",
+      node-radius: 0.42,
+      node-fill: rgb("#F3F0FF"),
+      node-stroke: 1pt + rgb("#7048E8"),
+    ),
+  ).diagram,
 ))
 
 #section("Tree edge labels: local content and label style, like graph edge labels", tree(
   node("root", left: node("L"), right: node("R")),
-  style : (
-    x-gap : 2,
-    
+  style: (
+    x-gap: 2,
   ),
   edge-customizations: (
     ("root", "L", (label: (content: [L], color: rgb("#1971C2"), weight: "bold"))),
@@ -538,17 +544,17 @@
     node([5 | 10], children: (
       node([2]),
       node([7]),
-      node([15])
+      node([15]),
     )),
     node([25 | 30], children: (
       node([22]),
       node([27]),
-      node([35])
+      node([35]),
     )),
-    node([50 | 60], children : (
+    node([50 | 60], children: (
       node([45]),
       node([55]),
-      node([70])
+      node([70]),
     )),
   )),
   style: (
@@ -557,7 +563,7 @@
     node-fill: rgb("#FFF9DB"),
     node-stroke: 1pt + rgb("#F08C00"),
     x-gap: 1.4,
-    y-gap : 2.0
+    y-gap: 2.0,
   ),
 ))
 
@@ -569,39 +575,49 @@
   sequence(s1, s2, s3, columns: 1, row-gap: 2em)
 })
 
-#section("Array diagram with per-cell customizations", array-view(
-  4, 1, 7, 3, 9,
-  cell-customizations: (
-    (1, (fill: rgb("#FFF3BF"), stroke: 1pt + rgb("#F59F00"))),
-    (2, (fill: rgb("#D3F9D8"), stroke: 1pt + rgb("#2B8A3E"), text: (weight: "bold"))),
-    (4, (fill: rgb("#FFE3E3"), stroke: 1pt + rgb("#C92A2A"))),
-  ),
-  style: (
-    box-fill: rgb("#F8F9FA"),
-    box-stroke: 0.8pt + rgb("#495057"),
-  ),
-).diagram)
+#section(
+  "Array diagram with per-cell customizations",
+  array-view(
+    4,
+    1,
+    7,
+    3,
+    9,
+    cell-customizations: (
+      (1, (fill: rgb("#FFF3BF"), stroke: 1pt + rgb("#F59F00"))),
+      (2, (fill: rgb("#D3F9D8"), stroke: 1pt + rgb("#2B8A3E"), text: (weight: "bold"))),
+      (4, (fill: rgb("#FFE3E3"), stroke: 1pt + rgb("#C92A2A"))),
+    ),
+    style: (
+      box-fill: rgb("#F8F9FA"),
+      box-stroke: 0.8pt + rgb("#495057"),
+    ),
+  ).diagram,
+)
 
-#section("Matrix diagram with row/column labels and per-cell customizations", matrix(
-  (
-    (0, 1, 0, 0),
-    (1, 0, 1, 1),
-    (0, 1, 0, 1),
-  ),
-  row-labels: ([A], [B], [C]),
-  column-labels: ([A], [B], [C], [D]),
-  cell-customizations: (
-    ((0, 1), (fill: rgb("#E7F5FF"), stroke: 1pt + rgb("#1971C2"))),
-    ((1, 2), (fill: rgb("#D3F9D8"), stroke: 1pt + rgb("#2B8A3E"))),
-    ((2, 3), (fill: rgb("#FFE3E3"), stroke: 1pt + rgb("#C92A2A"))),
-  ),
-  style: (
-    box-w: 0.7,
-    box-h: 0.55,
-    box-fill: rgb("#F8F9FA"),
-    box-stroke: 0.7pt + rgb("#495057"),
-  ),
-).diagram)
+#section(
+  "Matrix diagram with row/column labels and per-cell customizations",
+  matrix(
+    (
+      (0, 1, 0, 0),
+      (1, 0, 1, 1),
+      (0, 1, 0, 1),
+    ),
+    row-labels: ([A], [B], [C]),
+    column-labels: ([A], [B], [C], [D]),
+    cell-customizations: (
+      ((0, 1), (fill: rgb("#E7F5FF"), stroke: 1pt + rgb("#1971C2"))),
+      ((1, 2), (fill: rgb("#D3F9D8"), stroke: 1pt + rgb("#2B8A3E"))),
+      ((2, 3), (fill: rgb("#FFE3E3"), stroke: 1pt + rgb("#C92A2A"))),
+    ),
+    style: (
+      box-w: 0.7,
+      box-h: 0.55,
+      box-fill: rgb("#F8F9FA"),
+      box-stroke: 0.7pt + rgb("#495057"),
+    ),
+  ).diagram,
+)
 
 #section("Tree and graph node-customizations plus symmetric binary edge labels", std.stack(
   dir: ltr,
@@ -632,7 +648,13 @@
   dir: ltr,
   spacing: 2em,
   bst(
-    50, 30, 70, 20, 40, 60, 80,
+    50,
+    30,
+    70,
+    20,
+    40,
+    60,
+    80,
     node-labels: (
       (50, (content: [$d=0$], position: "top", color: rgb("#2B8A3E"), weight: "bold")),
       (30, [$d=2$]),
@@ -675,7 +697,11 @@
 #section("Array indices below cells", std.stack(
   spacing: 1em,
   array-view(
-    13, 21, 34, 55, 89,
+    13,
+    21,
+    34,
+    55,
+    89,
     style: (
       box-fill: rgb("#F8FBFF"),
       box-stroke: 0.8pt + rgb("#1565C0"),
@@ -683,7 +709,10 @@
     ),
   ).diagram,
   array-view(
-    [A], [B], [C], [D],
+    [A],
+    [B],
+    [C],
+    [D],
     style: (
       box-fill: rgb("#FFF9DB"),
       box-stroke: 0.8pt + rgb("#F08C00"),
@@ -799,7 +828,9 @@
     none
   },
   bst(
-    50, 30, 70,
+    50,
+    30,
+    70,
     style: tree-style(
       x-gap: 1.4,
       node-fill: rgb("#E7F5FF"),
@@ -808,7 +839,9 @@
     ),
   ).diagram,
   array-view(
-    [A], [B], [C],
+    [A],
+    [B],
+    [C],
     style: array-style(
       box-fill: rgb("#F3F0FF"),
       indices: indices-style(enabled: true, labels: auto, color: rgb("#7048E8")),
@@ -888,7 +921,10 @@
 
 #section("Sorting carries the array's own style through every step", {
   let styled = array-view(
-    5, 1, 4, 2,
+    5,
+    1,
+    4,
+    2,
     style: array-style(
       box-fill: rgb("#EEF6FF"),
       node-text: text-style(fill: rgb("#1D4ED8")),
@@ -924,7 +960,10 @@
     current: node-mark-style(fill: rgb("#FFC9C9")),
     minimum: node-mark-style(fill: rgb("#B2F2BB")),
     compare: node-mark-style(fill: rgb("#D0EBFF")),
-  ).steps.at(1).diagram,
+  )
+    .steps
+    .at(1)
+    .diagram,
   bubble-sort(
     (5, 1, 4, 2),
     pointers: true,
@@ -1035,19 +1074,28 @@
 #section("Named themes, rounded nodes, capsules, and typography roles", std.stack(
   dir: ltr,
   spacing: 1.5em,
-  bst(4, 2, 6, style: theme-preset("colorblind") + tree-style(
-    node-shape: "rounded",
-    value-text: text-style(weight: "bold"),
-  )).diagram,
+  bst(
+    4,
+    2,
+    6,
+    style: theme-preset("colorblind")
+      + tree-style(
+        node-shape: "rounded",
+        value-text: text-style(weight: "bold"),
+      ),
+  ).diagram,
   graph(
     ("A": (("B", [edge]),), "B": ()),
-    style: theme-preset("chalkboard") + graph-style(
-      node-shape: "capsule",
-      edge-label-text: text-style(weight: "bold"),
-    ),
+    style: theme-preset("chalkboard")
+      + graph-style(
+        node-shape: "capsule",
+        edge-label-text: text-style(weight: "bold"),
+      ),
   ).diagram,
   array-view(
-    1, 2, 3,
+    1,
+    2,
+    3,
     style: array-style(
       box-shape: "capsule",
       indices: indices-style(enabled: true, labels: auto),
@@ -1144,7 +1192,9 @@
 ))
 
 #section("Empty hash buckets keep their null terminators beside the head arrows", {
-  let table = hash-table(("Grace", 2), ("Ada", 1), size: 4, collision: "chaining", hash: key => if key == "Grace" { 0 } else { 2 })
+  let table = hash-table(("Grace", 2), ("Ada", 1), size: 4, collision: "chaining", hash: key => if key == "Grace" {
+    0
+  } else { 2 })
   table.diagram
 })
 
@@ -1191,20 +1241,29 @@
   (l.insert)(0, level: 3).diagram
 })
 
-#section("Skip list head node spans every level (regression: search must be able to use the express lane, never scan the base list start to finish)", {
-  let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
-  (l.search)(3).diagram
-})
+#section(
+  "Skip list head node spans every level (regression: search must be able to use the express lane, never scan the base list start to finish)",
+  {
+    let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
+    (l.search)(3).diagram
+  },
+)
 
-#section("Skip list head transfers on insert: a new smallest value (green) becomes the new head and spans every level; the old head shrinks back to its own real height", {
-  let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
-  (l.insert)(0).diagram
-})
+#section(
+  "Skip list head transfers on insert: a new smallest value (green) becomes the new head and spans every level; the old head shrinks back to its own real height",
+  {
+    let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
+    (l.insert)(0).diagram
+  },
+)
 
-#section("Skip list deleting the head (red) removes it from every level it spans, not just its own hash-assigned height", {
-  let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
-  (l.delete)(1).diagram
-})
+#section(
+  "Skip list deleting the head (red) removes it from every level it spans, not just its own hash-assigned height",
+  {
+    let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
+    (l.delete)(1).diagram
+  },
+)
 
 #section("Skip list search follows the predecessor path for a missing key and reports found: false", {
   let l = skip-list(1, 3, 5, 7, style: (scale: 0.8))
@@ -1221,7 +1280,8 @@
 
 #section("Localization: German tree insert, delete, and AVL rotation captions", {
   let de = bst(50, 30, 70, 20, 40, language: "de")
-  std.stack(spacing: 1em,
+  std.stack(
+    spacing: 1em,
     (de.insert)(45).diagram,
     (de.delete)(30).diagram,
     (avl(20, 10, 30, 40, language: "de").insert)(50, rebalance: (enabled: true, all-steps: true)).diagram,
@@ -1229,7 +1289,8 @@
 })
 
 #section("Localization: Spanish list, queue front/rear, hash-table, and stack top default", {
-  std.stack(spacing: 1em,
+  std.stack(
+    spacing: 1em,
     (linked-list(1, 2, 3, head: true, language: "es").insert)(4).diagram,
     queue(1, 2, 3, enqueue: 9, dequeue: 1, language: "es").diagram,
     (hash-table("ann", "bob", "cat", language: "es").insert)("dan").diagram,
@@ -1240,14 +1301,16 @@
 #section("Localization: German BFS trace and Spanish Dijkstra trace", {
   let g = ("A": ("B", "C"), "B": ("D",), "C": ("D",), "D": ())
   let w = ("A": (("B", 2), ("C", 5)), "B": (("D", 1),), "C": (("D", 1),), "D": ())
-  std.stack(spacing: 1em,
+  std.stack(
+    spacing: 1em,
     bfs(g, "A", language: "de", columns: 5).diagram,
     dijkstra(w, "A", target: "D", language: "es", columns: 5).diagram,
   )
 })
 
 #section("Localization: German bubble sort and Spanish quick sort traces", {
-  std.stack(spacing: 1em,
+  std.stack(
+    spacing: 1em,
     bubble-sort((4, 2, 3), language: "de").diagram,
     quick-sort((4, 2, 3, 1), language: "es").diagram,
   )
@@ -1260,7 +1323,10 @@
 })
 
 #section("Localization: step-label: has final precedence over language and messages:", {
-  (bst(8, 4, 12, language: "de", messages: messages(tree: (insert: k => [x]))).insert)(6, step-label: [custom wording]).diagram
+  (bst(8, 4, 12, language: "de", messages: messages(tree: (insert: k => [x]))).insert)(
+    6,
+    step-label: [custom wording],
+  ).diagram
 })
 
 #section("Localization: language and overrides persist through chained .result", {
@@ -1314,10 +1380,13 @@
     "D": ("E",),
     "E": ("A",),
   )
-  let disconnected = connected + (
-    "X": ("Y",),
-    "Y": (),
-    "isolated": (),
+  let disconnected = (
+    connected
+      + (
+        "X": ("Y",),
+        "Y": (),
+        "isolated": (),
+      )
   )
   std.stack(
     dir: ltr,
@@ -1361,6 +1430,7 @@
     row-gutter: 1.5em,
     [Right #graph(dag, layout: "layered").diagram],
     [Left #graph(dag, layout: "layered", layout-options: (direction: "left")).diagram],
+
     [Down #graph(dag, layout: "layered", layout-options: (direction: "down")).diagram],
     [Up #graph(dag, layout: "layered", layout-options: (direction: "up")).diagram],
   )
@@ -1492,12 +1562,19 @@
   ).diagram
 })
 
-#section("Merge sort custom index labels follow original-array positions", merge-sort(
-  array-view(
-    38, 27, 43, 3, 9,
-    style: (indices: (enabled: true, labels: ("1", "2", "3", "4", "5"))),
-  ),
-).diagram)
+#section(
+  "Merge sort custom index labels follow original-array positions",
+  merge-sort(
+    array-view(
+      38,
+      27,
+      43,
+      3,
+      9,
+      style: (indices: (enabled: true, labels: ("1", "2", "3", "4", "5"))),
+    ),
+  ).diagram,
+)
 
 #pagebreak()
 = Graph self-loops and reciprocal routing
@@ -1509,36 +1586,61 @@
   ]),
 ))
 #section("Directed reciprocal weights: manual default and automatic bends", grid(
-  columns: 2, gutter: 2em,
+  columns: 2,
+  gutter: 2em,
   graph(("A": (("B", 4),), "B": (("A", 7),)), layout: "linear").diagram,
   graph(("A": (("B", 4),), "B": (("A", 7),)), layout: "linear", edge-routing: "auto").diagram,
 ))
-#section("Lower loop, custom radius, label override, and arrow", graph(
-  ("A": (("A", [original]), ("B", 4)), "B": (("A", 7),)),
-  layout: "linear", gap: 3, edge-routing: "auto",
-  node-customizations: (("A", (shape: "capsule", node-radius: 0.6)),),
-  edge-customizations: (
-    ("A", "A", (bend: true, pattern: "dashed", arrow: "both", label: (body: [repeat], color: red, size: 12pt))),
-    ("A", "B", (bend: "left", color: blue)),
-  ),
-).diagram)
-#section("Undirected reciprocal deduplication and loop", graph(
-  ("A": (("A", [stay]), ("B", 4)), "B": (("A", 4),)),
-  directed: false, layout: "linear", edge-routing: "auto",
-).diagram)
-#section("Explicit straight override wins over automatic routing", graph(
-  ("A": (("B", 4),), "B": (("A", 7),)), layout: "linear", gap: 3, edge-routing: "auto",
-  edge-customizations: (("A", "B", (bend: false, label: [straight])),),
-).diagram)
+#section(
+  "Lower loop, custom radius, label override, and arrow",
+  graph(
+    ("A": (("A", [original]), ("B", 4)), "B": (("A", 7),)),
+    layout: "linear",
+    gap: 3,
+    edge-routing: "auto",
+    node-customizations: (("A", (shape: "capsule", node-radius: 0.6)),),
+    edge-customizations: (
+      ("A", "A", (bend: true, pattern: "dashed", arrow: "both", label: (body: [repeat], color: red, size: 12pt))),
+      ("A", "B", (bend: "left", color: blue)),
+    ),
+  ).diagram,
+)
+#section(
+  "Undirected reciprocal deduplication and loop",
+  graph(
+    ("A": (("A", [stay]), ("B", 4)), "B": (("A", 4),)),
+    directed: false,
+    layout: "linear",
+    edge-routing: "auto",
+  ).diagram,
+)
+#section(
+  "Explicit straight override wins over automatic routing",
+  graph(
+    ("A": (("B", 4),), "B": (("A", 7),)),
+    layout: "linear",
+    gap: 3,
+    edge-routing: "auto",
+    edge-customizations: (("A", "B", (bend: false, label: [straight])),),
+  ).diagram,
+)
 #pagebreak()
-#section("BFS trace with loop and reciprocal edges", bfs(
-  ("A": ("A", "B"), "B": ("A",)), "A", edge-routing: "auto", columns: 3,
-  style: graph-style(scale: 0.65),
-).diagram)
+#section(
+  "BFS trace with loop and reciprocal edges",
+  bfs(
+    ("A": ("A", "B"), "B": ("A",)),
+    "A",
+    edge-routing: "auto",
+    columns: 3,
+    style: graph-style(scale: 0.65),
+  ).diagram,
+)
 
 #section("Tidy tree layout: contour packing vs. default columns", {
   let keys = (40, 20, 10, 5, 30, 60, 70, 65, 80, 1, 12, 25, 35, 33, 37, 90, 95, 99)
-  std.stack(dir: ltr, spacing: 2em,
+  std.stack(
+    dir: ltr,
+    spacing: 2em,
     bst(..keys, style: (scale: 0.6)).diagram,
     bst(..keys, style: (scale: 0.6, tree-layout: "tidy")).diagram,
   )
@@ -1557,13 +1659,17 @@
     style: (tree-layout: "tidy"),
   )
   v(1em)
-  std.stack(dir: ltr, spacing: 2em,
+  std.stack(
+    dir: ltr,
+    spacing: 2em,
     avl(10, 20, 30, 40, 50, 25, style: (tree-layout: "tidy")).diagram,
     min-heap(3, 8, 5, 9, 12, 7, 6, style: (tree-layout: "tidy")).diagram,
   )
 })
 
-#let _compare-tree-layouts(builder, ..keys) = std.stack(dir: ltr, spacing: 3em,
+#let _compare-tree-layouts(builder, ..keys) = std.stack(
+  dir: ltr,
+  spacing: 3em,
   builder(..keys, style: (scale: 0.7)).diagram,
   builder(..keys, style: (scale: 0.7, tree-layout: "tidy")).diagram,
 )
@@ -1584,7 +1690,8 @@
 = Sorting traces without index labels
 #let _hidden-index-style = (indices: indices-style(enabled: false))
 #section("Merge sort: default index labels (left) vs. indices-style(enabled: false) (right)", grid(
-  columns: 2, column-gutter: 1.5em,
+  columns: 2,
+  column-gutter: 1.5em,
   merge-sort(array-view(38, 27, 43, 3, 9, 82, 10, style: (scale: 0.6))).diagram,
   merge-sort(array-view(38, 27, 43, 3, 9, 82, 10, style: _hidden-index-style + (scale: 0.6))).diagram,
 ))
@@ -1615,27 +1722,73 @@
 = Graph distance labels and fitted nodes
 #let _distance-roads = ("A": (("B", 2), ("C", 5)), "B": (("C", 1),), "C": ())
 #section("Dijkstra distance labels: default purple (left) vs. distance-text override (right)", grid(
-  columns: 2, column-gutter: 2em,
+  columns: 2,
+  column-gutter: 2em,
   dijkstra(_distance-roads, "A").steps.last().diagram,
   dijkstra(_distance-roads, "A", style: (distance-text: (fill: rgb("#0B7285"), size: 10pt))).steps.last().diagram,
 ))
-#section("A per-node node-labels color still wins over distance-text", 
+#section(
+  "A per-node node-labels color still wins over distance-text",
   dijkstra(
-    _distance-roads, "A",
+    _distance-roads,
+    "A",
     node-labels: ("C": (color: rgb("#2F9E44"))),
     style: (distance-text: (fill: rgb("#0B7285"))),
-  ).steps.last().diagram
+  )
+    .steps
+    .last()
+    .diagram,
 )
 
 #let _fit-stops = ("Harbor": ("Campus", "Old Town"), "Campus": ("Airport",), "Old Town": ("Airport",), "Airport": ())
 #let _fit-positions = ("Harbor": (0, 0), "Campus": (3.6, 0), "Old Town": (0, -2.4), "Airport": (3.6, -2.4))
 #section("Rounded nodes at a fixed radius (left) vs. node-fit: true (right)", grid(
-  columns: 2, column-gutter: 2em,
+  columns: 2,
+  column-gutter: 2em,
   graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "rounded")).diagram,
-  graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "rounded", node-fit: true)).diagram,
+  graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (
+    node-shape: "rounded",
+    node-fit: true,
+  )).diagram,
 ))
-#section("Capsule nodes at a fixed radius (left) vs. node-fit: true (right); the vertical edge meets the widened outline", grid(
-  columns: 2, column-gutter: 2em,
-  graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "capsule")).diagram,
-  graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "capsule", node-fit: true)).diagram,
+#section(
+  "Capsule nodes at a fixed radius (left) vs. node-fit: true (right); the vertical edge meets the widened outline",
+  grid(
+    columns: 2,
+    column-gutter: 2em,
+    graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (node-shape: "capsule")).diagram,
+    graph(_fit-stops, layout: "manual", positions: _fit-positions, style: (
+      node-shape: "capsule",
+      node-fit: true,
+    )).diagram,
+  ),
+)
+
+#pagebreak()
+= Custom edge arrow symbols
+#section("BST arrowheads: default \">\" (left) and stealth \">>\" (right)", std.stack(
+  dir: ltr,
+  spacing: 2.5em,
+  bst(30, 20, 40, style: (edge-arrow: "end")).diagram,
+  bst(30, 20, 40, style: (edge-arrow: "both", edge-arrow-symbol: ">>")).diagram,
 ))
+#section("Wavy edges keep the chosen symbol: tree \">>\" (left) and graph stealth (right)", std.stack(
+  dir: ltr,
+  spacing: 2.5em,
+  bst(30, 20, 40, style: (edge-arrow: "end", edge-arrow-symbol: ">>", edge-pattern: "wavy", y-gap: 1.8)).diagram,
+  graph(
+    ("A": ("B",), "B": ("C",), "C": ()),
+    layout: "linear",
+    gap: 1.8,
+    style: (edge-arrow-symbol: "stealth", edge-pattern: "wavy", scale: 1.15),
+  ).diagram,
+))
+#section(
+  "Heap arrowheads use the same symbol",
+  min-heap(
+    4,
+    2,
+    3,
+    style: heap-style(edge-arrow: "end", edge-arrow-symbol: "o"),
+  ).diagram,
+)

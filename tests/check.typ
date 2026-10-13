@@ -97,7 +97,7 @@
 // never become a diagnostic.
 
 #import "../src/lib.typ": (
-  array-view, bfs, bst, dfs, dijkstra, doubly-linked-list, graph, hash-table,
+  array-view, bfs, bst, dfs, dijkstra, doubly-linked-list, fit-to-width, graph, hash-table,
   linked-list, matrix, merge-sort, min-heap, skip-list, stack, theme-preset,
   transition, tree, node, subtree, queue, tree-search, quick-sort,
   merge-operation, partition-step, bubble-sort, insertion-sort, selection-sort,
@@ -654,6 +654,25 @@ All invariant checks passed.
   node-customizations: (("A", (node-radius: 2.0)), ("B", (node-radius: 2.0))),
 ).diagram
 
+// Width fitting accepts its default, an explicit percentage, and a length.
+#let _ = fit-to-width(bst(5, 3, 8).diagram)
+#let _ = fit-to-width(
+  std.stack(dir: ltr, bst(5, 3, 8).diagram, graph(("A": ())).diagram),
+  width: 80%,
+)
+#let _ = fit-to-width(dijkstra(("A": ()), "A").steps.last().diagram, width: 12cm)
+#context {
+  let fitted-absolute-body = measure(fit-to-width(box(width: 4cm, height: 1cm), width: 2cm))
+  assert(fitted-absolute-body.width <= 2cm)
+  let fitted-percentage-body = measure(
+    fit-to-width(box(width: 4cm, height: 1cm), width: 75%),
+    width: 4cm,
+  )
+  assert(fitted-percentage-body.width <= 3cm)
+  let unchanged-small-body = measure(fit-to-width(box(width: 1cm, height: 1cm), width: 2cm))
+  assert(unchanged-small-body.width == 1cm)
+}
+
 #import "../src/graph/model.typ": _collect-graph-edges
 #let _canonical-undirected-edges-forward = _collect-graph-edges(("A": ("B",), "B": ("A",)), false)
 #let _canonical-undirected-edges-reverse = _collect-graph-edges(("B": ("A",), "A": ("B",)), false)
@@ -662,3 +681,182 @@ All invariant checks passed.
 #assert(_is-close(_calculate-node-boundary-radius("hexagon", 0.5, 0.8660254, 0.5), 0.432256))
 
 #assert(not is-height-balanced(_build-search-tree("bst", (1, 2, 3, 4))), message: "balance checks use actual subtree heights")
+
+#import "../src/shared/label-placement.typ": select-external-label-candidate
+
+// Candidate boxes expose the position selected by the shared geometric scorer.
+#let _label-placement-candidate(position, center) = (
+  position: position,
+  center: center,
+  half-width: 0.15,
+  half-height: 0.15,
+)
+
+#let _diagonal-placement-candidates = (
+  _label-placement-candidate("right", (1, 0)),
+  _label-placement-candidate("left", (-1, 0)),
+  _label-placement-candidate("top", (0, 1)),
+  _label-placement-candidate("bottom", (0, -1)),
+  _label-placement-candidate("top-right", (0.707, 0.707)),
+  _label-placement-candidate("top-left", (-0.707, 0.707)),
+  _label-placement-candidate("bottom-right", (0.707, -0.707)),
+  _label-placement-candidate("bottom-left", (-0.707, -0.707)),
+)
+#let _cardinal-label-obstacles = (
+  (1, 0, 0.15, 0.15),
+  (-1, 0, 0.15, 0.15),
+  (0, 1, 0.15, 0.15),
+  (0, -1, 0.15, 0.15),
+)
+#let _selected-diagonal-label = select-external-label-candidate(
+  _diagonal-placement-candidates,
+  (),
+  (),
+  label-obstacles: _cardinal-label-obstacles,
+)
+#assert.eq(_selected-diagonal-label.position, "top-right")
+
+// Earlier external labels reserve their measured rectangles during placement.
+#let _label-obstacle-candidates = (
+  _label-placement-candidate("right", (1, 0)),
+  _label-placement-candidate("left", (-1, 0)),
+)
+#let _selected-clear-side = select-external-label-candidate(
+  _label-obstacle-candidates,
+  (),
+  (),
+  label-obstacles: ((1, 0, 0.15, 0.15),),
+)
+#assert.eq(_selected-clear-side.position, "left")
+
+// Long graph edges are checked across their full segment, not only near nodes.
+#let _edge-routing-candidates = (
+  _label-placement-candidate("right", (1, 0)),
+  _label-placement-candidate("top", (0, 1)),
+)
+#let _selected-edge-clear-side = select-external-label-candidate(
+  _edge-routing-candidates,
+  (),
+  (((-100, 0), (100, 0), 0.05),),
+)
+#assert.eq(_selected-edge-clear-side.position, "top")
+
+// Automatic label placement accepts every named side in tree and graph APIs.
+#let label-positions = (
+  "auto", "right", "left", "top", "bottom",
+  "top-right", "top-left", "bottom-right", "bottom-left",
+)
+#for label-position in label-positions {
+  let _ = bst(
+    2, 1, 3,
+    node-labels: ((2, (content: [root], position: label-position)),),
+  ).diagram
+  let _ = graph(
+    ("A": ("B",), "B": ()),
+    node-labels: ("A": (content: [source], position: label-position)),
+  ).diagram
+  let _ = bfs(
+    ("A": ("B",), "B": ()), "A",
+    node-labels: ("B": (content: [parent: A], position: label-position)),
+  ).steps.last().diagram
+  let _ = dfs(
+    ("A": ("B",), "B": ()), "A",
+    node-labels: ("B": (content: [depth: 1], position: label-position)),
+  ).steps.last().diagram
+  let _ = dijkstra(
+    ("A": (("B", 2),), "B": ()), "A",
+    node-labels: ("B": (content: [predecessor: A], position: label-position)),
+  ).steps.last().diagram
+}
+
+// Omitted positions and the shared style default both select automatic placement.
+#let _ = bst(2, 1, 3, node-labels: ((2, [root]),)).diagram
+#let _ = graph(("A": ("B",), "B": ()), node-labels: ("A": [source])).diagram
+#let _ = bst(2, 1, 3, node-labels: ((2, [root]),), style: (node-labels: (position: "auto"))).diagram
+#let _ = graph(("A": ("B",), "B": ()), node-labels: ("A": [source]), style: (node-labels: (position: "auto",))).diagram
+
+// Graph teaching traces share the same automatic and fixed placement contract.
+#let _ = bfs(
+  ("A": ("B",), "B": ("C",), "C": ()), "A",
+  node-labels: ("B": (content: [parent: A], position: "auto")),
+).steps.last().diagram
+#let _ = dfs(
+  ("A": ("B",), "B": ("C",), "C": ()), "A",
+  node-labels: ("B": (content: [depth: 1], position: "top-right")),
+).steps.last().diagram
+#let _ = dijkstra(
+  ("A": (("B", 2),), "B": (("C", 3),), "C": ()), "A",
+  node-labels: ("B": (content: [predecessor: A], position: "bottom-left")),
+).steps.last().diagram
+
+// Bent graph paths keep the wavy pattern for manual and automatic routing.
+#let _ = graph(
+  ("A": ("B",), "B": ()),
+  layout: "manual", positions: ("A": (0, 0), "B": (3, 0)),
+  style: (edge-pattern: "wavy"),
+  edge-customizations: (("A", "B", (bend: "left")),),
+).diagram
+#let _ = graph(
+  ("A": (("B", [ab]),), "B": (("A", [ba]),)),
+  layout: "manual", positions: ("A": (0, 0), "B": (3, 0)),
+  edge-routing: "auto", style: (edge-pattern: "wavy"),
+  edge-customizations: (("A", "B", (bend: true)),),
+).diagram
+#let _ = graph(
+  ("A": ("B", "C"), "C": (), "B": ()),
+  layout: "linear", gap: 1.4, edge-routing: "auto",
+  style: (edge-pattern: "wavy"),
+).diagram
+
+// Explicit tree spacing remains a minimum and expands for rendered shapes.
+#import "../src/tree/render.typ": _calculate-tree-layout-style
+#import "../src/tree/layout.typ": _calculate-tree-layout, _place-tidy-subtree, _calculate-column-half-width
+#let wide-node-root = node(1, left: node(2), right: node(3))
+#let wide-node-layout-style = _calculate-tree-layout-style(
+  wide-node-root,
+  resolve((node-radius: 0.6, x-gap: 0.4)),
+  ((3, (node-radius: 1.1)),),
+  (node-radius: 0.6, x-gap: 0.4),
+)
+#assert(wide-node-layout-style.x-gap >= 2 * 1.1 + 0.24)
+#let wide-triangle-root = node(
+  1,
+  left: subtree("left", scale: 1.8),
+  right: subtree("right", scale: 1.2),
+)
+#let wide-triangle-layout-style = _calculate-tree-layout-style(
+  wide-triangle-root,
+  resolve((node-radius: 0.3, tri-w: 1.4, x-gap: 0.4)),
+  (),
+  (node-radius: 0.3, tri-w: 1.4, x-gap: 0.4),
+)
+#assert(wide-triangle-layout-style.x-gap >= 2 * 1.4 * 1.8 / 2 + 0.24)
+
+// Lone children lean symmetrically and tidy triangle contours keep a margin.
+#let lone-left-layout = _calculate-tree-layout(node("p", left: node("l")), 0, 0).first()
+#let lone-right-layout = _calculate-tree-layout(node("p", right: node("r")), 0, 0).first()
+#assert.eq(lone-left-layout.left._col - lone-left-layout._col, -0.5)
+#assert.eq(lone-right-layout.right._col - lone-right-layout._col, 0.5)
+#let tidy-triangle-style = resolve((tree-layout: "tidy", tri-w: 1.4, node-radius: 0.3, x-gap: 1.05))
+#let tidy-triangle-layout = _place-tidy-subtree(
+  node("p", left: subtree("L", scale: 1.8), right: subtree("R", scale: 1.2)),
+  tidy-triangle-style,
+).first()
+#let triangle-sibling-clearance = (
+  tidy-triangle-layout.right._col - tidy-triangle-layout.left._col
+) * tidy-triangle-style.x-gap - tidy-triangle-style.tri-w * (1.8 + 1.2) / 2
+#assert(triangle-sibling-clearance >= 0.24 - 0.000001)
+
+#import "../src/graph/render.typ": _resolve-graph-edge-routing
+#let straight-partner-route = _resolve-graph-edge-routing(
+  (("A", "B", none), ("B", "A", none)), "B", "A", true, "auto", none,
+  reciprocal-custom: (bend: true, angle: 0deg),
+)
+#assert.eq(straight-partner-route.bend, "right")
+#assert.eq(straight-partner-route.angle, 25deg)
+#let signed-partner-route = _resolve-graph-edge-routing(
+  (("A", "B", none), ("B", "A", none)), "B", "A", true, "auto", none,
+  reciprocal-custom: (bend: true, angle: -25deg),
+)
+#assert.eq(signed-partner-route.bend, "right")
+#assert.eq(signed-partner-route.angle, -25deg)

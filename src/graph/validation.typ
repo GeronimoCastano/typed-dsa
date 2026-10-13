@@ -194,15 +194,6 @@
   let resolved-style = resolve(style)
   for (custom-from-id, custom-to-id, options) in edge-customizations {
     let customized-edge-key = _graph-edge-key(custom-from-id, custom-to-id, directed)
-    let has-bend = options.at("bend", default: false) not in (false, none)
-    if has-bend and edge-wave(resolved-style, custom: options) {
-      fail(
-        where,
-        "edge-customizations: edge " + show-value(custom-from-id) + " -> " + show-value(custom-to-id) + " combines a bend with a wavy pattern",
-        expected: "a bent edge with a solid, dashed, or dotted pattern",
-        fix: "set pattern: \"solid\" and wave: false, or remove bend:",
-      )
-    }
     if "label" in options and customized-edge-key in declared-edge-keys {
       let graph-edge-index = 0
       for declared-edge-key in declared-edge-keys {

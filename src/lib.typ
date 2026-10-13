@@ -13,6 +13,7 @@
 #import "hash.typ": hash-table
 #import "shared/style.typ": theme, themes, theme-preset, resolve, tree-style, heap-style, graph-style, list-style, stack-style, queue-style, array-style, matrix-style, text-style, label-style, node-mark-style, cell-mark-style, node-label-style, indices-style
 #import "shared/messages.typ": messages, supported-languages
+#import "shared/fit.typ": fit-to-width
 #import "shared/validate.typ": (
   check-enum as _check-enum,
   fail as _fail,

@@ -5,6 +5,11 @@
   theme, scaled, resolve-mark-style, edge-mark, edge-stroke, edge-wave,
   wavy-parts,
 )
+#import "../shared/label-placement.typ": (
+  external-label-directions, external-label-direction, external-label-center,
+  measure-external-label, select-external-label-candidate,
+)
+#import "../shared/edge-path.typ": calculate-through-edge-segments
 #import cetz.draw: line, circle, rect, content, bezier-through
 #import "layout.typ": _calculate-tree-layout, _calculate-tidy-tree-layout
 #import "state.typ": _tree-node-id, _visible-tree-children
@@ -38,6 +43,26 @@
   maximum-half-width
 }
 
+#let _maximum-subtree-half-width(tree-node, resolved-style) = {
+  if tree-node == none { return 0.0 }
+  let maximum-half-width = 0.0
+  if tree-node.kind == "subtree" {
+    maximum-half-width = resolved-style.tri-w / 2 * tree-node.tscale
+    if tree-node.h-label != none {
+      maximum-half-width += 0.4
+        + 2 * resolved-style.at("_height-label-half-width", default: 0)
+    }
+    return maximum-half-width
+  }
+  for child-node in _visible-tree-children(tree-node) {
+    maximum-half-width = calc.max(
+      maximum-half-width,
+      _maximum-subtree-half-width(child-node, resolved-style),
+    )
+  }
+  maximum-half-width
+}
+
 #let _calculate-tree-layout-style(root, resolved-style, node-customizations, style) = {
   let height-label-half-width = _maximum-height-label-half-width(
     root,
@@ -45,25 +70,38 @@
   )
   let layout-style = resolved-style
   layout-style._height-label-half-width = height-label-half-width
-  if "x-gap" in style { return layout-style }
-  let maximum-node-half-width = resolved-style.node-radius
-  if resolved-style.node-shape == "capsule" {
-    maximum-node-half-width = 1.4 * resolved-style.node-radius
-  }
+  let maximum-node-radius = resolved-style.node-radius
+  let maximum-node-width-factor = if resolved-style.node-shape == "capsule" { 1.4 } else { 1.0 }
   for (_, customization) in node-customizations {
-    let shape = customization.at("shape", default: resolved-style.node-shape)
     let radius = customization.at("node-radius", default: resolved-style.node-radius)
-    let half-width = if shape == "capsule" { 1.4 * radius } else { radius }
-    maximum-node-half-width = calc.max(maximum-node-half-width, half-width)
+    let shape = customization.at("shape", default: resolved-style.node-shape)
+    maximum-node-radius = calc.max(maximum-node-radius, radius)
+    if shape == "capsule" { maximum-node-width-factor = 1.4 }
   }
-  let required-node-gap = 2 * maximum-node-half-width + 0.2
-  let required-subtree-gap = (
-    resolved-style.tri-w / 2 + 0.72 + height-label-half-width + 0.1
+  for mark-kind in ("new", "path", "remove", "rotate") {
+    let mark-style = resolve-mark-style(resolved-style, mark-kind)
+    maximum-node-radius = calc.max(maximum-node-radius, mark-style.node-radius)
+    if mark-style.shape == "capsule" { maximum-node-width-factor = 1.4 }
+  }
+  let maximum-node-half-width = maximum-node-width-factor * maximum-node-radius
+  layout-style._maximum-node-radius = maximum-node-radius
+  layout-style._maximum-node-half-width = maximum-node-half-width
+  let maximum-subtree-half-width = _maximum-subtree-half-width(
+    root,
+    layout-style,
   )
+  let maximum-horizontal-half-width = calc.max(
+    maximum-node-half-width,
+    maximum-subtree-half-width,
+  )
+  let required-horizontal-gap = 2 * maximum-horizontal-half-width + 0.24
   layout-style.x-gap = calc.max(
     resolved-style.x-gap,
-    required-node-gap,
-    required-subtree-gap,
+    required-horizontal-gap,
+  )
+  layout-style.y-gap = calc.max(
+    resolved-style.y-gap,
+    2 * maximum-node-radius + 0.24,
   )
   layout-style
 }
@@ -306,15 +344,6 @@
   (body: body, style: style)
 }
 
-#let _node-label-direction(pos) = {
-  if pos == "right" { return (1, 0) }
-  if pos == "left" { return (-1, 0) }
-  if pos == "top" { return (0, 1) }
-  if pos == "bottom" { return (0, -1) }
-  if type(pos) == angle { return (calc.cos(pos), calc.sin(pos)) }
-  (1, 0)
-}
-
 #let _resolve-tree-node-label(resolved-style, node-labels, id) = {
   let raw = _lookup-node-value(node-labels, id)
   if raw == none { return none }
@@ -322,7 +351,7 @@
   let style = resolved-style.label-text
   let defaults = resolved-style.at("node-labels", default: (:))
   if not defaults.at("enabled", default: true) { return none }
-  let position = defaults.at("position", default: "right")
+  let position = defaults.at("position", default: "auto")
   let offset = defaults.at("offset", default: (0, 0))
   let gap = defaults.at("gap", default: 0.22)
   let d0 = defaults
@@ -363,7 +392,7 @@
 
 #let _render-tree-node-label(node-position, boundary, resolved-style, label) = {
   if label == none { return }
-  let label-direction = _node-label-direction(label.position)
+  let label-direction = external-label-direction(label.position)
   let offset-x = label.offset.at(0)
   let offset-y = label.offset.at(1)
   let label-gap = label.gap
@@ -401,6 +430,49 @@
       + offset-y,
   )
   content(label-position, text(..text-style)[#label.body], angle: rotation)
+}
+
+#let _place-tree-node-label(node-id, node-position, boundary, label, obstacles, placed-label-obstacles) = {
+  if label == none or label.position != "auto" { return label }
+  let text-style = label.style
+  let rotation = text-style.at("rotation", default: 0deg)
+  if "rotation" in text-style { let _ = text-style.remove("rotation") }
+  let label-size = measure(text(..text-style)[#label.body])
+  let half-width = label-size.width / 1cm / 2
+  let half-height = label-size.height / 1cm / 2
+  let rotated-half-width = calc.abs(calc.cos(rotation)) * half-width + calc.abs(calc.sin(rotation)) * half-height
+  let rotated-half-height = calc.abs(calc.sin(rotation)) * half-width + calc.abs(calc.cos(rotation)) * half-height
+  let candidates = ()
+  for (position, direction) in external-label-directions {
+    let boundary-distance = _calculate-shape-boundary-radius(
+      boundary.at(0), boundary.at(1), direction.at(0), direction.at(1),
+    )
+    let center = external-label-center(
+      node-position, direction, boundary-distance, label.gap,
+      rotated-half-width, rotated-half-height,
+    )
+    candidates.push((
+      position: position,
+      center: (center.at(0) + label.offset.at(0), center.at(1) + label.offset.at(1)),
+      half-width: rotated-half-width,
+      half-height: rotated-half-height,
+    ))
+  }
+  let node-obstacles = ()
+  for obstacle in obstacles.nodes {
+    if obstacle.at(0) == node-id { continue }
+    node-obstacles.push(obstacle.slice(1))
+  }
+  let selected-candidate = select-external-label-candidate(
+    candidates, node-obstacles, obstacles.edges,
+    label-obstacles: obstacles.labels + placed-label-obstacles,
+  )
+  let positioned-label = label
+  positioned-label.position = selected-candidate.position
+  positioned-label._auto-center = selected-candidate.center
+  positioned-label._auto-half-width = selected-candidate.half-width
+  positioned-label._auto-half-height = selected-candidate.half-height
+  positioned-label
 }
 
 #let _render-tree-edge-label(p, q, r1, r2, resolved-style, custom) = {
@@ -614,7 +686,144 @@
   }
 }
 
-#let _render-tree-nodes(tree-node, resolved-style, marks, node-customizations, node-labels) = {
+#let _collect-tree-label-obstacles(tree-node, resolved-style, node-customizations, node-labels, edge-customizations) = {
+  let nodes = ()
+  let edges = ()
+  let labels = ()
+  let targets = ()
+  if tree-node == none { return (nodes: nodes, edges: edges, labels: labels, targets: targets) }
+  if tree-node.kind == "subtree" {
+    let node-position = _tree-node-position(tree-node, resolved-style)
+    let half-width = resolved-style.tri-w * tree-node.tscale / 2
+    let half-height = resolved-style.tri-h * tree-node.tscale
+    nodes.push((
+      _tree-node-id(tree-node), node-position.at(0),
+      node-position.at(1) - half-height / 2, half-width, half-height / 2,
+    ))
+    if tree-node.h-label != none {
+      let label-style = resolved-style.value-text
+      let geometry = measure-external-label(tree-node.h-label, label-style)
+      labels.push((
+        node-position.at(0) - half-width - geometry.half-width - 0.40,
+        node-position.at(1) - half-height / 2,
+        geometry.half-width, geometry.half-height,
+      ))
+    }
+    return (nodes: nodes, edges: edges, labels: labels, targets: targets)
+  }
+  let node-id = _tree-node-id(tree-node)
+  let node-position = _tree-node-position(tree-node, resolved-style)
+  let node-customization = _resolve-tree-node-customization(node-customizations, node-id)
+  let node-shape = _resolve-node-shape(resolved-style, custom: node-customization)
+  let node-radius = _resolve-node-radius(resolved-style, custom: node-customization)
+  let node-half-width = if node-shape == "capsule" { 1.4 * node-radius } else { node-radius }
+  nodes.push((node-id, node-position.at(0), node-position.at(1), node-half-width, node-radius))
+  targets.push((node-id, node-position, (node-shape, node-radius)))
+  let node-label = _resolve-tree-node-label(resolved-style, node-labels, node-id)
+  if node-label != none and node-label.position != "auto" {
+    let direction = external-label-direction(node-label.position)
+    let geometry = measure-external-label(node-label.body, node-label.style)
+    let boundary-distance = _calculate-shape-boundary-radius(
+      node-shape, node-radius, direction.at(0), direction.at(1),
+    )
+    let label-center = external-label-center(
+      node-position, direction, boundary-distance, node-label.gap,
+      geometry.half-width, geometry.half-height,
+    )
+    labels.push((
+      label-center.at(0) + node-label.offset.at(0),
+      label-center.at(1) + node-label.offset.at(1),
+      geometry.half-width, geometry.half-height,
+    ))
+  }
+  for child-node in _visible-tree-children(tree-node) {
+    if child-node == none { continue }
+    let child-position = _tree-node-position(child-node, resolved-style)
+    let child-id = _tree-node-id(child-node)
+    let child-customization = _resolve-tree-node-customization(node-customizations, child-id)
+    let child-shape = if child-node.kind == "subtree" {
+      "circle"
+    } else {
+      _resolve-node-shape(resolved-style, custom: child-customization)
+    }
+    let child-radius = if child-node.kind == "subtree" {
+      0
+    } else {
+      _resolve-node-radius(resolved-style, custom: child-customization)
+    }
+    let edge-customization = _resolve-tree-edge-customization(
+      edge-customizations, node-id, child-id,
+    )
+    let bend = if edge-customization == none { false } else { edge-customization.at("bend", default: false) }
+    let start = _trim-edge-to-shape(node-position, child-position, node-shape, node-radius)
+    let end = _trim-edge-to-shape(child-position, node-position, child-shape, child-radius)
+    if bend == false or bend == none {
+      edges.push((start, end, 0.04))
+    } else {
+      let control = _calculate-edge-bend-point(
+        node-position, child-position, bend,
+        edge-customization.at("angle", default: 25deg),
+      )
+      let first = _trim-edge-to-shape(node-position, control, node-shape, node-radius)
+      let last = _trim-edge-to-shape(child-position, control, child-shape, child-radius)
+      edges += calculate-through-edge-segments(first, control, last)
+    }
+    let edge-label = _resolve-tree-edge-label(resolved-style, edge-customization)
+    if edge-label.body != none {
+      let dx = child-position.at(0) - node-position.at(0)
+      let dy = child-position.at(1) - node-position.at(1)
+      let distance = calc.sqrt(dx * dx + dy * dy)
+      if distance > 0 {
+        let ux = dx / distance
+        let uy = dy / distance
+        let base = if bend == false or bend == none {
+          ((start.at(0) + end.at(0)) / 2, (start.at(1) + end.at(1)) / 2)
+        } else {
+          _calculate-edge-bend-point(
+            node-position, child-position, bend,
+            edge-customization.at("angle", default: 25deg),
+          )
+        }
+        let (offset-x, offset-y) = if bend == "right" {
+          (uy, -ux)
+        } else if bend == "left" {
+          (-uy, ux)
+        } else if dx < 0 { (uy, -ux) } else { (-uy, ux) }
+        let geometry = measure-external-label(edge-label.body, edge-label.style)
+        labels.push((base.at(0) + offset-x * 0.16, base.at(1) + offset-y * 0.16, geometry.half-width, geometry.half-height))
+      }
+    }
+    let child-obstacles = _collect-tree-label-obstacles(
+      child-node, resolved-style, node-customizations, node-labels, edge-customizations,
+    )
+    nodes += child-obstacles.nodes
+    edges += child-obstacles.edges
+    labels += child-obstacles.labels
+    targets += child-obstacles.targets
+  }
+  (nodes: nodes, edges: edges, labels: labels, targets: targets)
+}
+
+#let _resolve-tree-node-label-placements(targets, resolved-style, node-labels, obstacles) = {
+  let positioned-labels = ()
+  let placed-label-obstacles = ()
+  for (node-id, node-position, boundary) in targets {
+    let label = _resolve-tree-node-label(resolved-style, node-labels, node-id)
+    let positioned-label = _place-tree-node-label(
+      node-id, node-position, boundary, label, obstacles, placed-label-obstacles,
+    )
+    if positioned-label != none and "_auto-center" in positioned-label {
+      placed-label-obstacles.push((
+        positioned-label._auto-center.at(0), positioned-label._auto-center.at(1),
+        positioned-label._auto-half-width, positioned-label._auto-half-height,
+      ))
+    }
+    if positioned-label != none { positioned-labels.push((node-id, positioned-label)) }
+  }
+  positioned-labels
+}
+
+#let _render-tree-nodes(tree-node, resolved-style, marks, node-customizations, positioned-labels) = {
   if tree-node == none { return }
   if tree-node.kind == "subtree" {
     _render-subtree-triangle(tree-node, resolved-style)
@@ -626,7 +835,7 @@
       resolved-style,
       marks,
       node-customizations,
-      node-labels,
+      positioned-labels,
     )
   }
   let node-key = tree-node.at("key", default: none)
@@ -681,7 +890,7 @@
     _tree-node-position(tree-node, resolved-style),
     node-boundary,
     resolved-style,
-    _resolve-tree-node-label(resolved-style, node-labels, node-id),
+    _lookup-node-value(positioned-labels, node-id),
   )
 }
 
@@ -703,9 +912,15 @@
     } else {
       _calculate-tree-layout(root, 0, 0).first()
     }
+    let placement-obstacles = _collect-tree-label-obstacles(
+      placed, layout-style, node-customizations, node-labels, edge-customizations,
+    )
+    let positioned-labels = _resolve-tree-node-label-placements(
+      placement-obstacles.targets, layout-style, node-labels, placement-obstacles,
+    )
     scaled(layout-style, cetz.canvas({
       _render-tree-edges(placed, layout-style, edge-customizations, node-customizations)
-      _render-tree-nodes(placed, layout-style, marks, node-customizations, node-labels)
+      _render-tree-nodes(placed, layout-style, marks, node-customizations, positioned-labels)
     }))
   }
 }

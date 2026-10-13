@@ -77,6 +77,7 @@
   sequence: sequence, operation-sequence: operation-sequence, op-arrow: op-arrow,
   theme-preset: theme-preset, themes: themes, std: std,
   theme: theme, resolve: resolve,
+  fit-to-width: fit-to-width,
   messages: messages, supported-languages: supported-languages,
 )
 
@@ -204,7 +205,7 @@
   subargtable([Nested keys for #c("style")],
     [#c("style.node-radius")], [`float`], [`0.34`], [Circle radius, or base size for other node shapes, in canvas units.],
     [#c("style.node-shape")], [`str`], [`"circle"`], [#c("\"circle\""), #c("\"square\""), #c("\"rounded\""), #c("\"capsule\""), #c("\"diamond\""), or #c("\"hexagon\"").],
-    [#c("style.x-gap")], [`float`], [`1.05`], [Horizontal spacing between in-order columns.],
+    [#c("style.x-gap")], [`float`], [`1.05`], [Minimum spacing between in-order columns. Layout expands it as needed to preserve at least #c("0.24") canvas units of visible clearance around enlarged nodes and subtree triangles.],
     [#c("style.y-gap")], [`float`], [`1.2`], [Vertical spacing between depths.],
     [#c("style.tree-layout")], [`str`], [`"columns"`], [#c("\"columns\"") gives every leaf its own column. #c("\"tidy\"") packs sibling subtrees against their contours, keeping parents centered and subtree triangles clear. See @tidy-tree-layout.],
     [#c("style.node-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Node outline.],
@@ -345,7 +346,7 @@
     [#c("node-labels[].node")], [`content`], [required], [#key-desc],
     [#c("node-labels[].label")], [`content` / `dictionary`], [required], [Bare content for quick labels, or a dictionary with #c("content") plus style and placement keys.],
     [#c("node-labels[].label.content")], [`content`], [required for dict labels], [Label body. #c("body") is also accepted.],
-    [#c("node-labels[].label.position")], [`str` / `angle`], [`"right"`], [#c("\"right\""), #c("\"left\""), #c("\"top\""), #c("\"bottom\""), or an angle.],
+    [#c("node-labels[].label.position")], [`str` / `angle`], [`"auto"`], [Automatic placement, one of eight named sides, or an angle. See the placement note below.],
     [#c("node-labels[].label.offset")], [`point`], [`(0, 0)`], [Extra #c("(dx, dy)") shift after the position is applied.],
     [#c("node-labels[].label.size")], [`length`], [#c("style.label-text.size")], [Node-label size.],
     [#c("node-labels[].label.color")], [`color`], [#c("style.label-text.color")], [Node-label text color.],
@@ -355,7 +356,7 @@
   )
   subargtable([Nested keys for #c("style.node-labels")],
     [#c("style.node-labels.enabled")], [`bool`], [`true`], [Set #c("false") to hide node labels for this diagram.],
-  [#c("style.node-labels.position")], [`str` / `angle`], [`"right"`], [Default position for all node labels in this diagram.],
+  [#c("style.node-labels.position")], [`str` / `angle`], [`"auto"`], [Default position for all node labels. Automatic placement scores measured label bounds against diagram obstacles; fixed sides or angles remain available.],
     [#c("style.node-labels.offset")], [`point`], [`(0, 0)`], [Default extra #c("(dx, dy)") shift for all node labels.],
     [#c("style.node-labels.gap")], [`float`], [`0.22`], [Default distance from the node boundary in canvas units.],
     [#c("style.node-labels.size")], [`length`], [#c("style.label-text.size")], [Default node-label text size.],
@@ -364,6 +365,13 @@
     [#c("style.node-labels.weight")], [`str` / `int`], [inherits], [Typst text weight.],
     [#c("style.node-labels.rotation")], [`angle`], [#c("style.label-text.rotation")], [Default rotation of the label text itself.],
   )
+  note[Tree and graph node labels default to #c("position: \"auto\""). Automatic
+  placement scores measured label rectangles against nodes, existing labels, and
+  edges. It is a best-effort layout choice. Explicit sides and angles stay fixed,
+  so manually placed labels remain the caller's responsibility when they overlap.
+  The eight named sides are #c("right"), #c("left"), #c("top"),
+  #c("bottom"), #c("top-right"), #c("top-left"), #c("bottom-right"), and
+  #c("bottom-left").]
 }
 
 // Object-methods table shared by every structure section.
@@ -527,6 +535,7 @@ The package exports these symbols:
   [#c("hash-table")], [Chained or linear-probing hash table builder.],
   [#c("tree"), #c("node"), #c("subtree")], [Hand-composed abstract trees.],
   [#c("transition")], [One-shot before → after operation diagrams for trees and heaps.],
+  [#c("fit-to-width")], [Scale rendered diagrams down to fit a document width.],
   [#c("tree-insert"), #c("tree-delete"), #c("tree-search")], [Tree operation constructors, for #c("transition").],
   [#c("heap-insert"), #c("heap-extract")], [Heap operation constructors, for #c("transition").],
   [#c("sequence")], [Wrapped layout for operation-step sequences.],
@@ -659,7 +668,9 @@ but can leave wide gaps between uneven subtrees. Set
 #c("style: (tree-layout: \"tidy\")") to pack sibling subtrees against each
 other instead: each subtree is placed as close to its left neighbour as its
 outline allows. Binary left/right placement, parent centering, child order, and
-the space taken by #c("subtree()") triangles are preserved. The option applies
+the space taken by #c("subtree()") triangles are preserved. A lone child leans by
+the same half-column amount on either side, and triangle dimensions contribute to
+contour spacing. The option applies
 to #c("bst"), #c("avl"), #c("tree"), heaps, and tree transitions, and
 #c("\"columns\"") remains the default.
 
@@ -1645,12 +1656,16 @@ positions are specified relatively. Coincident unconnected nodes remain allowed.
 ]
 
 #note[#c("edge-routing: \"auto\"") bends reciprocal directed edges apart,
-using a left bend relative to each edge's travel direction. Independently,
+using a left bend relative to each edge's travel direction by default. When
+the reciprocal partner has an explicit bend, the automatic edge chooses the
+opposite physical side, including boolean bends and signed angles. A zero-angle
+partner stays straight while the automatic edge bends away. Independently,
 straight edges in linear and layered layouts bend around intermediate nodes
 that block their route. Explicit #c("bend") values always win, including
 #c("false") to keep an edge straight. Other overrides such as color or labels
-do not disable routing. Undirected edges are unaffected. Bent edges cannot use
-the wavy pattern; choose a solid, dashed, or dotted pattern, or remove the bend.]
+do not disable routing. Undirected edges are unaffected. Bent edges preserve
+their selected solid, dashed, dotted, or wavy pattern. Wavy self-loops remain
+unsupported and produce a diagnostic.]
 
 #methodtable(
   [#c(".diagram")], [n/a], [The rendered graph.],
@@ -2130,10 +2145,11 @@ an order or target path that differs from recursive DFS.]
 #note[#c("dijkstra") treats an unlabeled edge as weight #c("1"). Weighted
 entries must use non-negative numeric values such as #c("(\"B\", 4)"). It
 draws a distinct #c("d = ...") label beside every node on every step, styled by
-#c("style.distance-text") (purple and bold by default). The default label gap is
-#c("0.5") canvas units. #c("style.node-labels.gap") or per-node #c("node-labels")
-options can override it. The default side is chosen to avoid the node's incident
-edges; an explicit label position remains in control. Supplied node-label
+#c("style.distance-text") (purple and bold by default). Its default position is
+#c("auto"): measured label bounds are scored against nodes and graph edges to
+choose a clear side. The default label gap is #c("0.5") canvas units.
+#c("style.node-labels.gap") or per-node #c("node-labels") options can override
+it. Explicit sides or angles remain in control. Supplied node-label
 content is shown beside each distance. With #c("target:"), distances for
 unsettled nodes remain tentative.]
 
@@ -2243,8 +2259,8 @@ including force layouts, so state highlighting never makes nodes drift.]
 
 #note[Automatic tree spacing accounts for node radii, elided-triangle widths,
 and the measured width of height labels in both automatic layouts. An explicit
-#c("style.x-gap") remains the caller's layout choice and can reduce that
-clearance.]
+#c("style.x-gap") remains the minimum column spacing; layout expands it when
+needed to preserve the documented visible clearance.]
 
 #note[Subtree triangle labels and height labels use #c("style.node-text"), so
 theme text colors apply to both.]
@@ -2942,6 +2958,34 @@ content.
 )
 
 // ═════════════════════════════════════════════════════════════════════════════
+== Fit wide diagrams to a column
+
+#demo[
+  #c("fit-to-width(body, width: 100%)") scales rendered diagram content down
+  only when it exceeds the chosen limit. It never enlarges a diagram. The
+  default width is the current layout container. Pass a positive absolute
+  length or percentage to choose a narrower or wider limit; percentages are
+  measured against the available container, and wider limits still respect the
+  container width.
+]
+
+#argtable(
+  [#c("body")], [`content` / `str`], [required], [Rendered content such as a structure's #c(".diagram") or a composed grid of panels. Dictionaries and other values are rejected.],
+  [#c("width")], [`length` / `ratio`], [`100%`], [Positive absolute length or percentage. Relative lengths, zero, and negative values are invalid.],
+)
+
+#demo[
+  Wrap the entire panel group so each before/after diagram shares one fitting
+  scale:
+
+  #example(```typ
+  #fit-to-width(transition(
+    "avl", (50, 30, 70, 20, 40),
+    tree-insert(35, rebalance: (enabled: true, all-steps: true)),
+  ), width: 100%)
+  ```, side: false)
+]
+
 = Styling <styling>
 // ═════════════════════════════════════════════════════════════════════════════
 
@@ -3316,6 +3360,16 @@ One stone remains, weight *1*, matching
   [#c("sequence(..steps, columns:, gap:, row-gap:, mode:, style:)")], [Wrap operation steps or diagrams into a grid; #c("mode") chooses full steps, before/after panels, or plain results],
   [#c("operation-sequence(initial, ..operations, columns:, mode:)")], [Apply operation closures in order and return #c(".steps"), final #c(".result"), and #c(".diagram")],
   [#c("op-arrow(label, symbol:, style:)")], [Reusable labeled arrow for custom operation layouts],
+)
+
+== Layout helpers
+
+#table(
+  columns: (1fr, 2fr), inset: 6.5pt,
+  align: (x, y) => if y == 0 { center + horizon } else { left + horizon },
+  fill: (_, y) => if y == 0 { accent-soft }, stroke: 0.5pt + luma(210),
+  [*Call*], [*Result*],
+  [#c("fit-to-width(body, width: 100%)")], [Scales content down when it exceeds the available or requested maximum width.],
 )
 
 == Localization

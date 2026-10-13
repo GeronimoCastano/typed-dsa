@@ -146,7 +146,7 @@
 // `true` is the shorthand spelling of `"right"` that the bend renderer has
 // always accepted.
 #let bend-directions = (none, false, true, "left", "right")
-#let label-positions = ("left", "right", "top", "bottom")
+#let label-positions = ("auto", "left", "right", "top", "bottom", "top-right", "top-left", "bottom-right", "bottom-left")
 
 // Typography roles all accept the same `text()` parameters, plus the `color`
 // alias `resolve` folds into `fill`.
@@ -299,7 +299,7 @@
   if type(value) == angle { return }
   check-enum(
     where, what, value, label-positions,
-    fix: "use a side name or an angle, for example " + what + ": 45deg",
+    fix: "use auto, one of the eight compass directions, or an angle, for example " + what + ": 45deg",
   )
 }
 

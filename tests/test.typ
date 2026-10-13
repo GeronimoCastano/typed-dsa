@@ -7,7 +7,7 @@
   block(below: 1.2em)[
     #strong(title)
     #v(0.4em)
-    #body
+    #fit-to-width(body)
   ]
 }
 
@@ -1767,3 +1767,127 @@
 #section("Sorting captions accept the shared text rotation role", bubble-sort(
   array-view(3, 1, 2, style: (algorithm-label-text: (rotation: 12deg))),
 ).steps.first().diagram)
+
+#section("Automatic external labels route around tree nodes and graph edges", grid(
+  columns: 2, column-gutter: 1.6em,
+  bst(
+    50, 30, 70, 20, 40, 60, 80,
+    node-labels: (
+      (50, [root]), (30, [left]), (70, [right]),
+      (20, [leaf]), (60, [inner]),
+    ),
+    style: (x-gap: 1.25, y-gap: 1.3),
+  ).diagram,
+  dijkstra(("S": (("A", 4), ("B", 1)), "B": (("A", 2),), "A": ()), "S").steps.last().diagram,
+))
+#section("Automatic labels can be requested explicitly; fixed positions remain fixed", grid(
+  columns: 2, column-gutter: 1.6em,
+  graph(
+    ("A": ("B", "C"), "B": ("C",), "C": ()),
+    layout: "manual",
+    positions: ("A": (0, 0), "B": (2, 0.9), "C": (2, -0.9)),
+    node-labels: (
+      "A": (content: [explicit auto], position: "auto"),
+      "B": (content: [fixed top], position: "top"),
+    ),
+  ).diagram,
+  graph(
+    ("A": ("B",), "B": ()),
+    layout: "manual", positions: ("A": (0, 0), "B": (2, 0)),
+    node-labels: (
+      "A": (content: [fixed angle], position: 45deg),
+      "B": (content: [fixed left], position: "left"),
+    ),
+  ).diagram,
+))
+#section("BFS and DFS annotations use automatic external placement", grid(
+  columns: 2, column-gutter: 1.6em,
+  bfs(
+    ("S": ("A", "B"), "A": ("C",), "B": ("C",), "C": ()), "S",
+    node-labels: ("A": [parent: S], "B": [parent: S], "C": [distance: 2]),
+  ).steps.last().diagram,
+  dfs(
+    ("S": ("A", "B"), "A": ("C",), "B": ("C",), "C": ()), "S",
+    node-labels: ("A": [depth: 1], "B": [depth: 1], "C": [depth: 2]),
+  ).steps.last().diagram,
+))
+
+#section("Automatic placement chooses a diagonal between blocked cardinal sides", graph(
+  ("A": (), "N": (), "E": (), "S": (), "W": ()),
+  layout: "manual",
+  positions: (
+      "A": (0, 0), "N": (0, 0.72), "E": (0.72, 0),
+      "S": (0, -0.72), "W": (-0.72, 0),
+  ),
+  node-labels: ("A": (content: [$d=3$], position: "auto")),
+  style: (node-radius: 0.25, node-labels: (gap: 0.15)),
+).diagram)
+#section("Explicit diagonal label positions", grid(
+  columns: 2, column-gutter: 1.4em, row-gutter: 1em,
+  graph(("A": ()), node-labels: ("A": (content: [top-right], position: "top-right"))).diagram,
+  graph(("A": ()), node-labels: ("A": (content: [top-left], position: "top-left"))).diagram,
+  graph(("A": ()), node-labels: ("A": (content: [bottom-right], position: "bottom-right"))).diagram,
+  graph(("A": ()), node-labels: ("A": (content: [bottom-left], position: "bottom-left"))).diagram,
+))
+
+#section("Positive x-gap preserves clearance around large nodes and subtree triangles", grid(
+  columns: 2, column-gutter: 1.5em,
+  tree(
+    node(1, left: node(2), right: node(3, left: node(4), right: node(5))),
+    style: (node-radius: 0.6, x-gap: 0.4),
+  ),
+  tree(
+    node(
+      "root",
+      left: node("left", left: subtree("wide", scale: 1.8)),
+      right: node("right", right: subtree("tall", scale: 1.2)),
+    ),
+    node-customizations: (("root", (node-radius: 1.1)),),
+    style: (node-radius: 0.3, tri-w: 1.4, x-gap: 0.4, tree-layout: "tidy"),
+  ),
+))
+
+#section("Lone children mirror in column layout; tidy triangles retain a margin", grid(
+  columns: 2, column-gutter: 1.5em,
+  tree(node("P", left: subtree("T")), style: (tree-layout: "columns")),
+  tree(node("P", right: subtree("T")), style: (tree-layout: "columns")),
+  tree(
+    node(
+      "P",
+      left: node("L", left: subtree("T1", scale: 1.8)),
+      right: node("R", right: subtree("T2", scale: 1.2)),
+    ),
+    style: (tree-layout: "tidy", tri-w: 1.4, node-radius: 0.3),
+  ),
+  graph(
+    ("B": ("A",), "A": ("B",)), directed: false,
+    layout: "manual", positions: ("A": (0, 0), "B": (3, 0)),
+    edge-customizations: (("A", "B", (bend: "left")),),
+  ).diagram,
+))
+
+#section("Wavy bent edges keep their pattern under manual and automatic routing", grid(
+  columns: 2, column-gutter: 1.5em,
+  graph(
+    ("A": (("B", [ab]),), "B": (("A", [ba]),)),
+    layout: "manual", positions: ("A": (0, 0), "B": (3, 0)),
+    edge-routing: "auto", style: (edge-pattern: "wavy"),
+    edge-customizations: (("A", "B", (bend: true)),),
+  ).diagram,
+  graph(
+    ("A": ("B", "C"), "C": (), "B": ()),
+    layout: "linear", gap: 1.4, edge-routing: "auto",
+    style: (edge-pattern: "wavy"),
+  ).diagram,
+))
+
+#section("fit-to-width keeps all four AVL rebalance panels inside the page", fit-to-width(
+  transition("avl", (50, 30, 70, 20, 40), tree-insert(35, rebalance: (enabled: true, all-steps: true))),
+))
+
+#section("Automatic reciprocal routing clears an explicitly straight zero-angle bend", graph(
+  ("A": (("B", [fixed]),), "B": (("A", [automatic]),)),
+  layout: "manual", positions: ("A": (0, 0), "B": (3, 0)),
+  edge-routing: "auto", style: (edge-pattern: "wavy"),
+  edge-customizations: (("A", "B", (bend: true, angle: 0deg)),),
+).diagram)

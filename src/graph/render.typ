@@ -4,6 +4,11 @@
 #import "../shared/style.typ": (
   theme, scaled, edge-stroke, edge-arrow, edge-wave, wavy-parts,
 )
+#import "../shared/label-placement.typ": (
+  external-label-directions, external-label-direction, external-label-center,
+  measure-external-label, select-external-label-candidate,
+)
+#import "../shared/edge-path.typ": calculate-cubic-edge-segments, calculate-through-edge-segments, wavy-path-parts
 #import cetz.draw: line, circle, rect, content, bezier-through, bezier
 #import "model.typ": (
   _collect-graph-edges, _collect-graph-node-ids, _edge-display-label,
@@ -109,10 +114,16 @@
     } else {
       none
     }
-    options.bend = if reciprocal-bend in ("left", "right") {
+    options.bend = if reciprocal-bend == true {
+      "right"
+    } else if reciprocal-bend in ("left", "right") {
       reciprocal-bend
     } else {
       "left"
+    }
+    if reciprocal-bend not in (none, false) {
+      let reciprocal-angle = reciprocal-custom.at("angle", default: 25deg)
+      options.angle = if reciprocal-angle == 0deg { 25deg } else { reciprocal-angle }
     }
   }
   if "bend" not in options and node-positions != none {
@@ -222,10 +233,11 @@
   // Gap is 10% of size. But since text is centered, we also need to shift by 50% of size
   // so the text's bounding box clears the line. Total shift = 60% of size.
   // Convert pt to CetZ coordinate units (1 unit = 1cm = 28.346pt).
-  let shift-pt = if type(size) == length { (size / 1pt) * 0.6 } else { 6.0 }
+  let shift-pt = if type(size) == length { (size.to-absolute() / 1pt) * 0.6 } else { 6.0 }
   let gap = shift-pt / 28.346
 
-  (base.at(0) + ox * gap, base.at(1) + oy * gap)
+  let bend-sign = if bend not in (none, false) and custom.at("angle", default: 25deg) < 0deg { -1 } else { 1 }
+  (base.at(0) + ox * gap * bend-sign, base.at(1) + oy * gap * bend-sign)
 }
 
 // A node boundary is `(shape, radius, half-width)`: `radius` is the half-height,
@@ -260,56 +272,53 @@
     let bp = _calculate-graph-edge-bend-point(p, q, bend, angle)
     let p2 = _trim-edge-to-boundary(p, bp, from-boundary)
     let q2 = _trim-edge-to-boundary(q, bp, to-boundary)
-    bezier-through(p2, bp, q2, stroke: stroke, mark: mark)
+    if edge-wave(resolved-style, custom: custom) {
+      let start-tip = mark != none and "start" in mark
+      let end-tip = mark != none and "end" in mark
+      let parts = wavy-path-parts(calculate-through-edge-segments(p2, bp, q2), resolved-style, start-tip: start-tip, end-tip: end-tip)
+      line(..parts.points, stroke: stroke)
+      let fill = if mark == none { none } else { mark.at("fill", default: none) }
+      if start-tip { line(p2, parts.start-cap, stroke: stroke, mark: (start: ">", fill: fill)) }
+      if end-tip { line(parts.end-cap, q2, stroke: stroke, mark: (end: ">", fill: fill)) }
+    } else {
+      bezier-through(p2, bp, q2, stroke: stroke, mark: mark)
+    }
   }
 }
 
+#let _resolve-graph-edge-label(label, resolved-style, custom) = {
+  let body = label
+  let text-style = resolved-style.edge-label-text
+  if custom != none and "label" in custom {
+    let options = custom.label
+    if type(options) == dictionary {
+      body = options.at("content", default: options.at("body", default: label))
+      let text-overrides = options
+      for key in ("content", "body") {
+        if key in text-overrides { let _ = text-overrides.remove(key) }
+      }
+      text-style += _normalize-graph-text-style(text-overrides)
+    } else {
+      body = options
+    }
+  }
+  (body: body, style: text-style)
+}
+
 #let _render-graph-edge-label(label, p, q, from-boundary, to-boundary, resolved-style, custom) = {
-  let displayed-label = label
-  let label-options = if custom == none { none } else { custom.at("label", default: none) }
-  if custom != none and "label" in custom {
-    if type(label-options) == dictionary {
-      displayed-label = label-options.at("content", default: label-options.at("body", default: label))
-    } else { displayed-label = label-options }
-  }
-  if displayed-label == none { return }
-  let pt = _calculate-edge-label-position(p, q, from-boundary, to-boundary, custom, resolved-style)
-
-  let label-style = resolved-style.edge-label-text
-  let rotation = label-style.at("rotation", default: 0deg)
-
-  if custom != none and "label" in custom {
-    let l-custom = custom.label
-    if type(l-custom) == dictionary {
-      if "content" in l-custom { let _ = l-custom.remove("content") }
-      if "body" in l-custom { let _ = l-custom.remove("body") }
-      if "color" in l-custom {
-        l-custom.fill = l-custom.color
-        let _ = l-custom.remove("color")
-      }
-      if "rotation" in l-custom {
-        rotation = l-custom.rotation
-        let _ = l-custom.remove("rotation")
-      }
-      label-style = label-style + l-custom
-    }
-  }
-
-  // Remove rotation from label-style so text() doesn't fail
-  if "rotation" in label-style {
-    let _ = label-style.remove("rotation")
-  }
-
+  let resolved-label = _resolve-graph-edge-label(label, resolved-style, custom)
+  if resolved-label.body == none { return }
+  let position = _calculate-edge-label-position(p, q, from-boundary, to-boundary, custom, resolved-style)
+  let text-style = resolved-label.style
+  let rotation = text-style.at("rotation", default: 0deg)
+  if "rotation" in text-style { let _ = text-style.remove("rotation") }
   if rotation == "edge" {
-    let (dx, dy) = (q.at(0) - p.at(0), q.at(1) - p.at(1))
-    let angle = calc.atan2(dx, dy)
-    if dx < 0 {
-      angle += 180deg
-    }
-    rotation = angle
+    let dx = q.at(0) - p.at(0)
+    let dy = q.at(1) - p.at(1)
+    rotation = calc.atan2(dx, dy)
+    if dx < 0 { rotation += 180deg }
   }
-
-  content(pt, text(..label-style)[#displayed-label], angle: rotation)
+  content(position, text(..text-style)[#resolved-label.body], angle: rotation)
 }
 
 #let _render-graph-self-loop(position, boundary, label, directed, resolved-style, custom) = {
@@ -326,19 +335,10 @@
     label-override.at("size", default: resolved-style.edge-label-text.at("size", default: 9pt))
   } else { resolved-style.edge-label-text.at("size", default: 9pt) }
   let label-gap = if type(label-size) == length {
-    (label-size / 1pt) * 0.6 / 28.346
+    (label-size.to-absolute() / 1pt) * 0.6 / 28.346
   } else { 0.22 }
   let label-position = (geometry.label.at(0), geometry.label.at(1) + geometry.side * label-gap)
   _render-graph-edge-label(label, label-position, label-position, none, none, resolved-style, custom)
-}
-
-#let _graph-node-label-direction(pos) = {
-  if pos == "right" { return (1, 0) }
-  if pos == "left" { return (-1, 0) }
-  if pos == "top" { return (0, 1) }
-  if pos == "bottom" { return (0, -1) }
-  if type(pos) == angle { return (calc.cos(pos), calc.sin(pos)) }
-  (1, 0)
 }
 
 #let _resolve-graph-node-label(resolved-style, node-labels, id) = {
@@ -348,7 +348,7 @@
   let style = resolved-style.label-text
   let defaults = resolved-style.at("node-labels", default: (:))
   if not defaults.at("enabled", default: true) { return none }
-  let position = defaults.at("position", default: "right")
+  let position = defaults.at("position", default: "auto")
   let offset = defaults.at("offset", default: (0, 0))
   let gap = defaults.at("gap", default: 0.22)
   let d0 = defaults
@@ -389,7 +389,7 @@
 
 #let _render-graph-node-label(node-position, boundary, resolved-style, label) = {
   if label == none { return }
-  let label-direction = _graph-node-label-direction(label.position)
+  let label-direction = external-label-direction(label.position)
   let offset-x = label.offset.at(0)
   let offset-y = label.offset.at(1)
   let label-gap = label.gap
@@ -428,6 +428,140 @@
       + offset-y,
   )
   content(label-position, text(..text-style)[#label.body], angle: rotation)
+}
+
+#let _place-graph-node-label(node-id, node-position, boundary, label, node-ids, node-positions, node-boundaries, graph-edges, node-labels, resolved-style, directed, edge-customizations, edge-routing, placed-label-obstacles) = {
+  if label == none or label.position != "auto" { return label }
+  let text-style = label.style
+  let rotation = text-style.at("rotation", default: 0deg)
+  if "rotation" in text-style { let _ = text-style.remove("rotation") }
+  let label-size = measure(text(..text-style)[#label.body])
+  let half-width = label-size.width / 1cm / 2
+  let half-height = label-size.height / 1cm / 2
+  let rotated-half-width = calc.abs(calc.cos(rotation)) * half-width + calc.abs(calc.sin(rotation)) * half-height
+  let rotated-half-height = calc.abs(calc.sin(rotation)) * half-width + calc.abs(calc.cos(rotation)) * half-height
+  let candidates = ()
+  for (position, direction) in external-label-directions {
+    let boundary-distance = _calculate-node-boundary-radius(
+      boundary.at(0), boundary.at(1), direction.at(0), direction.at(1),
+      half-width: boundary.at(2),
+    )
+    let center = external-label-center(
+      node-position, direction, boundary-distance, label.gap,
+      rotated-half-width, rotated-half-height,
+    )
+    candidates.push((
+      position: position,
+      center: (center.at(0) + label.offset.at(0), center.at(1) + label.offset.at(1)),
+      half-width: rotated-half-width,
+      half-height: rotated-half-height,
+    ))
+  }
+  let node-obstacles = ()
+  for obstacle-id in node-ids {
+    if obstacle-id == node-id { continue }
+    let obstacle-position = node-positions.at(obstacle-id)
+    let obstacle-boundary = node-boundaries.at(obstacle-id)
+    node-obstacles.push((
+      obstacle-position.at(0), obstacle-position.at(1),
+      obstacle-boundary.at(2), obstacle-boundary.at(1),
+    ))
+  }
+  let edge-obstacles = ()
+  let edge-label-obstacles = ()
+  for (from-id, to-id, edge-label) in graph-edges {
+    let edge-customization = _resolve-graph-edge-customization(
+      edge-customizations, from-id, to-id, directed,
+    )
+    let reciprocal-customization = if directed {
+      _resolve-graph-edge-customization(edge-customizations, to-id, from-id, directed)
+    } else { none }
+    edge-customization = _resolve-graph-edge-routing(
+      graph-edges, from-id, to-id, directed, edge-routing, edge-customization,
+      reciprocal-custom: reciprocal-customization,
+      node-ids: node-ids, node-positions: node-positions,
+      node-boundaries: node-boundaries,
+    )
+    if from-id == to-id {
+      let loop = _calculate-graph-loop-geometry(
+        node-positions.at(from-id), node-boundaries.at(from-id),
+        bend: edge-customization.at("bend", default: false),
+      )
+      edge-obstacles += calculate-cubic-edge-segments(
+        loop.start, loop.control-start, loop.control-end, loop.end,
+      )
+      let resolved-label = _resolve-graph-edge-label(edge-label, resolved-style, edge-customization)
+      let size = resolved-label.style.at("size", default: 9pt)
+      let gap = (size.to-absolute() / 1pt) * 0.6 / 28.346
+      let center = (loop.label.at(0), loop.label.at(1) + loop.side * gap)
+      if resolved-label.body != none {
+        let geometry = measure-external-label(resolved-label.body, resolved-label.style)
+        edge-label-obstacles.push((center.at(0), center.at(1), geometry.half-width, geometry.half-height))
+      }
+      continue
+    }
+    let from-position = node-positions.at(from-id)
+    let to-position = node-positions.at(to-id)
+    let bend = edge-customization.at("bend", default: false)
+    let edge-clearance = 0.04 + if edge-wave(resolved-style, custom: edge-customization) {
+      resolved-style.edge-wave-amplitude
+    } else { 0 }
+    if bend == false or bend == none {
+      edge-obstacles.push((
+        _trim-edge-to-boundary(from-position, to-position, node-boundaries.at(from-id)),
+        _trim-edge-to-boundary(to-position, from-position, node-boundaries.at(to-id)),
+        edge-clearance,
+      ))
+    } else {
+      let angle = edge-customization.at("angle", default: 25deg)
+      let control = _calculate-graph-edge-bend-point(from-position, to-position, bend, angle)
+      let start = _trim-edge-to-boundary(from-position, control, node-boundaries.at(from-id))
+      let end = _trim-edge-to-boundary(to-position, control, node-boundaries.at(to-id))
+      edge-obstacles += calculate-through-edge-segments(start, control, end, radius: edge-clearance)
+    }
+    let label-position = _calculate-edge-label-position(
+      from-position, to-position, node-boundaries.at(from-id),
+      node-boundaries.at(to-id), edge-customization, resolved-style,
+    )
+    let resolved-label = _resolve-graph-edge-label(edge-label, resolved-style, edge-customization)
+    if resolved-label.body != none {
+      let geometry = measure-external-label(resolved-label.body, resolved-label.style)
+      edge-label-obstacles.push((label-position.at(0), label-position.at(1), geometry.half-width, geometry.half-height))
+    }
+  }
+  let explicit-label-obstacles = ()
+  for other-id in node-ids {
+    if other-id == node-id { continue }
+    let other-label = _resolve-graph-node-label(resolved-style, node-labels, other-id)
+    if other-label == none or other-label.position == "auto" { continue }
+    let other-direction = external-label-direction(other-label.position)
+    let other-geometry = measure-external-label(other-label.body, other-label.style)
+    let other-boundary = node-boundaries.at(other-id)
+    let other-boundary-distance = _calculate-node-boundary-radius(
+      other-boundary.at(0), other-boundary.at(1),
+      other-direction.at(0), other-direction.at(1),
+      half-width: other-boundary.at(2),
+    )
+    let other-center = external-label-center(
+      node-positions.at(other-id), other-direction, other-boundary-distance,
+      other-label.gap, other-geometry.half-width, other-geometry.half-height,
+    )
+    explicit-label-obstacles.push((
+      other-center.at(0) + other-label.offset.at(0),
+      other-center.at(1) + other-label.offset.at(1),
+      other-geometry.half-width, other-geometry.half-height,
+    ))
+  }
+  let selected-candidate = select-external-label-candidate(
+    candidates, node-obstacles, edge-obstacles,
+    label-obstacles: explicit-label-obstacles + edge-label-obstacles + placed-label-obstacles,
+  )
+  let positioned-label = label
+  positioned-label.position = selected-candidate.position
+  positioned-label._auto-center = selected-candidate.center
+  positioned-label._auto-half-width = selected-candidate.half-width
+  positioned-label._auto-half-height = selected-candidate.half-height
+  positioned-label
 }
 
 // The text a node label is drawn with: the value-text role plus the node's
@@ -589,6 +723,7 @@
         )
       }
     }
+    let placed-auto-label-obstacles = ()
     for node-id in node-ids {
       let node-customization = _resolve-graph-node-customization(
         node-customizations,
@@ -602,11 +737,35 @@
         resolved-style,
         node-customization,
       )
+      let placed-label = _place-graph-node-label(
+        node-id,
+        node-positions.at(node-id),
+        node-boundary,
+        _resolve-graph-node-label(resolved-style, node-labels, node-id),
+        node-ids,
+        node-positions,
+        node-boundaries,
+        graph-edges,
+        node-labels,
+        resolved-style,
+        directed,
+        edge-customizations,
+        edge-routing,
+        placed-auto-label-obstacles,
+      )
+      if placed-label != none and "_auto-center" in placed-label {
+        placed-auto-label-obstacles.push((
+          placed-label._auto-center.at(0),
+          placed-label._auto-center.at(1),
+          placed-label._auto-half-width,
+          placed-label._auto-half-height,
+        ))
+      }
       _render-graph-node-label(
         node-positions.at(node-id),
         node-boundary,
         resolved-style,
-        _resolve-graph-node-label(resolved-style, node-labels, node-id),
+        placed-label,
       )
     }
   }))

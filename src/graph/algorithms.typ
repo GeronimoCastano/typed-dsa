@@ -164,53 +164,12 @@
   state-customizations
 }
 
-#let _select-distance-label-position(node-id, adjacency, node-positions, directed) = {
-  let node-position = node-positions.at(node-id)
-  let directions = (
-    ("right", (1, 0)),
-    ("left", (-1, 0)),
-    ("top", (0, 1)),
-    ("bottom", (0, -1)),
-  )
-  let maximum-edge-alignment = (right: -1, left: -1, top: -1, bottom: -1)
-  for (from-node-id, to-node-id, _) in _collect-graph-edges(adjacency, directed) {
-    if from-node-id != node-id and to-node-id != node-id { continue }
-    let other-node-id = if from-node-id == node-id { to-node-id } else { from-node-id }
-    if other-node-id == node-id { continue }
-    let other-position = node-positions.at(other-node-id)
-    let delta-x = other-position.at(0) - node-position.at(0)
-    let delta-y = other-position.at(1) - node-position.at(1)
-    let distance = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
-    if distance == 0 { continue }
-    let unit-edge = (delta-x / distance, delta-y / distance)
-    for (side, direction) in directions {
-      let alignment = direction.at(0) * unit-edge.at(0) + direction.at(1) * unit-edge.at(1)
-      maximum-edge-alignment.insert(
-        side,
-        calc.max(maximum-edge-alignment.at(side), alignment),
-      )
-    }
-  }
-  let selected-side = "right"
-  let selected-alignment = maximum-edge-alignment.right
-  for (side, _) in directions.slice(1) {
-    if maximum-edge-alignment.at(side) < selected-alignment {
-      selected-side = side
-      selected-alignment = maximum-edge-alignment.at(side)
-    }
-  }
-  selected-side
-}
-
 #let _build-distance-node-labels(
   node-ids,
   distances,
   supplied-labels,
   resolved-style,
   message-catalog,
-  adjacency,
-  node-positions,
-  directed,
   style,
 ) = {
   let distance-labels = ()
@@ -229,17 +188,6 @@
     let label-customization = resolved-style.distance-text
     let label-defaults = resolved-style.at("node-labels", default: (:))
     if "gap" not in label-defaults { label-customization.gap = 0.5 }
-    let requested-node-label-style = style.at("node-labels", default: (:))
-    let supplied-position = if type(supplied-label) == dictionary {
-      supplied-label.at("position", default: none)
-    } else {
-      none
-    }
-    if supplied-position == none and "position" not in requested-node-label-style {
-      label-customization.position = _select-distance-label-position(
-        node-id, adjacency, node-positions, directed,
-      )
-    }
     let supplied-body = supplied-label
     if type(supplied-label) == dictionary {
       supplied-body = supplied-label.at(
@@ -292,9 +240,6 @@
       node-labels,
       resolved-style,
       cat,
-      adjacency,
-      node-positions,
-      directed,
       style,
     )
   }

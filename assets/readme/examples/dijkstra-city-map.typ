@@ -40,7 +40,7 @@
     visited-style: (fill: rgb("#D3E9E7"), stroke: 0.9pt + teal),
     queued-style: (fill: white, stroke: 0.9pt + rgb("#8A9BA3")),
     active-edge-style: (stroke: 2.6pt + amber),
-    node-labels: node-label-style(position: "bottom", gap: 0.3),
+    node-labels: node-label-style(position: "auto", gap: 0.3),
   ),
   node-labels: ("H", "P", "M", "S", "U", "T", "C").map(node-id => (node-id, (color: teal))),
 )

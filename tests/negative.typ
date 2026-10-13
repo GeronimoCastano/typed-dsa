@@ -923,9 +923,9 @@
     code: "#graph((\"A\": (\"B\",), \"B\": ()), edge-customizations: ((\"A\", \"B\", (label: (size: 12pt))),)).diagram",
   ),
   (
-    name: "graph: bent edge cannot use a wavy pattern",
-    expect: "combines a bend with a wavy pattern",
-    code: "#graph((\"A\": (\"B\",), \"B\": ()), style: (edge-pattern: \"wavy\"), edge-customizations: ((\"A\", \"B\", (bend: \"left\")),)).diagram",
+    name: "graph: wavy self-loop is unsupported",
+    expect: "requests a wavy edge",
+    code: "#graph((\"A\": (\"A\",)), style: (edge-pattern: \"wavy\")).diagram",
   ),
   (
     name: "node: children array cannot contain an empty entry",
@@ -1026,6 +1026,41 @@
     name: "matrix: duplicate customization coordinate",
     expect: "repeats target",
     code: "#matrix(((1, 2),), cell-customizations: (((0, 1), (fill: red)), ((0, 1), (fill: blue)))).diagram",
+  ),
+  (
+    name: "tree node-label position rejects misspelled direction",
+    expect: "position",
+    code: "#bst(2, 1, 3, node-labels: ((2, (content: [root], position: \"rigth\")),)).diagram",
+  ),
+  (
+    name: "graph node-label position rejects unsupported type",
+    expect: "position",
+    code: "#graph((\"A\": ()), node-labels: (\"A\": (content: [source], position: 3))).diagram",
+  ),
+  (
+    name: "fit-to-width rejects zero width",
+    expect: "width:",
+    code: "#fit-to-width(bst(2, 1, 3).diagram, width: 0pt)",
+  ),
+  (
+    name: "fit-to-width rejects negative width",
+    expect: "width:",
+    code: "#fit-to-width(bst(2, 1, 3).diagram, width: -1pt)",
+  ),
+  (
+    name: "fit-to-width rejects a relative length",
+    expect: "width:",
+    code: "#fit-to-width(bst(2, 1, 3).diagram, width: 1em)",
+  ),
+  (
+    name: "fit-to-width rejects a non-length width",
+    expect: "width:",
+    code: "#fit-to-width(bst(2, 1, 3).diagram, width: \"wide\")",
+  ),
+  (
+    name: "fit-to-width rejects a dictionary body",
+    expect: "body",
+    code: "#fit-to-width((:))",
   ),
 )
 

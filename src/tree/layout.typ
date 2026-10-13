@@ -63,20 +63,18 @@
     tree-node._col = (left-child._col + right-child._col) / 2
     (tree-node, column-after-children)
   } else if has-left-child {
-    // Phantom right child occupies the next column.
     let (left-child, phantom-right-column) = (
       _calculate-tree-layout(tree-node.left, depth + 1, next-column)
     )
     tree-node.left = left-child
-    tree-node._col = (left-child._col + phantom-right-column) / 2
+    tree-node._col = left-child._col + 0.5
     (tree-node, phantom-right-column + 1)
   } else {
-    // Phantom left child occupies this column; the real right child follows.
     let (right-child, column-after-right-child) = (
       _calculate-tree-layout(tree-node.right, depth + 1, next-column + 1)
     )
     tree-node.right = right-child
-    tree-node._col = (next-column + right-child._col) / 2
+    tree-node._col = right-child._col - 0.5
     (tree-node, column-after-right-child)
   }
 }
@@ -113,13 +111,16 @@
     if tree-node.h-label == none {
       triangle-half-width
     } else {
-      triangle-half-width + 0.72
-        + resolved-style.at("_height-label-half-width", default: 0)
+      triangle-half-width + 0.4
+        + 2 * resolved-style.at("_height-label-half-width", default: 0)
     }
   } else {
-    resolved-style.node-radius
+    resolved-style.at(
+      "_maximum-node-half-width",
+      default: resolved-style.node-radius,
+    )
   }
-  calc.max(0.5, (drawn-half-width + 0.1) / resolved-style.x-gap)
+  calc.max(0.5, (drawn-half-width + 0.12) / resolved-style.x-gap)
 }
 
 // A subtree triangle hangs below its row; it blocks every row whose nodes
@@ -127,7 +128,10 @@
 #let _calculate-triangle-row-count(subtree-node, resolved-style) = {
   let triangle-height = resolved-style.tri-h * subtree-node.tscale
   calc.ceil(
-    (triangle-height + resolved-style.node-radius) / resolved-style.y-gap,
+    (
+      triangle-height
+        + resolved-style.at("_maximum-node-radius", default: resolved-style.node-radius)
+    ) / resolved-style.y-gap,
   )
 }
 

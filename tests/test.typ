@@ -23,13 +23,13 @@
 
 #section("BST search (traversal path)", transition("bst", (50, 30, 70, 20, 40, 60, 80), tree-search(40)))
 
-#section("AVL insert with rotation (green = new, blue = rotation schematic parts)", transition(
+#section("AVL insert with rotation (green = new, blue = changed parent)", transition(
   "avl",
   (20, 10, 30, 40),
   tree-insert(50),
 ))
 
-#section("AVL single rotation, rebalance: (enabled: true): rotation schematic parts marked", transition(
+#section("AVL single rotation, rebalance: (enabled: true): changed-parent nodes marked", transition(
   "avl",
   (20, 10, 30, 40),
   tree-insert(50, rebalance: (enabled: true)),
@@ -120,7 +120,7 @@
     new-style: (shape: "square", stroke: 2pt + rgb("#2E7D32")),
     // search path: just a heavier stroke, default circle/yellow kept
     path-style: (stroke: 1.5pt + rgb("#F9A825")),
-    // rotation schematic parts: bigger radius, still default blue fill
+    // Rotation marks can enlarge nodes while retaining the default blue fill.
     rotate-style: (node-radius: 0.45),
   )
   std.stack(spacing: 1em, transition("bst", (50, 30, 70, 20, 40), tree-insert(45), style: custom), transition(
@@ -350,7 +350,7 @@
 ))
 
 #section(
-  "Graph-wide edge style: undirected graph with both tips, dashed and wavy",
+  "Graph-wide edge style: undirected graph with both tips and wavy edges",
   graph(
     ("v1": ("v2", "v3"), "v2": ("v3",), "v3": ()),
     directed: false,
@@ -371,7 +371,7 @@
 )
 
 #section(
-  "edge-customizations: local dashed, wavy, and both-tip graph edges",
+  "edge-customizations: local dotted, wavy, and both-tip graph edges",
   graph(
     ("v1": ("v2", "v3"), "v2": ("v3",), "v3": ()),
     edge-customizations: (
@@ -1270,7 +1270,7 @@
   std.stack(spacing: 1em, step1.diagram, step2.diagram)
 })
 
-#section("Localization: assertions reject an unsupported language code and an unknown message key", {
+#section("Localization: unsupported language codes and message keys are covered by the negative suite", {
   assert.eq(type(bst(5, 3)), dictionary)
   // Both of these would fail to compile if uncommented, by design:
   //   bst(1, language: "fr")
@@ -1757,3 +1757,13 @@
   (stack(1, 2, style: (box-shape: "capsule", new-style: (fill: white, stripe-fill: rgb("#C4B5FD")))).push)(3).after,
   (stack(1, 2, style: (new-style: gradient.linear(red, blue))).push)(3).after,
 ))
+
+#section("Array and matrix cell customizations use distinct targets", grid(
+  columns: 2, column-gutter: 2em,
+  array-view(1, 2, cell-customizations: ((0, (fill: rgb("#DDEBFF"))), (1, (fill: rgb("#FCE1EA"))))).diagram,
+  matrix(((1, 2),), cell-customizations: (((0, 0), (fill: rgb("#DDEBFF"))), ((0, 1), (fill: rgb("#FCE1EA"))))).diagram,
+))
+
+#section("Sorting captions accept the shared text rotation role", bubble-sort(
+  array-view(3, 1, 2, style: (algorithm-label-text: (rotation: 12deg))),
+).steps.first().diagram)

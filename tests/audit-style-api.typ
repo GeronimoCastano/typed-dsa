@@ -43,6 +43,14 @@
 
 #v(1em)
 #text(size: 9pt)[The red dashed edge uses the same base thickness as the neighboring edge.]
+#v(1em)
+#bst(5, 3, 7, edge-customizations: (
+  (5, 3, (stroke: 2pt, pattern: "dashed")),
+  (5, 7, (stroke: none, pattern: "dotted")),
+)).diagram
+#v(1em)
+#bst(5, 3, 7, edge-customizations: ((5, 3, (stroke: gradient.linear(red, blue), pattern: "dotted")),)).diagram
+
 
 #pagebreak()
 
@@ -71,4 +79,11 @@
 #grid(columns: 2, column-gutter: 2em,
   (stack(1, 2, style: (box-shape: "capsule", new-style: (fill: white, stripe-fill: rgb("#C4B5FD")))).push)(3).after,
   (stack(1, 2, style: (new-style: gradient.linear(red, blue))).push)(3).after,
+)
+
+#pagebreak()
+== Hash keys and numeric equality
+#grid(columns: 2, column-gutter: 2em,
+  hash-table([Ada], [Grace], size: 5).diagram,
+  (hash-table(1, size: 5).search)(1.0).after,
 )

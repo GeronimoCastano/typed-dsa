@@ -577,7 +577,7 @@ covers the step shape they share.
 ]
 
 #argtable(
-  [#c("..keys")], [`int` / `content`], [(required)], [Keys inserted into the tree in order, one BST/AVL insert per key. Duplicate keys are rejected with an error.],
+  [#c("..keys")], [`int` / `float` / `str`], [`()`], [Keys inserted into the tree in order, one BST/AVL insert per key. Duplicate keys are rejected with an error.],
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
   [#c("edge-customizations")], [`array`], [`()`], [#c("(parent, child, options)") tuples restyling individual tree edges by node value. See @edge-customizations.],
   [#c("node-customizations")], [`array`], [`()`], [#c("(node, options)") tuples restyling individual tree nodes by value.],
@@ -690,7 +690,7 @@ to #c("bst"), #c("avl"), #c("tree"), heaps, and tree transitions, and
 ]
 
 #argtable(
-  [#c("..keys")], [`int` / `content`], [(required)], [Keys inserted into the heap in order, one sift-up per key.],
+  [#c("..keys")], [`int` / `float` / `str`], [`()`], [Keys inserted into the heap in order, one sift-up per key.],
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
 )
 
@@ -1190,6 +1190,7 @@ illustrations are not carried into later steps.]
   [#c("style.indices.font")], [`str` / `array`], [inherits], [Typst text font selection.],
   [#c("style.indices.weight")], [`str` / `int`], [inherits], [Typst text weight.],
 )
+#note[Use one customization entry per target cell. Repeated indices or matrix coordinates are rejected; combine their options into one entry.]
 #cell-customizations-reference(key-desc: [Array index, or matrix coordinate #c("(row, column)").])
 
 #methodtable(
@@ -1311,6 +1312,10 @@ illustrations are not carried into later steps.]
   and selection sort adds one after each minimum swap to highlight its sorted
   prefix. Settled frames name the newly settled value, and selection scan
   labels list position, minimum, then item.
+
+  Merge-operation panels place the inputs above the result when all three
+  arrays do not fit side by side. Captions stay attached to their arrays;
+  an individual row scales only when it exceeds the available width.
 
   Merge operation, bubble, insertion, and selection sort show labelled arrows
   above their active positions by default. Pass #c("pointers: false") to hide
@@ -1577,8 +1582,8 @@ markers together, plus customized bubble-sort marker strokes.
 
 #subargtable([Nested keys for #c("adjacency")],
   [#c("adjacency.<node>")], [`array`], [required], [Outgoing neighbors for one node. Use an empty array to draw an isolated node.],
-  [#c("adjacency.<node>[]")], [`content` / `tuple`], [required], [Either a neighbor label, or #c("(neighbor, edge-label)") to draw a label on that edge.],
-  [#c("adjacency.<node>[].neighbor")], [`content`], [required], [Target node identity.],
+  [#c("adjacency.<node>[]")], [`str` / `tuple`], [required], [Either a neighbor label, or #c("(neighbor, edge-label)") to draw a label on that edge.],
+  [#c("adjacency.<node>[].neighbor")], [`str`], [required], [Target node identity.],
   [#c("adjacency.<node>[].edge-label")], [`content`], [none], [Optional edge label, such as a weight.],
 )
 
@@ -1588,7 +1593,7 @@ markers together, plus customized bubble-sort marker strokes.
 
 #subargtable([Nested keys for #c("positions")],
   [#c("positions.<node>")], [`point` / `dictionary`], [auto layout position], [Absolute #c("(x, y)") position or relative placement dictionary.],
-  [#c("positions.<node>.rel")], [`content`], [required for relative placement], [Another node label to place from.],
+  [#c("positions.<node>.rel")], [`str`], [required for relative placement], [Another node label to place from.],
   [#c("positions.<node>.offset")], [`point`], [required for relative placement], [#c("(dx, dy)") offset from #c("rel").],
 )
 
@@ -3373,7 +3378,7 @@ See @localization for the full message-key catalog and the resolution order.
   [#c("new-style")], [`#C8E6C9`], [Added node/cell; color or #c("(fill:, shape:, stroke:, node-radius:, text:)").],
   [#c("path-style")], [`#FFE9A8`], [Traversal / sift path; color or dict, as above.],
   [#c("remove-style")], [`#FFCDD2`], [Removed node/cell; color or dict, as above.],
-  [#c("rotate-style")], [`#BBDEFB`], [AVL rotation nodes and visible subtree roots; color or dict, as above.],
+  [#c("rotate-style")], [`#BBDEFB`], [Nodes whose parent changes during an AVL rotation; color or dict, as above.],
   [#c("visited-style") / #c("current-style") / #c("queued-style")], [green / blue / yellow], [Graph-algorithm node states.],
   [#c("active-edge-style")], [blue #c("2pt")], [Graph-algorithm inspected edge.],
 )

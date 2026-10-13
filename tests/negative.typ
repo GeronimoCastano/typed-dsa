@@ -1017,6 +1017,16 @@
     expect: "not supported for array, list, stack, queue, or skip-list cells",
     code: "#hash-table(1, 2, style: (new-style: (shape: \"rounded\"))).diagram",
   ),
+  (
+    name: "array-view: duplicate customization target",
+    expect: "repeats target",
+    code: "#array-view(1, 2, cell-customizations: ((0, (fill: red)), (0, (fill: blue)))).diagram",
+  ),
+  (
+    name: "matrix: duplicate customization coordinate",
+    expect: "repeats target",
+    code: "#matrix(((1, 2),), cell-customizations: (((0, 1), (fill: red)), ((0, 1), (fill: blue)))).diagram",
+  ),
 )
 
 // Every case is evaluated with the whole public API in scope, exactly as a

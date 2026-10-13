@@ -6,7 +6,7 @@
 #import "@preview/cetz:0.5.2"
 #import "shared/style.typ": resolve, scaled, validate-style, validate-cell-mark-styles, check-cell-customization-options, check-text-style, _rounded-cell-edge-inset
 #import "shared/validate.typ": (
-  check-array, check-bool, check-dictionary, check-enum, check-function,
+  check-array, check-bool, check-customization-entries, check-dictionary, check-enum, check-function,
   check-index, check-index-labels, check-integer, check-known-keys, fail, show-value,
 )
 #import cetz.draw: rect, content, line
@@ -236,22 +236,10 @@
     }
     return
   }
-  check-array(
-    where, "cell-customizations:", cell-customizations,
-    fix: "pass an array of (index, options) pairs",
-  )
+  check-customization-entries(where, "cell-customizations:", cell-customizations, 2, check-cell-customization-options)
   for (entry-index, entry) in cell-customizations.enumerate() {
     let entry-name = "cell-customizations: entry " + str(entry-index)
-    if type(entry) != array or entry.len() != 2 {
-      fail(
-        where,
-        entry-name + " is " + show-value(entry),
-        expected: "an (index, options) pair",
-        fix: "write it as (0, (fill: rgb(\"#E7F5FF\")))",
-      )
-    }
     _check-cell-index(where, entry-name + " index", entry.at(0), cell-count)
-    check-cell-customization-options(where, entry-name + " options", entry.at(1))
   }
 }
 
@@ -385,10 +373,7 @@
 }
 
 #let _validate-matrix-cell-customizations(where, cell-customizations, size) = {
-  check-array(
-    where, "cell-customizations:", cell-customizations,
-    fix: "pass an array of ((row, column), options) pairs",
-  )
+  check-customization-entries(where, "cell-customizations:", cell-customizations, 2, check-cell-customization-options)
   for (entry-index, entry) in cell-customizations.enumerate() {
     let entry-name = "cell-customizations: entry " + str(entry-index)
     let has-cell-key = (
@@ -407,7 +392,6 @@
     }
     check-index(where, entry-name + " row", entry.at(0).at(0), size.rows, subject: "matrix")
     check-index(where, entry-name + " column", entry.at(0).at(1), size.columns, subject: "matrix row")
-    check-cell-customization-options(where, entry-name + " options", entry.at(1))
   }
 }
 

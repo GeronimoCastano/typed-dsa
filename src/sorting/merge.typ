@@ -17,6 +17,7 @@
   _resolve-sorting-input,
 )
 #import "common.typ": (
+  _resolve-sorting-cell-mark-priority,
   _active,
   _changed,
   _current,
@@ -102,30 +103,38 @@
   true
 }
 
+#let _render-merge-array-panel(values, marks, style, show-indices, caption, cursors, reserve, labels) = align(center)[
+  #if labels [#_render-algorithm-caption(style, caption, small: true) #v(0.15em)]
+  #array-view(..values, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: _resolve-sorting-cell-mark-priority(marks), pointers: cursors, reserve-pointers: reserve).diagram
+]
+
+#let _fit-merge-panel-width(panel, available-width) = {
+  let panel-width = measure(panel).width
+  if panel-width <= available-width { return panel }
+  let panel-scale = available-width / panel-width
+  scale(x: panel-scale * 100%, y: panel-scale * 100%, reflow: true, panel)
+}
+
 #let _render-merge-operation-panel(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, right-style: none, cursors: (:), reserve: false, labels: true, message-catalog: default-catalog) = {
   let right-style = if right-style == none { style } else { right-style }
   align(center)[
-  #if labels [#_render-algorithm-caption(style, label) #v(0.25em)]
-  #layout(size => {
-    let column-captions = grid(
-      columns: 3, column-gutter: 0.8em,
-      if labels { align(center, _render-algorithm-caption(style, msg(message-catalog, "sort.left"), small: true)) } else { [] },
-      if labels { align(center, _render-algorithm-caption(style, msg(message-catalog, "sort.right"), small: true)) } else { [] },
-      if labels { align(center, _render-algorithm-caption(style, msg(message-catalog, "sort.result"), small: true)) } else { [] },
-    )
-    let arrays-grid = grid(
-      columns: 3, column-gutter: 0.8em,
-      array-view(..left, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: left-marks, pointers: cursors.at("left", default: ()), reserve-pointers: reserve).diagram,
-      array-view(..right, style: _resolve-sorting-array-style(right-style, show-indices), cell-customizations: right-marks, pointers: cursors.at("right", default: ()), reserve-pointers: reserve).diagram,
-      array-view(..output, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: output-marks, pointers: cursors.at("output", default: ()), reserve-pointers: reserve).diagram,
-    )
-    let panel-size = measure(arrays-grid)
-    let panel-scale = if panel-size.width > size.width { size.width / panel-size.width } else { 1 }
-    column-captions
-    if labels { v(0.15em) }
-    scale(x: panel-scale * 100%, y: panel-scale * 100%, reflow: true, arrays-grid)
-  })
-]
+    #if labels [#_render-algorithm-caption(style, label) #v(0.25em)]
+    #layout(size => {
+      let left-panel = _render-merge-array-panel(left, left-marks, style, show-indices, msg(message-catalog, "sort.left"), cursors.at("left", default: ()), reserve, labels)
+      let right-panel = _render-merge-array-panel(right, right-marks, right-style, show-indices, msg(message-catalog, "sort.right"), cursors.at("right", default: ()), reserve, labels)
+      let output-panel = _render-merge-array-panel(output, output-marks, style, show-indices, msg(message-catalog, "sort.result"), cursors.at("output", default: ()), reserve, labels)
+      let horizontal-panels = grid(columns: (auto, auto, auto), column-gutter: 0.8em, left-panel, right-panel, output-panel)
+      if measure(horizontal-panels).width <= size.width {
+        horizontal-panels
+      } else {
+        let input-panels = grid(columns: (auto, auto), column-gutter: 0.8em, left-panel, right-panel)
+        std.stack(spacing: 0.6em,
+          _fit-merge-panel-width(input-panels, size.width),
+          _fit-merge-panel-width(output-panel, size.width),
+        )
+      }
+    })
+  ]
 }
 
 #let _create-merge-operation-step(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, right-style: none, cursors: (:), reserve: false, labels: true, message-catalog: default-catalog) = (

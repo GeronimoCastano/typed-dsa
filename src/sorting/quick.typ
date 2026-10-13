@@ -17,6 +17,7 @@
   _resolve-sorting-input,
 )
 #import "common.typ": (
+  _resolve-sorting-cell-mark-priority,
   _active,
   _changed,
   _current,
@@ -59,7 +60,7 @@
 
 #let _render-partition-panel(label, arr, left, right, pivot, marks, style, show-indices, pointers: (), reserve: false, labels: true, message-catalog: default-catalog) = align(center)[
   #if labels [#_render-algorithm-caption(style, label) #v(0.15em) #_render-algorithm-caption(style, msg(message-catalog, "sort.pivot-info", arr.at(pivot), pivot, left, right), small: true) #v(0.2em)]
-  #array-view(..arr, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: marks, pointers: pointers, reserve-pointers: reserve).diagram
+  #array-view(..arr, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: _resolve-sorting-cell-mark-priority(marks), pointers: pointers, reserve-pointers: reserve).diagram
 ]
 
 #let _create-partition-step(label, arr, left, right, pivot, marks, style, show-indices, pointers: (), reserve: false, labels: true, message-catalog: default-catalog) = (

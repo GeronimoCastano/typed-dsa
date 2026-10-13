@@ -64,7 +64,9 @@
   if small {
     caption-style.size = caption-style.at("size", default: 8pt) * 0.875
   }
-  text(..caption-style)[#body]
+  let rotation = caption-style.at("rotation", default: 0deg)
+  if "rotation" in caption-style { let _ = caption-style.remove("rotation") }
+  rotate(rotation, reflow: true, text(..caption-style)[#body])
 }
 
 // Accepts either a plain array of values or an `array-view(...)` object and
@@ -86,11 +88,24 @@
   cell-marks
 }
 
+// Role order selects the visible mark when several algorithmic roles share a cell.
+#let _resolve-sorting-cell-mark-priority(marks) = {
+  let marked-indices = ()
+  let resolved-marks = ()
+  for mark in marks {
+    let cell-index = mark.at(0)
+    if cell-index in marked-indices { continue }
+    marked-indices.push(cell-index)
+    resolved-marks.push(mark)
+  }
+  resolved-marks
+}
+
 #let _render-sorting-panel(label, values, marks, style, show-indices, pointers: (), reserve: false, labels: true) = {
   block(width: 100%, breakable: false)[
     #align(center)[
       #if labels [#_render-algorithm-caption(style, label) #v(0.25em)]
-      #array-view(..values, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: marks, pointers: pointers, reserve-pointers: reserve).diagram
+      #array-view(..values, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: _resolve-sorting-cell-mark-priority(marks), pointers: pointers, reserve-pointers: reserve).diagram
     ]
   ]
 }

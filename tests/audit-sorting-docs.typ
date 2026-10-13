@@ -31,6 +31,8 @@
   let tree = bst(5, 3, 8)
   let inserted = (tree.insert)(6)
   sequence(inserted, mode: "after", style: (operation-text: (rotation: 12deg)))
+  v(1em)
+  bubble-sort(array-view(3, 1, 2, style: (algorithm-label-text: (rotation: 12deg)))).steps.first().diagram
 })
 
 #pagebreak()
@@ -47,7 +49,10 @@
 })
 
 #pagebreak()
-#repro("D36 — merge-operation adapts to a 16 cm page without merging cells", merge-operation((1, 4, 6, 9, 12, 15), (2, 3, 7, 8, 10)).diagram)
+#repro("D36 — merge panels wrap at 16 cm and retain readable captions", {
+  let trace = merge-operation((1, 4, 6, 9, 12, 15), (2, 3, 7, 8, 10))
+  std.stack(spacing: 1.2em, trace.steps.first().diagram, trace.steps.last().diagram)
+})
 
 #pagebreak()
 #repro("D42 — stripes stay within rounded and capsule cell outlines", grid(

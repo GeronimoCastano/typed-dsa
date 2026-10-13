@@ -55,8 +55,8 @@
   marks
 }
 
-// Every visible schematic part in a rotation: the pivot, the child promoted
-// above it, and the roots of T_A/T_B/T_C when those subtrees exist.
+// Rotation marks identify nodes whose parent changes, including the root
+// of the transferred subtree when it exists.
 #let _rotation-event-keys(event) = (
   (event.pivot, event.new-top)
     + if event.moved-subtree == none { () } else { (event.moved-subtree,) }

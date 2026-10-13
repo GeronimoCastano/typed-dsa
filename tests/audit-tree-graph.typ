@@ -39,12 +39,12 @@
 
 #pagebreak()
 = D17 · Reciprocal edges use opposite physical sides
-#graph(("A": (("B", [ab]),), "B": (("A", [ba]),)), layout: "manual", positions: ("A": (0, 0), "B": (3, 0)), edge-routing: "auto", edge-customizations: (("A", "B", (bend: "right", angle: 30deg)), ("B", "A", (bend: "right", angle: 30deg)))).diagram
+#graph(("A": (("B", [ab]),), "B": (("A", [ba]),)), layout: "manual", positions: ("A": (0, 0), "B": (3, 0)), edge-routing: "auto", edge-customizations: (("A", "B", (bend: "right", angle: 30deg)),)).diagram
 #graph(("A": (("B", [weight]),), "B": ()), layout: "manual", positions: ("A": (0, 0), "B": (3, 0)), edge-customizations: (("A", "B", (bend: true)),)).diagram
 
 #pagebreak()
 = D18 · Enlarged graph node and edge label
-#graph(("A": (("B", [weight]),), "B": ()), layout: "manual", positions: ("A": (0, 0), "B": (3, 0)), node-customizations: (("A", (node-radius: 2.0)),)).diagram
+#graph(("A": (("B", [weight]),), "B": ()), layout: "linear", node-customizations: (("A", (node-radius: 2.0)),)).diagram
 
 #pagebreak()
 = D19 · Layered layout with absolute override
@@ -81,3 +81,7 @@
 #pagebreak()
 = D48 · Targeted Dijkstra early stop
 #dijkstra(("S": (("T", 1), ("Y", 50), ("X", 100)), "Y": (("X", 10),), "T": (), "X": ()), "S", target: "T").steps.last().diagram
+
+#pagebreak()
+= D21 · Bare-color traversal state styles
+#bfs(("A": ("B",), "B": ()), "A", style: (visited-style: rgb("#C8E6C9"))).steps.last().diagram

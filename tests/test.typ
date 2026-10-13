@@ -1744,3 +1744,9 @@
 ))
 #section("Skip-list insert with a level above its automatic max", (skip-list(1, 2, 3, max-level: 2).insert)(4, level: 3).after)
 #section("Linear highlights keep the configured box stroke", (linked-list(3, 1, 7, style: (box-stroke: 2pt + blue)).search)(4).after)
+
+#section("Rounded linear cells keep stripe marks inside their outlines", grid(
+  columns: 2, column-gutter: 2em,
+  (stack(1, 2, style: (box-shape: "capsule", new-style: (fill: white, stripe-fill: rgb("#C4B5FD")))).push)(3).after,
+  (stack(1, 2, style: (new-style: gradient.linear(red, blue))).push)(3).after,
+))

@@ -4,7 +4,7 @@
 // container, and skip-list semantics remain in their owning modules.
 
 #import "@preview/cetz:0.5.2"
-#import "../shared/style.typ": resolve-mark-style, validate-style, validate-cell-mark-styles
+#import "../shared/style.typ": resolve-mark-style, validate-style, validate-cell-mark-styles, _rounded-cell-edge-inset
 #import "../shared/transition-view.typ": trans-view
 #import "../shared/validate.typ": (
   check-array, check-bool, check-index, fail, show-list, show-value,
@@ -112,10 +112,20 @@
     fill: cell-fill,
   )
   if stripe-fill != none {
+    let radius-fraction = if resolved-style.box-shape == "rounded" { 0.2 }
+      else if resolved-style.box-shape == "capsule" { 0.5 }
+      else { 0 }
+    let stripe-radius = calc.min(cell-width, resolved-style.box-h) * radius-fraction
     for offset in (0, 0.2, 0.4, 0.6, 0.8) {
+      let stripe-start = cell-width * offset
+      let stripe-end = cell-width * (offset + 0.1)
+      let top-inset = calc.max(
+        _rounded-cell-edge-inset(stripe-start, cell-width, stripe-radius),
+        _rounded-cell-edge-inset(stripe-end, cell-width, stripe-radius),
+      )
       rect(
-        (x + cell-width * offset, y),
-        (x + cell-width * (offset + 0.1), y + resolved-style.box-h),
+        (x + stripe-start, y + top-inset),
+        (x + stripe-end, y + resolved-style.box-h - top-inset),
         fill: stripe-fill,
         stroke: none,
       )

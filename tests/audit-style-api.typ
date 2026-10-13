@@ -65,3 +65,10 @@
 == Linear highlight strokes follow box styling
 
 #(linked-list(3, 1, 7, style: (box-stroke: 2pt + blue)).search)(4).after
+
+#pagebreak()
+== Cell stripes and gradient marks
+#grid(columns: 2, column-gutter: 2em,
+  (stack(1, 2, style: (box-shape: "capsule", new-style: (fill: white, stripe-fill: rgb("#C4B5FD")))).push)(3).after,
+  (stack(1, 2, style: (new-style: gradient.linear(red, blue))).push)(3).after,
+)

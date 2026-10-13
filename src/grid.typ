@@ -4,7 +4,7 @@
 // keys as the rest of the package.
 
 #import "@preview/cetz:0.5.2"
-#import "shared/style.typ": resolve, scaled, validate-style, check-cell-customization-options, check-text-style
+#import "shared/style.typ": resolve, scaled, validate-style, validate-cell-mark-styles, check-cell-customization-options, check-text-style, _rounded-cell-edge-inset
 #import "shared/validate.typ": (
   check-array, check-bool, check-dictionary, check-enum, check-function,
   check-index, check-index-labels, check-integer, check-known-keys, fail, show-value,
@@ -48,14 +48,6 @@
     let _ = normalized-text-style.remove("rotation")
   }
   content(position, text(..normalized-text-style)[#body], angle: rotation)
-}
-
-#let _rounded-cell-edge-inset(x-position, width, radius) = {
-  if radius == 0 or x-position >= radius and x-position <= width - radius {
-    return 0
-  }
-  let corner-center = if x-position < radius { radius } else { width - radius }
-  radius - calc.sqrt(radius * radius - (x-position - corner-center) * (x-position - corner-center))
 }
 
 #let _render-grid-cell(x, y, body, resolved-style, custom: none, fill: auto, w: auto, h: auto) = {
@@ -289,6 +281,7 @@
 #let array-view(style: (:), cell-customizations: (), pointers: (), reserve-pointers: false, ..vals) = {
   check-known-keys("array-view()", "named arguments", vals.named(), ())
   validate-style("array-view()", style)
+  validate-cell-mark-styles("array-view()", style)
   check-bool("array-view()", "reserve-pointers:", reserve-pointers)
   let index-options = style.at("indices", default: none)
   if type(index-options) == dictionary {
@@ -432,6 +425,7 @@
 
 #let matrix(rows, style: (:), cell-customizations: (), row-labels: none, column-labels: none) = {
   validate-style("matrix()", style)
+  validate-cell-mark-styles("matrix()", style)
   let size = _validate-matrix-rows("matrix()", rows)
   _validate-matrix-cell-customizations("matrix()", cell-customizations, size)
   _validate-matrix-labels("matrix()", "row-labels:", row-labels, size.rows, "row")

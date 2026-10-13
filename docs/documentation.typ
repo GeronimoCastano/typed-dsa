@@ -3376,6 +3376,11 @@ See @localization for the full message-key catalog and the resolution order.
   [#c("active-edge-style")], [blue #c("2pt")], [Graph-algorithm inspected edge.],
 )
 
+#note[Cell marks accept #c("fill"), #c("stroke"), #c("stripe-fill"), and #c("text").
+The #c("shape") and #c("node-radius") keys apply to nodes and are rejected for
+arrays, matrices, lists, stacks, queues, skip-lists, and hash-table cells. Use
+#c("style.box-shape") to choose a cell outline; stripe marks stay inside it.]
+
 == Styling helpers
 
 #table(

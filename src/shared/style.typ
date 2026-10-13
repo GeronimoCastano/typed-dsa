@@ -524,6 +524,14 @@
   }
 }
 
+#let _rounded-cell-edge-inset(x-position, width, radius) = {
+  if radius == 0 or x-position >= radius and x-position <= width - radius {
+    return 0
+  }
+  let corner-center = if x-position < radius { radius } else { width - radius }
+  radius - calc.sqrt(radius * radius - (x-position - corner-center) * (x-position - corner-center))
+}
+
 // Cell marks can change paint, outline, stripe, and text, but not node geometry.
 #let validate-cell-mark-styles(where, style) = {
   for role in mark-style-roles {

@@ -1007,6 +1007,16 @@
     expect: "tree customization arguments were supplied",
     code: "#transition(\"min-heap\", (5, 3, 8), heap-insert(1), node-labels: ((5, [hidden]),))",
   ),
+  (
+    name: "array-view: cell marks reject node-only radius",
+    expect: "not supported for array, list, stack, queue, or skip-list cells",
+    code: "#array-view(1, 2, style: (new-style: (node-radius: 0.9))).diagram",
+  ),
+  (
+    name: "hash-table: cell marks reject node-only shape",
+    expect: "not supported for array, list, stack, queue, or skip-list cells",
+    code: "#hash-table(1, 2, style: (new-style: (shape: \"rounded\"))).diagram",
+  ),
 )
 
 // Every case is evaluated with the whole public API in scope, exactly as a

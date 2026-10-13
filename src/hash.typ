@@ -2,7 +2,7 @@
 
 #import "@preview/cetz:0.5.2"
 #import cetz.draw: line
-#import "shared/style.typ": resolve, scaled, resolve-mark-style, array-style, indices-style, validate-style
+#import "shared/style.typ": resolve, scaled, resolve-mark-style, array-style, indices-style, validate-style, validate-cell-mark-styles
 #import "shared/validate.typ": (
   check-callback-result, check-enum, check-function, check-integer, fail,
   check-no-unknown-named-arguments, show-value,
@@ -467,6 +467,7 @@
   check-integer("hash-table()", "size:", size, min: 1)
   check-enum("hash-table()", "collision:", collision, ("chaining", "chain", "linear"))
   validate-style("hash-table()", style)
+  validate-cell-mark-styles("hash-table()", style)
   if hash != auto { check-function("hash-table()", "hash:", hash) }
   let collision-strategy = if collision == "chain" { "chaining" } else { collision }
   let model = if collision-strategy == "chaining" {

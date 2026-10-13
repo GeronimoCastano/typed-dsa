@@ -651,3 +651,5 @@ All invariant checks passed.
 #assert(_canonical-undirected-edges-forward == _canonical-undirected-edges-reverse)
 
 #assert(_is-close(_calculate-node-boundary-radius("hexagon", 0.5, 0.8660254, 0.5), 0.432256))
+
+#assert(not is-height-balanced(_build-search-tree("bst", (1, 2, 3, 4))), message: "balance checks use actual subtree heights")

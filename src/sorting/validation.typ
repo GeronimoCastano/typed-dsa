@@ -5,7 +5,7 @@
 
 #import "../shared/style.typ": validate-style, check-cell-customization-options
 #import "../shared/validate.typ": (
-  check-comparable, check-non-empty, fail, show-value,
+  check-comparable, check-index-labels, check-non-empty, fail, show-value,
 )
 
 #let sort-orders = ("asc", "desc")
@@ -42,5 +42,9 @@
   check-non-empty(where, "values", values, fix: "pass at least one value to sort")
   check-comparable(where, "values", values)
   validate-style(where, style)
+  let index-options = style.at("indices", default: none)
+  if type(index-options) == dictionary {
+    check-index-labels(where, "style.indices.labels:", index-options.at("labels", default: auto), values.len())
+  }
   (values, style)
 }

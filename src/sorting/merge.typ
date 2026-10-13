@@ -102,22 +102,38 @@
   true
 }
 
-#let _render-merge-operation-panel(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, cursors: (:), reserve: false, labels: true, message-catalog: default-catalog) = align(center)[
+#let _render-merge-operation-panel(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, right-style: none, cursors: (:), reserve: false, labels: true, message-catalog: default-catalog) = {
+  let right-style = if right-style == none { style } else { right-style }
+  align(center)[
   #if labels [#_render-algorithm-caption(style, label) #v(0.25em)]
-  #grid(
-    columns: 3, column-gutter: 0.8em,
-    align(center)[#if labels [#_render-algorithm-caption(style, msg(message-catalog, "sort.left"), small: true) #v(0.15em)] #array-view(..left, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: left-marks, pointers: cursors.at("left", default: ()), reserve-pointers: reserve).diagram],
-    align(center)[#if labels [#_render-algorithm-caption(style, msg(message-catalog, "sort.right"), small: true) #v(0.15em)] #array-view(..right, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: right-marks, pointers: cursors.at("right", default: ()), reserve-pointers: reserve).diagram],
-    align(center)[#if labels [#_render-algorithm-caption(style, msg(message-catalog, "sort.result"), small: true) #v(0.15em)] #array-view(..output, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: output-marks, pointers: cursors.at("output", default: ()), reserve-pointers: reserve).diagram],
-  )
+  #layout(size => {
+    let column-captions = grid(
+      columns: 3, column-gutter: 0.8em,
+      if labels { align(center, _render-algorithm-caption(style, msg(message-catalog, "sort.left"), small: true)) } else { [] },
+      if labels { align(center, _render-algorithm-caption(style, msg(message-catalog, "sort.right"), small: true)) } else { [] },
+      if labels { align(center, _render-algorithm-caption(style, msg(message-catalog, "sort.result"), small: true)) } else { [] },
+    )
+    let arrays-grid = grid(
+      columns: 3, column-gutter: 0.8em,
+      array-view(..left, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: left-marks, pointers: cursors.at("left", default: ()), reserve-pointers: reserve).diagram,
+      array-view(..right, style: _resolve-sorting-array-style(right-style, show-indices), cell-customizations: right-marks, pointers: cursors.at("right", default: ()), reserve-pointers: reserve).diagram,
+      array-view(..output, style: _resolve-sorting-array-style(style, show-indices), cell-customizations: output-marks, pointers: cursors.at("output", default: ()), reserve-pointers: reserve).diagram,
+    )
+    let panel-size = measure(arrays-grid)
+    let panel-scale = if panel-size.width > size.width { size.width / panel-size.width } else { 1 }
+    column-captions
+    if labels { v(0.15em) }
+    scale(x: panel-scale * 100%, y: panel-scale * 100%, reflow: true, arrays-grid)
+  })
 ]
+}
 
-#let _create-merge-operation-step(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, cursors: (:), reserve: false, labels: true, message-catalog: default-catalog) = (
+#let _create-merge-operation-step(label, left, right, output, left-marks, right-marks, output-marks, style, show-indices, right-style: none, cursors: (:), reserve: false, labels: true, message-catalog: default-catalog) = (
   label: label,
   left: left.map(value => value),
   right: right.map(value => value),
   values: output.map(value => value),
-  diagram: _render-merge-operation-panel(label, left, right, output.map(value => value), left-marks, right-marks, output-marks, style, show-indices, cursors: cursors, reserve: reserve, labels: labels, message-catalog: message-catalog),
+  diagram: _render-merge-operation-panel(label, left, right, output.map(value => value), left-marks, right-marks, output-marks, style, show-indices, right-style: right-style, cursors: cursors, reserve: reserve, labels: labels, message-catalog: message-catalog),
 )
 
 #let _create-merge-cursors(
@@ -158,6 +174,7 @@
   let _create-merge-operation-step = _create-merge-operation-step.with(message-catalog: message-catalog)
   let (left, left-style) = _resolve-array-input(_where, left)
   let (right, right-style) = _resolve-array-input(_where, right)
+  let _create-merge-operation-step = _create-merge-operation-step.with(right-style: right-style)
   let style = if left-style != (:) { left-style } else { right-style }
   validate-style(_where, style)
   let show-indices = _sorting-trace-shows-indices(style)
@@ -255,7 +272,7 @@
       // Custom labels are keyed by position in the original array so a
       // labelled trace keeps the same indices across every subtree.
       let original-index = start + i
-      let index-label = if index-labels == auto { i }
+      let index-label = if index-labels == auto { original-index }
         else if type(index-labels) == array and original-index < index-labels.len() { index-labels.at(original-index) }
         else { none }
       if index-label != none {

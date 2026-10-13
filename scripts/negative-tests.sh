@@ -30,6 +30,24 @@ for case in json.load(sys.stdin):
 case_count="$(wc -l < "$case_table" | tr -d ' ')"
 requested_case="${1:-}"
 
+if [ "$case_count" -eq 0 ]; then
+  echo "error: tests/negative.typ contains no negative cases" >&2
+  exit 1
+fi
+
+if [ -n "$requested_case" ]; then
+  case "$requested_case" in
+    ''|*[!0-9]*)
+      echo "error: case index must be an integer from 0 to $((case_count - 1))" >&2
+      exit 2
+      ;;
+  esac
+  if [ "$requested_case" -ge "$case_count" ]; then
+    echo "error: case index must be from 0 to $((case_count - 1))" >&2
+    exit 2
+  fi
+fi
+
 passed=0
 failed=0
 

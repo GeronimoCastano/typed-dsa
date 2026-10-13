@@ -159,9 +159,27 @@
   )
 }
 
-#let _render-sorting-array-row(parts, style, show-indices) = align(center)[
-  #grid(columns: parts.len(), column-gutter: 0.45em, ..parts.map(part => array-view(..part, style: _resolve-sorting-array-style(style, show-indices)).diagram))
-]
+#let _render-sorting-array-row(parts, style, show-indices) = {
+  let arrays = ()
+  let first-index = 0
+  for part in parts {
+    let part-style = _resolve-sorting-array-style(style, show-indices)
+    if show-indices {
+      let index-options = part-style.at("indices", default: (:))
+      if type(index-options) != dictionary { index-options = (enabled: true) }
+      let labels = index-options.at("labels", default: auto)
+      let part-labels = if labels == auto {
+        range(first-index, first-index + part.len()).map(index => index)
+      } else {
+        labels.slice(first-index, first-index + part.len())
+      }
+      part-style.indices = index-options + (enabled: true, labels: part-labels)
+    }
+    arrays.push(array-view(..part, style: part-style).diagram)
+    first-index += part.len()
+  }
+  align(center)[#grid(columns: parts.len(), column-gutter: 0.45em, ..arrays)]
+}
 
 #let _render-partition-tree-rows(levels, style, show-indices, start: 0) = align(center)[
   #for depth in range(start, levels.len()) [

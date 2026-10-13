@@ -23,8 +23,8 @@
 
 // A single rotation: inserting 50 makes 30 right-heavy by two.
 #let single-rotation = (avl(20, 10, 30, 40, style: avl-style).insert)(50, rebalance: rebalance-view)
-// Left-right double rotation: 25 lands in 40's left subtree, under 20's right child.
-#let double-rotation = ((single-rotation.result).insert)(25, rebalance: rebalance-view)
+// Left-right double rotation: 20 is inserted below 30's left child.
+#let double-rotation = (avl(30, 10, style: avl-style).insert)(20, rebalance: rebalance-view)
 
 #block(width: 100%, fill: white, stroke: 0.6pt + luma(215), radius: 8pt, inset: 18pt, {
   align(center, std.stack(

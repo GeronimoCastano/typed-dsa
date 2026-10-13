@@ -593,7 +593,18 @@ Structure builders:
 #stack(..vals, style: (:))
 #queue(..vals, style: (:), enqueue: none, dequeue: none, front-label: [Front], rear-label: [Rear])
 #graph(adjacency, directed: true, labels: (:), positions: (:), layout: "auto", radius: auto, edge-customizations: (), style: (:))
+#array-view(..vals, style: (:), cell-customizations: (), pointers: ())
+#matrix(rows, style: (:), cell-customizations: (), row-labels: none, column-labels: none)
 #hash-table(..entries, size: 7, collision: "chaining", hash: auto, style: (:))
+#skip-list(..vals, style: (:), decision-fn: default-decision-fn, level-spacing: 1.4, max-level: 4)
+#merge-sort(array, order: "asc", labels: true, language: "en", messages: (:))
+#merge-operation(left, right, order: "asc", pointers: true, labels: true)
+#partition-step(array, order: "asc", pivot: "middle", pointers: false, labels: true)
+#quick-sort(array, order: "asc", pivot: "middle", labels: true)
+#bubble-sort(array, order: "asc", pointers: true, labels: true)
+#insertion-sort(array, order: "asc", pointers: true, labels: true)
+#selection-sort(array, order: "asc", pointers: true, labels: true)
+#sequence(..steps, columns: 1, gap: 1em, row-gap: 1em, mode: "all", style: (:))
 ```
 
 Hand-composed trees:
@@ -675,9 +686,11 @@ the relevant structure module over introducing new drawing conventions.
 rendered `.diagram` and operation fields. Operation fields return a step object
 with `.before`, `.after`, `.diagram`, `.label`, and `.result`.
 
-**Style resolution:** Every public builder accepts `style:` and passes it
-through `resolve(style)`. Nested dictionaries such as `node-text` and
-`label-text` merge over defaults instead of replacing them wholesale.
+**Style resolution:** Structure builders accept `style:` and resolve it over
+their defaults. Sorting algorithms take the style from a styled `array-view`,
+and graph traces take graph style options. Nested dictionaries such as
+`node-text` and `label-text` merge over defaults instead of replacing them
+wholesale.
 
 **Operation marks:** Diff marks are keyed by values, not positions. This keeps
 the implementation simple, but duplicate values can highlight more than the

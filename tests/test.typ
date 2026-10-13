@@ -489,7 +489,7 @@
     new-style: (fill: rgb("#C8E6C9"), stroke: 1.4pt + rgb("#2E7D32"), text: (color: rgb("#2E7D32"), weight: "bold")),
     path-style: (fill: rgb("#FFE9A8"), stroke: 1.4pt + rgb("#F9A825"), text: (color: rgb("#6D4C00"), weight: "bold")),
   )),
-  transition("avl", (50, 30, 70, 20, 40), tree-insert(35, rebalance: (enabled: true, all-steps: true)), style: (
+  transition("avl", (50, 30, 70, 20, 40), tree-insert(35, rebalance: (enabled: true)), style: (
     new-style: (fill: rgb("#C8E6C9"), stroke: 1.4pt + rgb("#2E7D32"), text: (color: rgb("#2E7D32"), weight: "bold")),
     rotate-style: (fill: rgb("#F3E5F5"), stroke: 1.4pt + rgb("#7B3FA1"), text: (color: rgb("#7B3FA1"), weight: "bold")),
   )),
@@ -1186,7 +1186,7 @@
   std.stack(spacing: 1em, inserted.diagram, deleted.diagram)
 })
 
-#section("Skip list insert keeps every other node's level fixed: only the inserted node (green) gets new towers", {
+#section("Appending a skip-list node preserves existing heights; the inserted node (green) gets its own towers", {
   let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.8))
   (l.insert)(0, level: 3).diagram
 })
@@ -1271,7 +1271,7 @@
 })
 
 #section("Localization: assertions reject an unsupported language code and an unknown message key", {
-  assert.eq(type(bst), function)
+  assert.eq(type(bst(5, 3)), dictionary)
   // Both of these would fail to compile if uncommented, by design:
   //   bst(1, language: "fr")
   //   bst(1, messages: messages(tree: (nope: k => [x])))
@@ -1609,6 +1609,53 @@
   insertion-sort(array-view(..values, style: (indices: false))).diagram
   v(0.8em)
   selection-sort(array-view(..values, style: (indices: none))).diagram
+})
+
+#section("Merge-sort and quick-sort keep original indices across subarrays", std.stack(
+  dir: ttb,
+  spacing: 1em,
+  merge-sort((38, 27, 43, 3, 9)).diagram,
+  quick-sort((38, 27, 43, 3, 9), pivot: "last").diagram,
+))
+
+#section("Merge operation fits its three arrays to the available text width", {
+  merge-operation((1, 4, 6, 9, 12, 15), (2, 3, 7, 8, 10)).diagram
+})
+
+#section("Middle-pivot partition and last-pivot partition markers", std.stack(
+  dir: ttb,
+  spacing: 1em,
+  partition-step((7, 2, 9, 3, 6)).diagram,
+  partition-step((7, 2, 9, 3, 6), pivot: "last", pointers: true).diagram,
+))
+
+#section("Compact sequence modes show one state per operation", {
+  let initial = bst(50, 30, 70, 20, 40)
+  let inserted = (initial.insert)(60)
+  let deleted = (inserted.result.delete)(30)
+  sequence(inserted, deleted, mode: "before", columns: 1)
+  v(0.8em)
+  sequence(inserted, deleted, mode: "after", columns: 1)
+  v(0.8em)
+  sequence(inserted, deleted, mode: "result", columns: 1)
+})
+
+#section("Rounded and capsule cells contain striped marks", std.stack(
+  dir: ltr,
+  spacing: 1.2em,
+  array-view(4, 1, 7, style: (box-shape: "rounded"), cell-customizations: ((0, (stripe-fill: rgb("#C4B5FD"))),)).diagram,
+  array-view(4, 1, 7, style: (box-shape: "capsule"), cell-customizations: ((0, (stripe-fill: rgb("#C4B5FD"))),)).diagram,
+))
+
+#section("Explicit indices: true enables the default zero-based labels", array-view(
+  4, 1, 7,
+  style: (indices: true),
+).diagram)
+
+#section("Sequence operation captions accept rotated typography", {
+  let initial = bst(5, 3, 8)
+  let step = (initial.insert)(6)
+  sequence(step, mode: "after", style: (operation-text: (rotation: 10deg)))
 })
 
 #pagebreak()

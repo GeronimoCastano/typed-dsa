@@ -877,6 +877,41 @@
     expect: "cannot widen node \"B\" with shape \"hexagon\"",
     code: "#graph((\"A\": (\"B\",), \"B\": ()), style: (node-shape: \"rounded\", node-fit: true), node-customizations: ((\"B\", (shape: \"hexagon\")),)).diagram",
   ),
+  (
+    name: "array-view: unknown named input",
+    expect: "unknown key \"labells\"",
+    code: "#array-view(1, 2, labells: true).diagram",
+  ),
+  (
+    name: "array-view: index labels match the cell count",
+    expect: "exactly 3 labels",
+    code: "#array-view(1, 2, 3, style: (indices: (labels: (0, 1)))).diagram",
+  ),
+  (
+    name: "sequence: unknown named input",
+    expect: "unknown key \"colums\"",
+    code: "#sequence(colums: 2)",
+  ),
+  (
+    name: "operation-sequence: unknown named input",
+    expect: "unknown key \"colums\"",
+    code: "#operation-sequence(bst(3, 1), obj => obj.insert(2), colums: 2)",
+  ),
+  (
+    name: "partition-step: pointers with middle pivot",
+    expect: "only with pivot: \"last\"",
+    code: "#partition-step((7, 2, 9), pointers: true).diagram",
+  ),
+  (
+    name: "matrix: empty rows",
+    expect: "row 0 is empty",
+    code: "#matrix(((), ())).diagram",
+  ),
+  (
+    name: "matrix: validate malformed row before geometry",
+    expect: "rows entry 1 must be array",
+    code: "#matrix(((), none)).diagram",
+  ),
 )
 
 // Every case is evaluated with the whole public API in scope, exactly as a

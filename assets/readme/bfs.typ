@@ -12,6 +12,7 @@
   ),
   "S",
   target: "T",
+  layout: "layered",
   columns: 3,
   style: graph-style(scale: 0.65),
 ).diagram

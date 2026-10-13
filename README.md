@@ -169,13 +169,10 @@ highlights the shortest-path edges. A target is optional; omit it to traverse
 every reachable node.
 
 ```typ
+#let adjacency = ("S": ("A", "B"), "A": ("T",), "B": ("T",), "T": ())
+#let weighted-adjacency = ("S": (("A", 4), ("B", 2)), "A": (("T", 3),), "B": (("T", 5),), "T": ())
 #bfs(
-  (
-    "S": ("A", "B"),
-    "A": ("T",),
-    "B": ("T",),
-    "T": (),
-  ),
+  adjacency,
   "S",
   target: "T",
   layout: "layered",

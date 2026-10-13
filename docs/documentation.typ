@@ -76,6 +76,7 @@
   node-label-style: node-label-style, indices-style: indices-style,
   sequence: sequence, operation-sequence: operation-sequence, op-arrow: op-arrow,
   theme-preset: theme-preset, themes: themes, std: std,
+  theme: theme, resolve: resolve,
   messages: messages, supported-languages: supported-languages,
 )
 
@@ -517,17 +518,23 @@ The package exports these symbols:
   [*Symbol*], [*Purpose*],
   [#c("bst"), #c("avl")], [Binary search tree / AVL tree builders.],
   [#c("min-heap"), #c("max-heap")], [Binary heap builders.],
-  [#c("linked-list"), #c("doubly-linked-list"), #c("stack"), #c("queue")], [Linear-structure builders.],
+  [#c("linked-list"), #c("doubly-linked-list"), #c("skip-list"), #c("stack"), #c("queue")], [Linear-structure builders. #c("default-decision-fn") is the default skip-list tower-height policy.],
   [#c("array-view"), #c("matrix")], [Static array and matrix/grid builders.],
   [#c("merge-sort"), #c("merge-operation"), #c("partition-step"), #c("quick-sort"), #c("bubble-sort"), #c("insertion-sort"), #c("selection-sort")], [Automatic sorting traces.],
-  [#c("graph")], [Graph builder, from an adjacency dict.],
+  [#c("sort-sequence")], [Custom layout for sorting trace steps.],
+  [#c("graph"), #c("bfs"), #c("dfs"), #c("dijkstra")], [Graph builder and graph algorithm traces.],
+  [#c("hash-table")], [Chained or linear-probing hash table builder.],
   [#c("tree"), #c("node"), #c("subtree")], [Hand-composed abstract trees.],
   [#c("transition")], [One-shot before → after operation diagrams for trees and heaps.],
   [#c("tree-insert"), #c("tree-delete"), #c("tree-search")], [Tree operation constructors, for #c("transition").],
   [#c("heap-insert"), #c("heap-extract")], [Heap operation constructors, for #c("transition").],
   [#c("sequence")], [Wrapped layout for operation-step sequences.],
+  [#c("operation-sequence")], [Apply operation closures in order and lay out the returned steps.],
   [#c("op-arrow")], [Reusable labeled arrow, for custom operation layouts.],
-  [#c("theme"), #c("resolve")], [The default style dictionary and its merge helper.],
+  [#c("theme"), #c("themes"), #c("theme-preset"), #c("resolve")], [Default style, named theme presets, and style resolution.],
+  [#c("tree-style"), #c("heap-style"), #c("graph-style"), #c("list-style"), #c("stack-style"), #c("queue-style"), #c("array-style"), #c("matrix-style")], [Typed style dictionaries for structure builders.],
+  [#c("text-style"), #c("label-style"), #c("node-mark-style"), #c("cell-mark-style"), #c("node-label-style"), #c("indices-style")], [Typography and mark-style helpers.],
+  [#c("messages"), #c("supported-languages")], [Localized caption overrides and supported language codes.],
 )
 
 == Your first diagram
@@ -569,7 +576,7 @@ covers the step shape they share.
 ]
 
 #argtable(
-  [#c("..keys")], [`int` / `content`], [(required)], [Keys inserted into the tree in order, one BST/AVL insert per key. Duplicate keys are ignored.],
+  [#c("..keys")], [`int` / `content`], [(required)], [Keys inserted into the tree in order, one BST/AVL insert per key. Duplicate keys are rejected with an error.],
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
   [#c("edge-customizations")], [`array`], [`()`], [#c("(parent, child, options)") tuples restyling individual tree edges by node value. See @edge-customizations.],
   [#c("node-customizations")], [`array`], [`()`], [#c("(node, options)") tuples restyling individual tree nodes by value.],
@@ -982,7 +989,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   [#c("..vals")], [`int` / `content`], [(required)], [Values in the queue; the *first* argument is the front.],
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
   [#c("enqueue")], [`none` / `int` / `content`], [`none`], [Draw one extra element entering at the rear, with an arrow, in the same frame.],
-  [#c("dequeue")], [`none` / `int` / `content`], [`none`], [Draw the front element leaving to the left, with an arrow, in the same frame.],
+  [#c("dequeue")], [`none` / `int` / `content`], [`none`], [Draw this value leaving to the left, with an arrow, in the same frame. It is an independent illustration value and does not have to occur in the queue.],
   [#c("front-label")], [`content` / `auto`], [`auto`], [Label over the front cell; #c("auto") uses the localized #c("queue.front") default (@localization). Combined with #c("rear-label") for a one-cell queue.],
   [#c("rear-label")], [`content` / `auto`], [`auto`], [Label over the rear cell; #c("auto") uses the localized #c("queue.rear") default (@localization). Combined with #c("front-label") for a one-cell queue.],
 )
@@ -1003,7 +1010,9 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 
 #demo[
   #c("enqueue")/#c("dequeue") draw a single-frame arrow, independent of the
-  object's own #c(".enqueue")/#c(".dequeue") methods:
+  object's own #c(".enqueue")/#c(".dequeue") methods. #c("dequeue:") supplies
+  the value shown leaving the front; it is illustrative and does not mutate or
+  validate the stored queue values.
 
   #example(```typ
   #queue(3, 4, 5, 6, 7, 8, enqueue: 9, dequeue: 2,
@@ -1073,7 +1082,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   over once #c("insert") gives it a smaller value to make way for.
 
   #example(```typ
-  #let l = skip-list(1, 2, 3, 4, 5, 6)
+  #let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.68))
   #(l.insert)(0).diagram
   ```, side: false)
 ]
@@ -1083,7 +1092,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
   [#c("decision-fn")], [`function`], [#c("default-decision-fn")], [#c("(level, value) => bool"), called with #c("level") starting at #c("1") and increasing; a node keeps climbing while this returns #c("true"). Typst has no RNG, so the default hashes #c("value") deterministically instead of flipping a coin — same value, same height, every recompile.],
   [#c("level-spacing")], [`int` / `float`], [`1.4`], [Positive vertical distance between level rows, in canvas units.],
-  [#c("max-level")], [`int`], [`4`], [Non-negative upper bound on the height #c("decision-fn") can assign automatically. #c("insert(..., level:)") can still exceed it when set explicitly.],
+  [#c("max-level")], [`int`], [`4`], [Non-negative upper bound on node height. It limits both automatically assigned heights and explicit #c("insert(..., level:)") values.],
 )
 
 #linear-style-reference("skip-list")
@@ -1097,7 +1106,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 
 #demo[
   #example(```typ
-  #let l = skip-list(1, 2, 3, 4, 5, 6)
+  #let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.68))
   #(l.search)(4).diagram
   ```, side: false)
 ]
@@ -1108,7 +1117,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   #c("found") and #c("index") so the miss can be handled programmatically.
 
   #example(```typ
-  #let miss = (skip-list(1, 3, 5).search)(4)
+  #let miss = (skip-list(1, 3, 5, style: (scale: 0.68)).search)(4)
   #assert(not miss.found)
   #assert.eq(miss.index, none)
   #miss.diagram
@@ -1121,7 +1130,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   the value alone, never on how many other values exist or where they sit.
 
   #example(```typ
-  #let l = skip-list(1, 2, 3, 4, 5, 6)
+  #let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.68))
   #(l.insert)(7).diagram
   ```, side: false)
 ]
@@ -1133,7 +1142,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   levels would corrupt the structure.
 
   #example(```typ
-  #let l = skip-list(1, 2, 3, 4, 5, 6)
+  #let l = skip-list(1, 2, 3, 4, 5, 6, style: (scale: 0.68))
   #(l.delete)(2).diagram
   ```, side: false)
 ]
@@ -1151,8 +1160,9 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   These builders draw compact cell diagrams. They do not have operations yet;
   #c("cell-customizations") restyles individual array cells by index or matrix
   cells by #c("(row, column)") coordinate.
-  #c("style.indices: (enabled: true)") draws zero-based array indices under
-  the cells. #c("pointers") draws labelled arrows above array cells.
+  #c("style.indices: true") or #c("style.indices: (enabled: true)") draws
+  zero-based array indices under the cells; array views leave them off by
+  default. #c("pointers") draws labelled arrows above array cells.
 ]
 
 #argtable(
@@ -1167,7 +1177,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 
 #linear-style-reference("array")
 #subargtable([Nested keys for #c("style.indices")],
-  [#c("style.indices.enabled")], [`bool`], [`false`], [Draw index labels below array cells. Sorting traces draw them by default; #c("false") hides them in every step and tree of the trace.],
+  [#c("style.indices.enabled")], [`bool`], [#c("true") when #c("style.indices") is supplied], [Draw index labels below array cells. Array views leave them off when #c("indices") is absent; sorting traces draw them by default unless set to false. The shorthand #c("indices: true") enables labels with default options.],
   [#c("style.indices.labels")], [`auto` / `array`], [`auto`], [#c("auto") draws zero-based numeric indices; an array supplies custom labels. Merge sort's divide and merge trees address the array by each cell's position in the original array.],
   [#c("style.indices.offset")], [`tuple`], [#c("(0, -0.28)")], [Canvas offset from the bottom-center index position.],
   [#c("style.indices.size")], [`length`], [#c("style.label-text.size")], [Index text size.],
@@ -1226,10 +1236,10 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 ]
 
 #argtable(
-  [#c("..entries")], [`content` / `tuple`], [`()`], [Keys, or #c("(key, value)") pairs.],
+  [#c("..entries")], [`int` / `float` / `str` / `tuple`], [`()`], [Integer, float, or string keys, or #c("(key, value)") pairs using those key types.],
   [#c("size")], [`int`], [`7`], [Positive bucket/slot count.],
   [#c("collision")], [`str`], [`"chaining"`], [#c("\"chaining\"")/#c("\"chain\"") or #c("\"linear\"").],
-  [#c("hash")], [`auto` / `function`], [`auto`], [Custom #c("key => int") function. The default hashes integers and the UTF-8 bytes of other values.],
+  [#c("hash")], [`auto` / `function`], [`auto`], [Custom #c("key => int") function. The default hashes integers directly and the UTF-8 bytes of strings for other keys.],
   [#c("style")], [`dictionary`], [`(:)`], [Uses the existing box, value/index text, pointer text, scale, and mark-style keys.],
 )
 
@@ -1285,6 +1295,9 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   every step of the trace. Custom #c("style.indices.labels") entries are
   addressed by each cell's position in the original array, so a labelled trace
   keeps the same indices in every divided and merged subtree. Sorting traces
+  use only the input values and style; static #c("cell-customizations:") and
+  #c("pointers:") from the source array view are not copied into the trace.
+  Sorting steps apply their own role highlights and cursor arrows. Sorting traces
   draw zero-based index labels unless the style turns them off: pass
   #c("indices: indices-style(enabled: false)"), #c("indices: false"), or
   #c("indices: none") to hide every index label in the trace, including those
@@ -1999,6 +2012,7 @@ with several lines can extend past the top and bottom of its node.]
   ```, side: false)
 ]
 
+#pagebreak()
 #demo[
   #heading(level: 2)[#raw("edge-customizations")] <edge-customizations>
 
@@ -2006,8 +2020,10 @@ with several lines can extend past the top and bottom of its node.]
   For #c("graph"), #c("from") and #c("to") are node labels. For generated
   trees, they are parent and child values. #c("options") is a dictionary.
 
-  #edge-customizations-reference(label-options: true)
+]
 
+#pagebreak()
+#demo[
   #example(```typ
   #graph(
     ("v1": ("v2", "v3"), "v2": ("v3",), "v3": ()),
@@ -2018,6 +2034,10 @@ with several lines can extend past the top and bottom of its node.]
     ),
   ).diagram
   ```, side: false)
+]
+
+#demo[
+  #edge-customizations-reference(label-options: true)
 ]
 
 #demo[
@@ -2158,7 +2178,7 @@ including force layouts, so state highlighting never makes nodes drift.]
     [#c("label")], [`content`], [(required)], [The node's label; any content, not just a key.],
     [#c("left")], [`none` / #c("node()") / #c("subtree()")], [`none`], [Left child.],
     [#c("right")], [`none` / #c("node()") / #c("subtree()")], [`none`], [Right child.],
-    [#c("children")], [`none` / `array`], [`none`], [Multiway children. When set, this replaces #c("left")/#c("right") for layout and rendering.],
+    [#c("children")], [`none` / `array`], [`none`], [Multiway children. Use this for an n-ary node; it cannot be combined with #c("left") or #c("right").],
     [#c("fill")], [`none` / `color`], [`none`], [Fill tint for this node.],
   )
 
@@ -2556,6 +2576,7 @@ the resulting object, and it doesn't accumulate across a chain of
 
 == Wrapped operation sequences
 
+#pagebreak()
 #demo[
   #c("sequence(..., columns:, mode:)") lays out step objects in a grid. It accepts
   operation steps directly, so you do not need to write #c(".diagram") for
@@ -2565,6 +2586,8 @@ the resulting object, and it doesn't accumulate across a chain of
   shows highlighted after panels, while #c("mode: \"result\"") shows the plain
   live object after each step, without operation highlights. Put the starting
   object first when you want the trace to begin with the original structure.
+  #c("mode: \"before\"") shows each operation's starting state once, with
+  the previous operation's caption on the arrow between states.
 
   #argtable(
     [#c("..steps")], [step / content], [(required)], [Operation steps, live objects, or already-rendered content.],
@@ -2576,13 +2599,12 @@ the resulting object, and it doesn't accumulate across a chain of
   )
 
   #example(```typ
-  #let b = bst(50, 30, 70, 20, 40)
-  #let s1 = (b.insert)(60)
-  #let s2 = ((s1.result).search)(20)
-  #let s3 = ((s2.result).delete)(30)
+  #let b = bst(5, 3, 8, style: (scale: 0.72))
+  #let s1 = (b.insert)(6)
+  #let s2 = ((s1.result).search)(3)
 
-  #sequence(s1, s2, s3, columns: 1, row-gap: 1.2em)
-  #sequence(b, s1, s2, s3, mode: "result", columns: 7)
+  #sequence(s1, s2, columns: 3, mode: "after")
+  #sequence(b, s1, s2, mode: "result", columns: 5)
   ```, side: false)
 ]
 
@@ -2886,7 +2908,7 @@ content.
 // ═════════════════════════════════════════════════════════════════════════════
 
 #demo[
-  Every builder takes a #c("style:") dictionary that is merged over the
+  Structure builders accept a #c("style:") dictionary that is merged over the
   package defaults, so colors, size, and shape can be overridden per call.
   #c("theme") is the default dictionary itself and #c("resolve(style)") is the
   merge helper (#c("theme + style")); both are exported if you want to build
@@ -3169,7 +3191,7 @@ One stone remains, weight *1*, matching
   [#c("linked-list(..vals, style:, pointer:, addresses:, head:)")], [Linked list; ops #c("prepend"), #c("insert"), #c("delete"), #c("delete-at"), and #c("search")],
   [#c("doubly-linked-list(..vals, style:, pointer:, addresses:, head:)")], [Doubly linked list; same positional and value operations as #c("linked-list")],
   [#c("stack(..vals, style:, top-label:)")], [Stack, first argument is the top; ops #c("push"), #c("pop")],
-  [#c("queue(..vals, style:, enqueue:, dequeue:, front-label:, rear-label:)")], [Queue, first argument is the front; ops #c("enqueue"), #c("dequeue")],
+  [#c("queue(..vals, style:, enqueue:, dequeue:, front-label:, rear-label:)")], [Queue, first argument is the front; optional arrows illustrate values entering/leaving the displayed queue. Ops #c("enqueue"), #c("dequeue") mutate the object.],
   [#c("skip-list(..vals, style:, decision-fn:, level-spacing:, max-level:)")], [Sorted skip list with express-lane levels; ops #c("search"), #c("insert"), #c("delete")],
   [#c("array-view(..vals, style:, cell-customizations:, pointers:)")], [Static array cells with optional #c("style.indices"), per-cell overrides, and labelled #c("pointers") arrows above cells],
   [#c("matrix(rows, style:, cell-customizations:, row-labels:, column-labels:)")], [Static matrix/grid cells with optional row/column labels and per-cell overrides],

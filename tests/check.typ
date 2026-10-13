@@ -1,8 +1,8 @@
 // Invariant checks for the tree operations. Compiling this file runs them;
 // any broken invariant aborts compilation with a failed assert.
-//   typst compile --root . tests/check.typ /dev/null
+//   typst compile --root . tests/check.typ tests/check.pdf
 
-#import "../src/tree/facade.typ": _build-search-tree, _calculate-balance-factor, _remove-bst-node, _insert-bst-node, _remove-avl-node
+#import "../src/tree/facade.typ": _build-search-tree, _remove-bst-node, _insert-bst-node, _remove-avl-node
 #import "../src/graph/layout.typ": _project-point-to-graph-edge
 #import "../src/sorting/common.typ": _sorting-trace-shows-indices
 
@@ -21,10 +21,16 @@
   true
 }
 
+#let actual-tree-height(tree-node) = if tree-node == none {
+  0
+} else {
+  1 + calc.max(actual-tree-height(tree-node.left), actual-tree-height(tree-node.right))
+}
+
 #let is-height-balanced(tree-node) = {
   if tree-node == none { return true }
   (
-    calc.abs(_calculate-balance-factor(tree-node)) <= 1
+    calc.abs(actual-tree-height(tree-node.left) - actual-tree-height(tree-node.right)) <= 1
     and is-height-balanced(tree-node.left)
     and is-height-balanced(tree-node.right)
   )
@@ -474,6 +480,7 @@
 }
 #let _ = array-view().diagram
 #let _ = matrix(((1, 2), (3, 4)), row-labels: ([r],)).diagram
+#let _ = matrix(((1, 2), (3, 4)), column-labels: ([a], [b])).diagram
 #let _ = tree(node("a", left: node("b"), right: subtree("T")))
 #let _ = min-heap(5, 5, 3).diagram
 #let _ = stack(1, 2).diagram

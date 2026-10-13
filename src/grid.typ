@@ -7,7 +7,7 @@
 #import "shared/style.typ": resolve, scaled, validate-style, check-cell-customization-options, check-text-style
 #import "shared/validate.typ": (
   check-array, check-bool, check-dictionary, check-enum, check-function,
-  check-index, check-integer, check-known-keys, fail, show-value,
+  check-index, check-index-labels, check-integer, check-known-keys, fail, show-value,
 )
 #import cetz.draw: rect, content, line
 
@@ -50,6 +50,14 @@
   content(position, text(..normalized-text-style)[#body], angle: rotation)
 }
 
+#let _rounded-cell-edge-inset(x-position, width, radius) = {
+  if radius == 0 or x-position >= radius and x-position <= width - radius {
+    return 0
+  }
+  let corner-center = if x-position < radius { radius } else { width - radius }
+  radius - calc.sqrt(radius * radius - (x-position - corner-center) * (x-position - corner-center))
+}
+
 #let _render-grid-cell(x, y, body, resolved-style, custom: none, fill: auto, w: auto, h: auto) = {
   let cell-width = if w == auto { resolved-style.box-w } else { w }
   let cell-height = if h == auto { resolved-style.box-h } else { h }
@@ -77,10 +85,20 @@
     stroke: if stripe-fill == none { cell-stroke } else { none },
   )
   if stripe-fill != none {
+    let radius-fraction = if resolved-style.box-shape == "rounded" { 0.2 }
+      else if resolved-style.box-shape == "capsule" { 0.5 }
+      else { 0 }
+    let stripe-radius = calc.min(cell-width, cell-height) * radius-fraction
     for offset in (0, 0.2, 0.4, 0.6, 0.8) {
+      let stripe-start = cell-width * offset
+      let stripe-end = cell-width * (offset + 0.1)
+      let top-inset = calc.max(
+        _rounded-cell-edge-inset(stripe-start, cell-width, stripe-radius),
+        _rounded-cell-edge-inset(stripe-end, cell-width, stripe-radius),
+      )
       rect(
-        (x + cell-width * offset, y),
-        (x + cell-width * (offset + 0.1), y + cell-height),
+        (x + stripe-start, y + top-inset),
+        (x + stripe-end, y + cell-height - top-inset),
         fill: stripe-fill,
         stroke: none,
       )
@@ -103,6 +121,7 @@
 #let _resolve-index-configuration(resolved-style) = {
   let index-options = resolved-style.at("indices", default: false)
   if index-options in (false, none) { return none }
+  if index-options == true { index-options = (enabled: true) }
   if type(index-options) == dictionary {
     let should-render-indices = index-options.at("enabled", default: true)
     if not should-render-indices { return none }
@@ -268,8 +287,13 @@
 }
 
 #let array-view(style: (:), cell-customizations: (), pointers: (), reserve-pointers: false, ..vals) = {
+  check-known-keys("array-view()", "named arguments", vals.named(), ())
   validate-style("array-view()", style)
   check-bool("array-view()", "reserve-pointers:", reserve-pointers)
+  let index-options = style.at("indices", default: none)
+  if type(index-options) == dictionary {
+    check-index-labels("array-view()", "style.indices.labels:", index-options.at("labels", default: auto), vals.pos().len())
+  }
   _validate-array-cell-customizations("array-view()", cell-customizations, vals.pos().len())
   _validate-array-pointers("array-view()", pointers, vals.pos().len())
   (
@@ -356,6 +380,14 @@
       fix: "pad the short rows, or draw them as separate matrices",
     )
   }
+  if column-count == 0 {
+    fail(
+      where,
+      "row 0 is empty",
+      expected: "at least one cell in every row",
+      fix: "pass a non-empty rectangular matrix, for example ((1, 2), (3, 4))",
+    )
+  }
   (rows: rows.len(), columns: column-count)
 }
 
@@ -413,7 +445,10 @@
   #let resolved-style = resolve(style)
   #set align(center)
   #if label != none [
-    #text(..resolved-style.operation-text, label) \
+    #let operation-text-style = resolved-style.operation-text
+    #let rotation = operation-text-style.at("rotation", default: 0deg)
+    #if "rotation" in operation-text-style { let _ = operation-text-style.remove("rotation") }
+    #rotate(rotation, text(..operation-text-style, label)) \
   ]
   #text(size: 1.3em, $arrow.r$)
 ]
@@ -437,16 +472,30 @@
 #let sequence-modes = ("all", "diagram", "before", "after", "result")
 
 #let sequence(columns: 1, gap: 1em, row-gap: 1em, mode: "all", style: (:), ..steps) = {
+  check-known-keys("sequence()", "named arguments", steps.named(), ())
   check-enum("sequence()", "mode:", mode, sequence-modes)
   check-integer("sequence()", "columns:", columns, min: 1)
   validate-style("sequence()", style)
   let cells = ()
+  let previous-operation = none
+  let has-before-state = false
   for step in steps.pos() {
     let is-step = type(step) == dictionary and ("before" in step or "after" in step or "result" in step)
-    if mode not in ("all", "diagram") and is-step {
-      if cells.len() == 0 and "before" in step {
-        cells.push(step.before)
+    if mode == "before" {
+      if is-step {
+        if previous-operation != none {
+          cells.push(_render-sequence-arrow(previous-operation.at("label", default: none), style))
+          cells.push(_resolve-sequence-panel(step, mode))
+        } else if not has-before-state {
+          cells.push(_resolve-sequence-panel(step, mode))
+          has-before-state = true
+        }
+        previous-operation = step
+      } else if previous-operation == none {
+        cells.push(_resolve-sequence-panel(step, mode))
+        has-before-state = true
       }
+    } else if mode not in ("all", "diagram") and is-step {
       cells.push(_render-sequence-arrow(step.at("label", default: none), style))
       cells.push(_resolve-sequence-panel(step, mode))
     } else {
@@ -461,6 +510,7 @@
 // operation step, so this works across trees, heaps, lists, stacks, queues,
 // and hash tables without a second operation-description language.
 #let operation-sequence(initial, columns: 1, gap: 1em, row-gap: 1em, mode: "after", style: (:), ..operations) = {
+  check-known-keys("operation-sequence()", "named arguments", operations.named(), ())
   check-enum("operation-sequence()", "mode:", mode, sequence-modes)
   check-integer("operation-sequence()", "columns:", columns, min: 1)
   validate-style("operation-sequence()", style)

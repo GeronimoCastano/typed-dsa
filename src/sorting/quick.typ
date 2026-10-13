@@ -91,6 +91,14 @@
   check-enum(_where, "order:", order, sort-orders)
   check-enum(_where, "pivot:", pivot, ("middle", "last"))
   check-bool(_where, "pointers:", pointers)
+  if pointers and pivot != "last" {
+    fail(
+      _where,
+      "pointers: true is unsupported with pivot: " + show-value(pivot),
+      expected: "pointers: true only with pivot: \"last\"",
+      fix: "pass pivot: \"last\", or set pointers: false",
+    )
+  }
   check-bool(_where, "labels:", labels)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let _create-partition-step = _create-partition-step.with(message-catalog: message-catalog)
@@ -141,13 +149,15 @@
     }
     if left <= right {
       steps.push(_create-partition-step(msg(message-catalog, "sort.compare", partition-values.at(left), partition-values.at(right)), partition-values, left, right, pivot, _create-partition-marks(left, right, pivot, partition-values), style, show-indices, labels: labels))
-      let a = partition-values.at(left)
-      let b = partition-values.at(right)
-      partition-values.at(left) = b
-      partition-values.at(right) = a
-      if pivot == left { pivot = right }
-      else if pivot == right { pivot = left }
-      steps.push(_create-partition-step(msg(message-catalog, "sort.swap", a, b), partition-values, left, right, pivot, _create-cell-marks((left, right), _changed), style, show-indices, labels: labels))
+      if left != right {
+        let a = partition-values.at(left)
+        let b = partition-values.at(right)
+        partition-values.at(left) = b
+        partition-values.at(right) = a
+        if pivot == left { pivot = right }
+        else if pivot == right { pivot = left }
+        steps.push(_create-partition-step(msg(message-catalog, "sort.swap", a, b), partition-values, left, right, pivot, _create-cell-marks((left, right), _changed), style, show-indices, labels: labels))
+      }
       left += 1
       right -= 1
     }

@@ -115,7 +115,7 @@
   edge-pattern: "normal",
   edge-wave-amplitude: 0.055,
   edge-wave-step: 0.14,
-  scale: 0.4,
+  scale: 0.7,
   new-style: (shape: "square", fill: green-soft, stroke: 1.2pt + green, text: (color: green, weight: "bold")),
   path-style: (fill: rgb("#FFE082"), stroke: 1.1pt + amber, text: (color: rgb("#6D4C00"), weight: "bold")),
   remove-style: (fill: red-soft, stroke: 1.1pt + red, text: (color: red, weight: "bold")),
@@ -200,14 +200,7 @@
 
 #panel([Trees and AVL transitions],
   {
-    let a = avl(
-      50, 30, 70, 20, 40,
-      style: tree-style,
-      edge-customizations: (
-        (50, 30, (pattern: "dashed", color: purple)),
-        (30, 20, (pattern: "wavy", color: blue)),
-      ),
-    )
+    let a = avl(20, 10, 30, 40, style: tree-style)
     let b = bst(
       50, 30, 70, 20, 40, 60, 80,
       style: tree-style2,
@@ -226,11 +219,11 @@
     std.stack(spacing: 4em,
       example-card(
         ```typ
-        #let a = avl(50, 30, 70, 20, 40,
+        #let a = avl(20, 10, 30, 40,
           style: your-style)
-        #(a.insert)(35, rebalance: (enabled: true, all-steps: true)).diagram
+        #(a.insert)(50, rebalance: (enabled: true)).diagram
         ```,
-        (a.insert)(35, rebalance: (enabled: true, all-steps: true)).diagram,
+        (a.insert)(50, rebalance: (enabled: true)).diagram,
       ),
       example-card(
         ```typ

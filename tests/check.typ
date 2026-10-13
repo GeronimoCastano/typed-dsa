@@ -5,6 +5,8 @@
 #import "../src/tree/facade.typ": _build-search-tree, _remove-bst-node, _insert-bst-node, _remove-avl-node
 #import "../src/graph/layout.typ": _project-point-to-graph-edge
 #import "../src/sorting/common.typ": _sorting-trace-shows-indices
+#import "../src/shared/style.typ": resolve, theme-preset
+#import "../src/lib.typ": transition, tree-insert
 
 #let inorder(tree-node) = if tree-node == none {
   ()
@@ -123,6 +125,37 @@
 #assert(not (hash-table("a", "b", size: 5, collision: "linear").search)("z").found)
 #assert((hash-table("a", "b", size: 5, collision: "linear").search)("b").found)
 
+// Hash keys use one consistent textual representation for comparable values.
+#let content-key-table = hash-table([Ada], [Grace], size: 5)
+#assert(content-key-table.diagram != none)
+#let numeric-key-table = hash-table(1, 1.0, size: 5)
+#assert(numeric-key-table.diagram != none)
+#assert(hash-table(1, size: 5, style: (pointer-text: (rotation: 10deg))).diagram != none)
+
+// Sparse text overrides preserve preset colors while changing typography.
+#let dark-text-style = resolve(theme-preset("dark") + (value-text: (weight: "bold")))
+#assert(dark-text-style.value-text.fill == rgb("#F8F9FA"))
+#assert(dark-text-style.value-text.weight == "bold")
+#assert(resolve(theme-preset("dark")).index-text.fill == rgb("#CED4DA"))
+
+// Bare algorithm-role colors normalize into their documented role dictionaries.
+#assert(resolve((visited-style: red)).visited-style.fill == red)
+#assert(resolve((active-edge-style: red)).active-edge-style.stroke == red)
+
+// Queue operation results are plain queue objects; builder-only frame values
+// do not carry into later operations.
+#let queue-chain = (queue(3, 8, enqueue: 6, dequeue: 2).enqueue)(9)
+#assert(queue-chain.result.diagram != none)
+#let rotated-operation-caption = transition("bst", (5, 3, 7), tree-insert(4), style: (operation-text: (rotation: 10deg)))
+
+// Explicit skip-list levels may exceed the automatic decision function bound.
+#let tall-skip-insert = (skip-list(1, 2, 3, max-level: 2).insert)(4, level: 3)
+#assert(tall-skip-insert.after != none)
+
+// Queue spacing is controlled by box-gap while its default remains contiguous.
+#let spaced-queue = queue(3, 8, 5, style: (box-gap: 1.5))
+#assert(spaced-queue.diagram != none)
+
 // A target the traversal cannot reach is a result, not an error.
 #let unreachable = ("a": ("b",), "b": (), "c": ())
 #assert(not bfs(unreachable, "a", target: "c").result.found)
@@ -133,6 +166,9 @@
 #let _ = bst(5, 3, style: (node-fill: none, edge-arrow: none, edge-pattern: none)).diagram
 #let _ = bst(5, 3, style: theme-preset("dark")).diagram
 #let _ = bst(5, 3, style: (node-text: (color: red), new-style: (fill: red, shape: "square"))).diagram
+#let _ = bst(5, 3, 7, edge-customizations: ((5, 3, (stroke: 2pt, pattern: (2pt, 2pt))),)).diagram
+#let _ = bst(5, 3, 7, edge-customizations: ((5, 3, (stroke: none, pattern: "dotted")),)).diagram
+#let _ = graph(("A": (("B", [edge]),), "B": ()), layout: "manual", positions: ("A": (0, 0), "B": (3, 0)), edge-customizations: (("A", "B", (label: (rotation: "edge"))),)).diagram
 #let _ = linked-list(1, 2, style: (box-gap: 0)).diagram
 #let _ = graph(("a": ("b",), "b": ()), positions: ("a": (rel: "b", offset: (0, 1)))).diagram
 #let _ = graph(("a": ("b",), "b": ()), layout: "linear", gap: 2).diagram
@@ -551,7 +587,6 @@ All invariant checks passed.
 
 // Distance labels take their default look from distance-text. label-text does
 // not reach them, and an explicit color is folded into fill.
-#import "../src/shared/style.typ": resolve
 #import "../src/graph/layout.typ": _calculate-node-boundary-radius, _default-node-half-width, _fitted-node-half-width
 #let _is-close(actual, expected) = calc.abs(actual - expected) < 0.000001
 #assert(resolve((:)).distance-text.fill == rgb("#7048E8"))

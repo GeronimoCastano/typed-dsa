@@ -87,6 +87,13 @@
     box-stroke: 0.8pt + rgb("#E9ECEF"), ptr-fill: rgb("#364152"),
     prev-ptr-fill: rgb("#364152"), next-ptr-fill: rgb("#364152"),
     node-text: (fill: rgb("#F8F9FA")), label-text: (fill: rgb("#CED4DA")),
+    new-style: (fill: rgb("#C8E6C9"), text: (fill: rgb("#212529"))),
+    path-style: (fill: rgb("#FFE9A8"), text: (fill: rgb("#212529"))),
+    remove-style: (fill: rgb("#FFCDD2"), text: (fill: rgb("#212529"))),
+    rotate-style: (fill: rgb("#BBDEFB"), text: (fill: rgb("#212529"))),
+    visited-style: (fill: rgb("#C8E6C9"), text: (fill: rgb("#212529")), stroke: 1pt + rgb("#2E7D32")),
+    current-style: (fill: rgb("#BBDEFB"), text: (fill: rgb("#212529")), stroke: 1pt + rgb("#1565C0")),
+    queued-style: (fill: rgb("#FFE9A8"), text: (fill: rgb("#212529")), stroke: 1pt + rgb("#F08C00")),
   ),
   "print": (
     node-fill: white, node-stroke: 0.9pt + black, edge-stroke: 0.9pt + black,
@@ -108,6 +115,13 @@
     box-stroke: 1pt + rgb("#173C30"), ptr-fill: rgb("#315F4D"),
     prev-ptr-fill: rgb("#315F4D"), next-ptr-fill: rgb("#315F4D"),
     node-text: (fill: white), label-text: (fill: rgb("#254B3C")),
+    new-style: (fill: rgb("#C8E6C9"), text: (fill: rgb("#212529"))),
+    path-style: (fill: rgb("#FFE9A8"), text: (fill: rgb("#212529"))),
+    remove-style: (fill: rgb("#FFCDD2"), text: (fill: rgb("#212529"))),
+    rotate-style: (fill: rgb("#BBDEFB"), text: (fill: rgb("#212529"))),
+    visited-style: (fill: rgb("#C8E6C9"), text: (fill: rgb("#212529")), stroke: 1pt + rgb("#2E7D32")),
+    current-style: (fill: rgb("#BBDEFB"), text: (fill: rgb("#212529")), stroke: 1pt + rgb("#1565C0")),
+    queued-style: (fill: rgb("#FFE9A8"), text: (fill: rgb("#212529")), stroke: 1pt + rgb("#F08C00")),
   ),
 )
 
@@ -180,6 +194,7 @@
 
 #let _fill-types = (color, gradient, tiling, type(none))
 #let _stroke-types = (stroke, length, color, gradient, dictionary, type(none))
+#let _stroke-type = stroke
 
 #let check-fill(where, what, value) = check-type(
   where, what, value, _fill-types,
@@ -206,6 +221,40 @@
     check-type(
       where, what + ".size", value.size, (length,),
       fix: "pass a length, for example " + what + ": (size: 8pt)",
+    )
+    if value.size <= 0pt {
+      fail(
+        where,
+        what + ".size is " + show-value(value.size) + ", which must be positive",
+        expected: "a positive length",
+        fix: "pass a value such as 8pt",
+      )
+    }
+  }
+  if "font" in value {
+    check-type(
+      where, what + ".font", value.font, (str, array),
+      fix: "pass a font family name or an array of font family names",
+    )
+    if type(value.font) == array {
+      for font-family in value.font {
+        check-type(
+          where, what + ".font entry", font-family, (str,),
+          fix: "pass each font family as a string",
+        )
+      }
+    }
+  }
+  if "style" in value {
+    check-type(
+      where, what + ".style", value.style, (str,),
+      fix: "pass a text style name such as \"normal\" or \"italic\"",
+    )
+  }
+  if "rotation" in value {
+    check-type(
+      where, what + ".rotation", value.rotation, (angle,),
+      fix: "pass an angle such as 10deg",
     )
   }
   if "weight" in value {
@@ -234,6 +283,16 @@
   if "shape" in value { check-enum(where, what + ".shape", value.shape, node-shapes) }
   if "node-radius" in value { check-positive(where, what + ".node-radius", value.node-radius) }
   if "text" in value { check-text-style(where, what + ".text", value.text) }
+}
+
+#let check-active-edge-style(where, what, value) = {
+  if type(value) in (color, gradient, tiling) { return }
+  check-dictionary(
+    where, what, value,
+    fix: "pass a color or a dictionary containing stroke:",
+  )
+  check-known-keys(where, what, value, ("stroke",))
+  if "stroke" in value { check-stroke(where, what + ".stroke", value.stroke) }
 }
 
 #let check-label-position(where, what, value) = {
@@ -268,9 +327,15 @@
 
 #let check-node-label-defaults(where, what, value) = {
   check-known-keys(where, what, value, node-label-keys + ("enabled",))
+  if "enabled" in value { check-bool(where, what + ".enabled", value.enabled) }
   if "position" in value { check-label-position(where, what + ".position", value.position) }
   if "offset" in value { check-coordinate-pair(where, what + ".offset", value.offset) }
   if "gap" in value { check-number(where, what + ".gap", value.gap) }
+  let text-options = (:)
+  for (key, text-option) in value {
+    if key in text-style-keys { text-options.insert(key, text-option) }
+  }
+  check-text-style(where, what, text-options)
 }
 
 #let check-indices(where, what, value) = {
@@ -288,12 +353,37 @@
       fix: "pass auto, or one label per cell",
     )
   }
+  let text-options = (:)
+  for (key, text-option) in value {
+    if key in text-style-keys { text-options.insert(key, text-option) }
+  }
+  check-text-style(where, what, text-options)
 }
 
 #let _check-edge-pattern(where, what, value) = {
   if type(value) == str { return check-enum(where, what, value, edge-patterns) }
-  check-type(
-    where, what, value, (array, type(none), bool),
+  if value in (none, false) { return }
+  if type(value) == array {
+    for dash-length in value {
+      check-type(
+        where, what, dash-length, (length,),
+        fix: "pass positive lengths in the dash array, for example (2pt, 2pt)",
+      )
+      if dash-length <= 0pt {
+        fail(
+          where,
+          what + " contains " + show-value(dash-length) + ", which is not positive",
+          expected: "positive lengths in the dash array",
+          fix: "use a value such as (2pt, 2pt)",
+        )
+      }
+    }
+    return
+  }
+  fail(
+    where,
+    what + " is " + show-value(value) + ", which is not a supported edge pattern",
+    expected: "a pattern name, false, none, or an array of positive lengths",
     fix: "use a pattern name, or a dash array such as (2pt, 2pt)",
   )
 }
@@ -305,9 +395,8 @@
 #let check-label-override(where, what, value, require-content: false) = {
   if type(value) != dictionary { return }
   check-known-keys(where, what, value, ("content", "body") + text-style-keys)
-  if not require-content { return }
   let has-body = "content" in value or "body" in value
-  if not has-body {
+  if require-content and not has-body {
     fail(
       where,
       what + " sets label typography but no label content, so nothing would be drawn",
@@ -315,6 +404,14 @@
       fix: "write it as " + what + ": (content: [w], color: blue)",
     )
   }
+  let text-options = (:)
+  for (key, text-option) in value {
+    if key in text-style-keys { text-options.insert(key, text-option) }
+  }
+  if text-options.at("rotation", default: none) == "edge" {
+    let _ = text-options.remove("rotation")
+  }
+  check-text-style(where, what, text-options)
 }
 
 // Shared by tree and graph edges: both resolve the same option dictionary.
@@ -332,6 +429,14 @@
       where, what + ".angle", options.angle, (angle,),
       fix: "pass an angle, for example angle: 25deg",
     )
+    if options.angle <= -90deg or options.angle >= 90deg {
+      fail(
+        where,
+        what + ".angle is " + show-value(options.angle) + ", which is outside the supported bend range",
+        expected: "an angle greater than -90deg and less than 90deg",
+        fix: "use an angle strictly between -90deg and 90deg, for example angle: 25deg",
+      )
+    }
   }
   if "label" in options {
     check-label-override(
@@ -359,12 +464,25 @@
 }
 
 // A per-node annotation: content, or that content plus placement overrides.
-#let check-node-label-override(where, what, value) = {
+#let check-node-label-override(where, what, value, require-content: false) = {
   if type(value) != dictionary { return }
   check-known-keys(where, what, value, node-label-keys)
+  if require-content and "content" not in value and "body" not in value {
+    fail(
+      where,
+      what + " sets label options but no label content, so nothing would be drawn",
+      expected: "a \"content\" (or \"body\") entry",
+      fix: "write it as " + what + ": (content: [label], color: blue)",
+    )
+  }
   if "position" in value { check-label-position(where, what + ".position", value.position) }
   if "offset" in value { check-coordinate-pair(where, what + ".offset", value.offset) }
   if "gap" in value { check-number(where, what + ".gap", value.gap) }
+  let text-options = (:)
+  for (key, text-option) in value {
+    if key in text-style-keys { text-options.insert(key, text-option) }
+  }
+  check-text-style(where, what, text-options)
 }
 
 #let _check-style-entry(where, key, value) = {
@@ -374,6 +492,7 @@
   if key in _fill-style-keys { return check-fill(where, what, value) }
   if key in _stroke-style-keys { return check-stroke(where, what, value) }
   if key in text-style-roles { return check-text-style(where, what, value) }
+  if key == "active-edge-style" { return check-active-edge-style(where, what, value) }
   if key in mark-style-roles { return check-mark-style(where, what, value) }
   if key == "node-shape" { return check-enum(where, what, value, node-shapes) }
   if key == "tree-layout" { return check-enum(where, what, value, tree-layouts) }
@@ -402,6 +521,24 @@
   check-known-keys(where, "style:", style, style-keys)
   for (key, value) in style {
     _check-style-entry(where, key, value)
+  }
+}
+
+// Cell marks can change paint, outline, stripe, and text, but not node geometry.
+#let validate-cell-mark-styles(where, style) = {
+  for role in mark-style-roles {
+    if role == "active-edge-style" or role not in style { continue }
+    let mark-style = style.at(role)
+    if type(mark-style) != dictionary { continue }
+    for unsupported-key in ("shape", "node-radius") {
+      if unsupported-key not in mark-style { continue }
+      fail(
+        where,
+        role + "." + unsupported-key + " is not supported for array, list, stack, queue, or skip-list cells",
+        expected: "cell mark keys: " + mark-style-keys.filter(key => key not in ("shape", "node-radius")).map(key => "\"" + key + "\"").join(", "),
+        fix: "remove " + unsupported-key + " or use a fill, stroke, stripe-fill, or text override",
+      )
+    }
   }
 }
 
@@ -729,14 +866,32 @@
   index-text: index-text, scale: scale,
 )
 
+// Normalize the package's `color:` alias before text roles inherit each other.
+#let _normalize-text-color(text-style) = {
+  let normalized-style = text-style
+  if "color" in normalized-style {
+    normalized-style.fill = normalized-style.color
+    let _ = normalized-style.remove("color")
+  }
+  normalized-style
+}
+
 // Merge a per-call override dict over the defaults.
 #let resolve(style) = {
   let resolved-style = theme + style
+  for mark-role in ("visited-style", "current-style", "queued-style") {
+    if mark-role in style and type(style.at(mark-role)) in (color, gradient, tiling) {
+      resolved-style.insert(mark-role, (fill: style.at(mark-role)))
+    }
+  }
+  if "active-edge-style" in style and type(style.active-edge-style) in (color, gradient, tiling) {
+    resolved-style.active-edge-style = (stroke: style.active-edge-style)
+  }
   if "node-text" in style {
     resolved-style.node-text = theme.node-text + style.node-text
   }
 
-  let label-defaults = theme.label-text
+  let label-defaults = _normalize-text-color(theme.label-text)
   let label-size-is-unspecified = "size" not in label-defaults and (
     "label-text" not in style or "size" not in style.label-text
   )
@@ -749,9 +904,14 @@
   }
 
   if "label-text" in style {
-    resolved-style.label-text = label-defaults + style.label-text
+    resolved-style.label-text = label-defaults + _normalize-text-color(style.label-text)
   } else {
     resolved-style.label-text = label-defaults
+  }
+
+  if "color" in resolved-style.label-text {
+    resolved-style.label-text.fill = resolved-style.label-text.color
+    let _ = resolved-style.label-text.remove("color")
   }
 
   resolved-style.value-text = (
@@ -771,8 +931,8 @@
     resolved-style.insert(
       text-role,
       resolved-style.label-text
-        + theme.at(text-role)
-        + style.at(text-role, default: (:)),
+        + _normalize-text-color(theme.at(text-role))
+        + _normalize-text-color(style.at(text-role, default: (:))),
     )
   }
 
@@ -820,8 +980,19 @@
 #let _apply-dash-to-stroke(stroke, dash) = {
   if dash == none or dash == false { return stroke }
   if type(stroke) == dictionary { return stroke + (dash: dash) }
-  if type(stroke) == color { return (paint: stroke, dash: dash) }
+  if type(stroke) in (color, gradient, tiling) { return (paint: stroke, dash: dash) }
+  if stroke == none { return none }
+  if type(stroke) == length { return (thickness: stroke, dash: dash) }
   (paint: stroke.paint, thickness: stroke.thickness, dash: dash)
+}
+
+#let _stroke-with-paint(stroke, paint) = {
+  if type(stroke) == dictionary { return stroke + (paint: paint) }
+  if type(stroke) == length { return (paint: black, thickness: stroke) + (paint: paint) }
+  if stroke == none { return none }
+  if type(stroke) in (color, gradient, tiling) { return (paint: paint, thickness: 1pt) }
+  if type(stroke) == _stroke-type { return (paint: paint, thickness: stroke.thickness) }
+  (paint: paint, thickness: 1pt)
 }
 
 #let _resolve-edge-pattern(resolved-style, customization) = {
@@ -855,7 +1026,7 @@
   let base-stroke = if custom != none and "stroke" in custom {
     custom.stroke
   } else if custom != none and "color" in custom {
-    custom.color
+    _stroke-with-paint(resolved-style.edge-stroke, custom.color)
   } else {
     resolved-style.edge-stroke
   }
@@ -989,10 +1160,10 @@
 // `shape:`, `stroke:`, `node-radius:`, `text:`) into a complete per-node style. A
 // plain color is shorthand for `(fill: color)`. With `diff-colors: false`,
 // fills stay at `base-fill`, while shape/stroke/radius overrides still apply.
-#let resolve-mark-style(th, kind, base-fill: auto) = {
+#let resolve-mark-style(th, kind, base-fill: auto, base-stroke: auto) = {
   let resolved-style = th
   let mark-value = resolved-style.at(kind + "-style")
-  let mark-overrides = if type(mark-value) == color {
+  let mark-overrides = if type(mark-value) in (color, gradient, tiling) {
     (fill: mark-value)
   } else {
     mark-value
@@ -1016,11 +1187,12 @@
       normal-fill
     },
     shape: mark-overrides.at("shape", default: resolved-style.node-shape),
-    stroke: mark-overrides.at("stroke", default: resolved-style.node-stroke),
+    stroke: mark-overrides.at("stroke", default: if base-stroke == auto { resolved-style.node-stroke } else { base-stroke }),
     node-radius: mark-overrides.at(
       "node-radius",
       default: resolved-style.node-radius,
     ),
+    stripe-fill: mark-overrides.at("stripe-fill", default: none),
     text: text-style,
   )
 }

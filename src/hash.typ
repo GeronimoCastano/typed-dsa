@@ -5,7 +5,7 @@
 #import "shared/style.typ": resolve, scaled, resolve-mark-style, array-style, indices-style, validate-style
 #import "shared/validate.typ": (
   check-callback-result, check-enum, check-function, check-integer, fail,
-  show-value,
+  check-no-unknown-named-arguments, show-value,
 )
 #import "grid.typ": array-view
 #import "linear/facade.typ": _render-linked-list, _null
@@ -40,8 +40,12 @@
 
 #let _calculate-default-hash(key, size) = {
   if type(key) == int { return calc.rem(calc.abs(key), size) }
+  if type(key) == float and key == calc.round(key) {
+    return calc.rem(calc.abs(int(key)), size)
+  }
   let hash-value = 0
-  for byte in bytes(str(key)) {
+  let stable-key-text = if type(key) in (str, float) { str(key) } else { repr(key) }
+  for byte in bytes(stable-key-text) {
     hash-value = calc.rem(hash-value * 31 + byte, size)
   }
   hash-value
@@ -213,7 +217,10 @@
     grid-cells.push(array-view(bucket-index, style: style).diagram)
     grid-cells.push(_render-bucket-arrow(resolved-style))
     grid-cells.push(if bucket.len() == 0 {
-      text(..resolved-style.pointer-text)[#_null]
+      let pointer-text-style = resolved-style.pointer-text
+      let rotation = pointer-text-style.at("rotation", default: 0deg)
+      if "rotation" in pointer-text-style { let _ = pointer-text-style.remove("rotation") }
+      rotate(rotation)[#text(..pointer-text-style)[#_null]]
     } else {
       _render-linked-list(
         bucket.map(_hash-entry-content),
@@ -456,6 +463,7 @@
 }
 
 #let hash-table(size: 7, collision: "chaining", hash: auto, style: (:), language: "en", messages: (:), ..entries) = {
+  check-no-unknown-named-arguments("hash-table()", entries)
   check-integer("hash-table()", "size:", size, min: 1)
   check-enum("hash-table()", "collision:", collision, ("chaining", "chain", "linear"))
   validate-style("hash-table()", style)

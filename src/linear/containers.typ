@@ -1,11 +1,11 @@
 // Stack and queue state, operations, and rendering.
 
 #import "@preview/cetz:0.5.2"
-#import "../shared/style.typ": resolve, scaled, resolve-mark-style, validate-style
+#import "../shared/style.typ": resolve, scaled, resolve-mark-style, validate-style, validate-cell-mark-styles
 #import "../shared/validate.typ": (
   check-array, check-bool, check-callback-result, check-comparable,
   check-comparable-with, check-function, check-index, check-integer,
-  check-positive, check-unique, fail, show-list, show-value,
+  check-no-unknown-named-arguments, check-positive, check-unique, fail, show-list, show-value,
 )
 #import "../shared/messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, rect, content
@@ -106,7 +106,9 @@
 
 // `top-label: auto` uses the localized default; pass any content to override it.
 #let stack(style: (:), top-label: auto, language: "en", messages: (:), ..vals) = {
+  check-no-unknown-named-arguments("stack()", vals)
   validate-style("stack()", style)
+  validate-cell-mark-styles("stack()", style)
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let resolved-top-label = if top-label == auto {
     msg(message-catalog, "stack.top")
@@ -128,13 +130,14 @@
 // single frame; the object's operations render a before → after step instead.
 #let _render-queue(values, resolved-style, marks, enqueue-value, dequeue-value, front-label, rear-label, message-catalog) = {
   let cell-width = resolved-style.box-w
+  let cell-step = cell-width + resolved-style.box-gap
   let cell-count = values.len()
-  let queue-width = cell-count * cell-width
+  let queue-width = if cell-count == 0 { 0 } else { (cell-count - 1) * cell-step + cell-width }
   let operation-fill = rgb("#DCE5FB")
   scaled(resolved-style, cetz.canvas({
     for (cell-index, cell-value) in values.enumerate() {
       _render-linear-cell(
-        cell-index * cell-width,
+        cell-index * cell-step,
         0,
         cell-value,
         resolved-style,
@@ -155,7 +158,7 @@
       )
       _render-linear-annotation(
         (
-          queue-width - cell-width / 2,
+          (cell-count - 1) * cell-step + cell-width / 2,
           resolved-style.box-h + 0.38,
         ),
         rear-label,
@@ -171,6 +174,7 @@
         enqueue-value,
         resolved-style,
         fill: operation-fill,
+        text-style-override: (fill: rgb("#212529")),
       )
       line(
         (external-cell-x, cell-midpoint-y),
@@ -192,6 +196,7 @@
         dequeue-value,
         resolved-style,
         fill: operation-fill,
+        text-style-override: (fill: rgb("#212529")),
       )
       line(
         (0, cell-midpoint-y),
@@ -209,7 +214,7 @@
 }
 
 #let _create-queue-object(values, style, enqueue-value, dequeue-value, front-label, rear-label, message-catalog) = {
-  let resolved-style = resolve(style)
+  let resolved-style = resolve((box-gap: 0) + style)
   let render-values(current-values, marks) = _render-queue(
     current-values,
     resolved-style,
@@ -242,8 +247,8 @@
       _create-queue-object(
         values + (v,),
         style,
-        enqueue-value,
-        dequeue-value,
+        none,
+        none,
         front-label,
         rear-label,
         message-catalog,
@@ -264,8 +269,8 @@
         _create-queue-object(
           values-after-dequeue,
           style,
-          enqueue-value,
-          dequeue-value,
+          none,
+          none,
           front-label,
           rear-label,
           message-catalog,
@@ -288,7 +293,10 @@
   messages: (:),
   ..vals,
 ) = {
+  check-no-unknown-named-arguments("queue()", vals)
   validate-style("queue()", style)
+  validate-cell-mark-styles("queue()", style)
+  let queue-values = vals.pos()
   let message-catalog = resolve-catalog(language: language, messages: messages)
   let resolved-front-label = if front-label == auto {
     msg(message-catalog, "queue.front")
@@ -301,7 +309,7 @@
     rear-label
   }
   _create-queue-object(
-    vals.pos(),
+    queue-values,
     style,
     enqueue,
     dequeue,

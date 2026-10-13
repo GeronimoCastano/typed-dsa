@@ -5,7 +5,7 @@
 #import "../shared/validate.typ": (
   check-array, check-bool, check-callback-result, check-comparable,
   check-comparable-with, check-function, check-index, check-integer,
-  check-positive, check-unique, fail, show-list, show-value,
+  check-no-unknown-named-arguments, check-positive, check-unique, fail, show-list, show-value,
 )
 #import "../shared/messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, rect, content
@@ -314,6 +314,7 @@
 }
 
 #let linked-list(style: (:), pointer: false, addresses: none, head: false, language: "en", messages: (:), ..vals) = {
+  check-no-unknown-named-arguments("linked-list()", vals)
   _validate-linear-list-arguments("linked-list()", vals.pos(), style, pointer, addresses, head)
   _create-linked-list-object(vals.pos(), style, pointer, addresses, head, resolve-catalog(language: language, messages: messages))
 }
@@ -661,6 +662,7 @@
 }
 
 #let doubly-linked-list(style: (:), pointer: false, addresses: none, head: false, language: "en", messages: (:), ..vals) = {
+  check-no-unknown-named-arguments("doubly-linked-list()", vals)
   _validate-linear-list-arguments("doubly-linked-list()", vals.pos(), style, pointer, addresses, head)
   _create-doubly-linked-list-object(vals.pos(), style, pointer, addresses, head, resolve-catalog(language: language, messages: messages))
 }

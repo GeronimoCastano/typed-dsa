@@ -11,7 +11,10 @@
   #let resolved-style = resolve(style)
   #set align(center)
   #if label != none [
-    #text(..resolved-style.operation-text, label) \
+    #let operation-text-style = resolved-style.operation-text
+    #let rotation = operation-text-style.at("rotation", default: 0deg)
+    #if "rotation" in operation-text-style { let _ = operation-text-style.remove("rotation") }
+    #rotate(rotation)[#text(..operation-text-style, label)] \
   ]
   #text(size: 1.3em, symbol)
 ]

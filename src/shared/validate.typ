@@ -236,6 +236,17 @@
   )
 }
 
+#let check-index-labels(where, what, labels, expected-count) = {
+  if type(labels) != array { return }
+  if labels.len() == expected-count { return }
+  fail(
+    where,
+    what + " has " + str(labels.len()) + " labels for " + str(expected-count) + " cells",
+    expected: "exactly " + str(expected-count) + " labels",
+    fix: "pass one index label for each cell",
+  )
+}
+
 // ── Dictionary schemas ───────────────────────────────────────────────────────
 
 #let check-known-keys(where, what, options, allowed) = {
@@ -247,6 +258,17 @@
       what + " has unknown key \"" + key + "\"",
       expected: "one of " + allowed.map(name => "\"" + name + "\"").join(", "),
       fix: _unknown-key-fix(key, allowed),
+    )
+  }
+}
+
+#let check-no-unknown-named-arguments(where, arguments) = {
+  for (argument-name, _) in arguments.named() {
+    fail(
+      where,
+      "unknown named argument \"" + argument-name + "\"",
+      expected: "positional values and documented named arguments",
+      fix: "remove the unknown name or use its documented spelling",
     )
   }
 }
@@ -264,10 +286,9 @@
 }
 
 #let check-unique(where, what, values, subject: "value") = {
-  let seen = (:)
-  for value in values {
-    let identity = repr(value)
-    if identity in seen {
+  for (value-index, value) in values.enumerate() {
+    for previous-value in values.slice(0, value-index) {
+      if value != previous-value { continue }
       fail(
         where,
         what + " contains " + show-value(value) + " more than once",
@@ -275,7 +296,7 @@
         fix: "remove the duplicate " + subject,
       )
     }
-    seen.insert(identity, true)
+    }
   }
 }
 
@@ -378,6 +399,28 @@
           ),
       )
     }
+    let target = if arity == 2 {
+      entry.at(0)
+    } else {
+      (entry.at(0), entry.at(1))
+    }
+    for previous-entry in entries.slice(0, entry-index) {
+      let previous-target = if arity == 2 {
+        previous-entry.at(0)
+      } else if type(previous-entry) == array and previous-entry.len() >= 2 {
+        (previous-entry.at(0), previous-entry.at(1))
+      } else {
+        none
+      }
+      if target == previous-target {
+        fail(
+          where,
+          entry-name + " repeats target " + show-value(target),
+          expected: "one customization entry per target",
+          fix: "combine the options into one entry for " + show-value(target),
+        )
+      }
+    }
     check-options(where, entry-name + " options", entry.last())
   }
 }
@@ -402,6 +445,16 @@
         expected: "an (id, value) pair",
         fix: "write it as (id, value)",
       )
+    }
+    for previous-entry in entries.slice(0, entry-index) {
+      if type(previous-entry) == array and previous-entry.len() == 2 and previous-entry.at(0) == entry.at(0) {
+        fail(
+          where,
+          what + " repeats identifier " + show-value(entry.at(0)),
+          expected: "one value per identifier",
+          fix: "combine the value into one entry for " + show-value(entry.at(0)),
+        )
+      }
     }
   }
   entries.map(entry => (entry.at(0), entry.at(1)))

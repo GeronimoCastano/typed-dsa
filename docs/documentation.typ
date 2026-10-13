@@ -240,7 +240,7 @@
     [#c("style.box-w")], [`float`], [`0.95`], [Cell width.],
     [#c("style.box-h")], [`float`], [`0.7`], [Cell height.],
     [#c("style.box-shape")], [`str`], [`"square"`], [#c("\"square\""), #c("\"rounded\""), or #c("\"capsule\"").],
-    [#c("style.box-gap")], [`float`], [#if kind == "stack" { c("0") } else { c("0.55") }], [Gap between cells or list nodes.],
+    [#c("style.box-gap")], [`float`], [#if kind in ("stack", "queue") { c("0") } else { c("0.55") }], [Gap between cells or list nodes. Linked-list connectors need a positive gap.],
     [#c("style.box-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Cell outline.],
     [#c("style.box-fill")], [`color`], [`white`], [Default cell fill.],
     [#c("style.ptr-fill")], [`color`], [#c("rgb(\"#D7ECC9\")")], [Next-pointer cell fill for #c("linked-list(pointer: true)").],
@@ -296,11 +296,11 @@
     [#c("edge-customizations[].to")], [`content`], [required], [Target node identity.],
     [#c("edge-customizations[].options")], [`dictionary`], [required], [Per-edge options.],
     [#c("edge-customizations[].options.stroke")], [`stroke`], [none], [Full stroke override. Wins over #c("color") if both are set.],
-    [#c("edge-customizations[].options.color")], [`color`], [none], [Paint only, at the default thickness.],
-    [#c("edge-customizations[].options.pattern")], [`str`], [`"normal"`], [#c("\"normal\""), #c("\"dashed\""), #c("\"dotted\""), or #c("\"wavy\"").],
+    [#c("edge-customizations[].options.color")], [`color`], [none], [Paint override that preserves the edge's configured thickness.],
+    [#c("edge-customizations[].options.pattern")], [`str` / `array`], [`"normal"`], [A named pattern or a dash array of positive lengths.],
     [#c("edge-customizations[].options.arrow")], [`none` / `bool` / `str`], [none], [Per-edge arrowheads: #c("none"), #c("\"end\"")/#c("true"), #c("\"start\""), or #c("\"both\"").],
     [#c("edge-customizations[].options.bend")], [`str` / `bool`], [`false`], [#c("\"left\"") or #c("\"right\"") curves the edge relative to its travel direction. #c("false") keeps it straight.],
-    [#c("edge-customizations[].options.angle")], [`angle`], [`25deg`], [How sharply a bent edge curves. Ignored when #c("bend") is #c("false").],
+    [#c("edge-customizations[].options.angle")], [`angle`], [`25deg`], [Signed bend amount strictly between #c("-90deg") and #c("90deg"); negative angles curve to the opposite side.],
     [#c("edge-customizations[].options.label")], [`content` / `dictionary`], [none], [Tree edge label content, or graph edge-label text overrides. A dictionary can include #c("content") for trees.],
   )
   if label-options {
@@ -990,7 +990,7 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
   [#c("..vals")], [`int` / `content`], [(required)], [Values in the queue; the *first* argument is the front.],
   [#c("style")], [`dictionary`], [`(:)`], [Per-call style override merged over the defaults. See @styling.],
   [#c("enqueue")], [`none` / `int` / `content`], [`none`], [Draw one extra element entering at the rear, with an arrow, in the same frame.],
-  [#c("dequeue")], [`none` / `int` / `content`], [`none`], [Draw this value leaving to the left, with an arrow, in the same frame. It is an independent illustration value and does not have to occur in the queue.],
+  [#c("dequeue")], [`none` / `int` / `content`], [`none`], [Draw this displayed value leaving to the left, with an arrow, in the same frame. It is an independent illustration value and need not appear in #c("..vals").],
   [#c("front-label")], [`content` / `auto`], [`auto`], [Label over the front cell; #c("auto") uses the localized #c("queue.front") default (@localization). Combined with #c("rear-label") for a one-cell queue.],
   [#c("rear-label")], [`content` / `auto`], [`auto`], [Label over the rear cell; #c("auto") uses the localized #c("queue.rear") default (@localization). Combined with #c("front-label") for a one-cell queue.],
 )
@@ -1020,6 +1020,10 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
     front-label: [Front / Head], rear-label: [Back / Tail / Rear]).diagram
   ```, side: false)
 ]
+
+#note[An operation step's #c("result") is a fresh queue object containing the
+updated values. The builder's single-frame #c("enqueue:") and #c("dequeue:")
+illustrations are not carried into later steps.]
 
 #demo[
   Argument coverage: queue examples can combine the single-frame
@@ -1237,17 +1241,17 @@ do: that's not a gap in typed-dsa, it's what a heap is.]
 ]
 
 #argtable(
-  [#c("..entries")], [`int` / `float` / `str` / `tuple`], [`()`], [Integer, float, or string keys, or #c("(key, value)") pairs using those key types.],
+  [#c("..entries")], [`int` / `float` / `str` / `content` / `tuple`], [`()`], [Keys, including displayed content, or #c("(key, value)") pairs.],
   [#c("size")], [`int`], [`7`], [Positive bucket/slot count.],
   [#c("collision")], [`str`], [`"chaining"`], [#c("\"chaining\"")/#c("\"chain\"") or #c("\"linear\"").],
-  [#c("hash")], [`auto` / `function`], [`auto`], [Custom #c("key => int") function. The default hashes integers directly and the UTF-8 bytes of strings for other keys.],
+  [#c("hash")], [`auto` / `function`], [`auto`], [Custom #c("key => int") function. The default hashes a stable representation of each key; equal integral numeric keys use the same bucket.],
   [#c("style")], [`dictionary`], [`(:)`], [Uses the existing box, value/index text, pointer text, scale, and mark-style keys.],
 )
 
 #methodtable(
   [#c(".diagram")], [n/a], [Rendered buckets or probe table.],
   [#c(".insert")], [#c("(obj.insert)(key, value: none)")], [Insert or update a key. Returns a step.],
-  [#c(".delete")], [#c("(obj.delete)(key)")], [Delete a key; linear probing leaves a tombstone.],
+  [#c(".delete")], [#c("(obj.delete)(key)")], [Delete a key; linear probing leaves a tombstone. An absent key leaves the table unchanged and reports #c("found: false").],
   [#c(".search")], [#c("(obj.search)(key)")], [Highlight traversed chain nodes or probe slots; exposes #c(".found").],
 )
 
@@ -2937,6 +2941,12 @@ content.
 #demo[
   Structure builders accept a #c("style:") dictionary that is merged over the
   package defaults, so colors, size, and shape can be overridden per call.
+  The merge performed by #c("resolve(style)") combines nested typography
+  dictionaries with their defaults. Typst's dictionary #c("+") operator is
+  shallow, so a preset composed with a typography override replaces that
+  whole nested role before resolution. For a small value-text change, use
+  #c("value-text:"), which inherits the preset's node text; for a direct
+  #c("node-text:") override, merge with the preset role explicitly.
   #c("theme") is the default dictionary itself and #c("resolve(style)") is the
   merge helper (#c("theme + style")); both are exported if you want to build
   your own styling utilities on top. Raw dictionaries remain supported.
@@ -2968,6 +2978,11 @@ content.
       value-text: text-style(weight: "bold"),
     ),
   ).diagram
+
+  #bst(
+    4, 2, 6,
+    style: theme-preset("dark") + (node-text: theme-preset("dark").node-text + (weight: "bold")),
+  ).diagram
   ```, side: false)
 ]
 
@@ -2979,6 +2994,9 @@ content.
   [#c("edge-label-text")], [`dictionary`], [inherits #c("label-text")], [Tree and graph edge labels.],
   [#c("algorithm-label-text")], [`dictionary`], [#c("(size: 8pt)")], [Sorting and graph-algorithm captions.],
 )
+
+#note[Dark and chalkboard presets use dark text inside pastel operation and
+algorithm highlights to keep marked values readable.]
 
 Each typography role accepts #c("size"), #c("color")/#c("fill"), #c("font"),
 #c("weight"), and #c("rotation"), the same nested keys produced by
@@ -3179,6 +3197,14 @@ One stone remains, weight *1*, matching
 = Limitations <limitations>
 // ═════════════════════════════════════════════════════════════════════════════
 
+- The default style assumes a light page background. Text and strokes inherit
+  the surrounding Typst text fill unless their style role sets an explicit
+  fill; on a dark page, use a dark preset or provide matching node, box, edge,
+  and text colors.
+- Linear cells and tree nodes keep their configured dimensions for long
+  content; their labels do not wrap or automatically widen to fit. Increase
+  #c("box-w") for linear cells. For trees, shorten labels or use wider node
+  spacing; #c("node-fit") applies only to supported graph node shapes.
 - Tree operation diff marks are keyed by node *value*, not position, so a tree
   with duplicate keys can highlight more nodes than actually moved. Heap
   operation marks are position-keyed. For static tree/graph diagrams, use

@@ -6,7 +6,7 @@
 #import "../shared/style.typ": resolve
 #import "../shared/validate.typ": (
   check-array, check-bool, check-comparable, check-comparable-with,
-  check-dictionary, check-enum, check-known-keys, fail, show-list, show-value,
+  check-dictionary, check-enum, check-known-keys, check-no-unknown-named-arguments, fail, show-list, show-value,
 )
 #import "../shared/messages.typ": default-catalog, resolve-catalog, msg
 #import "../shared/transition-view.typ": op-arrow, trans-view
@@ -431,8 +431,14 @@
   root
 }
 
-#let bst(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _create-tree-object("bst", _create-search-tree("bst()", "bst", keys.pos(), style, edge-customizations, node-customizations, node-labels), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
-#let avl(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = _create-tree-object("avl", _create-search-tree("avl()", "avl", keys.pos(), style, edge-customizations, node-customizations, node-labels), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
+#let bst(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = {
+  check-no-unknown-named-arguments("bst()", keys)
+  _create-tree-object("bst", _create-search-tree("bst()", "bst", keys.pos(), style, edge-customizations, node-customizations, node-labels), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
+}
+#let avl(style: (:), edge-customizations: (), node-customizations: (), node-labels: (:), language: "en", messages: (:), ..keys) = {
+  check-no-unknown-named-arguments("avl()", keys)
+  _create-tree-object("avl", _create-search-tree("avl()", "avl", keys.pos(), style, edge-customizations, node-customizations, node-labels), style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels, catalog: resolve-catalog(language: language, messages: messages))
+}
 
 // ── Transition ───────────────────────────────────────────────────────────────
 

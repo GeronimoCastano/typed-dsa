@@ -13,7 +13,12 @@
 #import "hash.typ": hash-table
 #import "shared/style.typ": theme, themes, theme-preset, resolve, tree-style, heap-style, graph-style, list-style, stack-style, queue-style, array-style, matrix-style, text-style, label-style, node-mark-style, cell-mark-style, node-label-style, indices-style
 #import "shared/messages.typ": messages, supported-languages
-#import "shared/validate.typ": check-enum, fail, show-list, show-value
+#import "shared/validate.typ": (
+  check-enum as _check-enum,
+  fail as _fail,
+  show-list as _show-list,
+  show-value as _show-value,
+)
 
 // The variants `transition` understands, and the operation family each one
 // needs. An operation carries its family, so a heap operation aimed at a tree
@@ -36,15 +41,15 @@
     type(op) == dictionary and "family" in op and "apply" in op
   )
   if not is-operation {
-    fail(
+    _fail(
       "transition()",
-      "op is " + show-value(op) + ", which is not an operation",
+      "op is " + _show-value(op) + ", which is not an operation",
       expected: "an operation built with " + _transition-operation-builders.at(required-family),
       fix: "call the operation builder, for example transition(\"" + variant + "\", keys, " + _transition-operation-builders.at(required-family).split(",").first() + ")",
     )
   }
   if op.family == required-family { return }
-  fail(
+  _fail(
     "transition()",
     "variant \"" + variant + "\" was given a " + op.family + " operation",
     expected: "a " + required-family + " operation: " + _transition-operation-builders.at(required-family),
@@ -53,15 +58,31 @@
 }
 
 #let transition(variant, keys, op, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
-  check-enum(
+  _check-enum(
     "transition()", "variant", variant, _transition-variants.keys(),
-    fix: "pass one of " + show-list(_transition-variants.keys()),
+    fix: "pass one of " + _show-list(_transition-variants.keys()),
   )
   _check-transition-operation(variant, op)
   if variant == "min-heap" {
+    if edge-customizations != () or node-customizations != () or node-labels != (:) {
+      _fail(
+        "transition()",
+        "tree customization arguments were supplied for a heap transition",
+        expected: "empty edge-customizations:, node-customizations:, and node-labels: arguments for heap variants",
+        fix: "remove the tree customization arguments; heap transitions accept style: only",
+      )
+    }
     return _heap-transition("min", keys, op, style: style)
   }
   if variant == "max-heap" {
+    if edge-customizations != () or node-customizations != () or node-labels != (:) {
+      _fail(
+        "transition()",
+        "tree customization arguments were supplied for a heap transition",
+        expected: "empty edge-customizations:, node-customizations:, and node-labels: arguments for heap variants",
+        fix: "remove the tree customization arguments; heap transitions accept style: only",
+      )
+    }
     return _heap-transition("max", keys, op, style: style)
   }
   _tree-transition(variant, keys, op, style: style, edge-customizations: edge-customizations, node-customizations: node-customizations, node-labels: node-labels)

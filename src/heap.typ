@@ -7,7 +7,7 @@
 #import "shared/style.typ": resolve, validate-style
 #import "tree/facade.typ": _create-tree-node, _render-tree, _create-value-marks
 #import "shared/transition-view.typ": trans-view
-#import "shared/validate.typ": check-array, check-comparable, check-comparable-with, fail
+#import "shared/validate.typ": check-array, check-comparable, check-comparable-with, check-no-unknown-named-arguments, fail
 #import "shared/messages.typ": default-catalog, resolve-catalog, msg
 
 #let _convert-heap-array-to-tree(heap-values, heap-index) = {
@@ -214,8 +214,14 @@
   _build-heap(variant, keys)
 }
 
-#let min-heap(style: (:), language: "en", messages: (:), ..keys) = _create-heap-object("min", _create-heap-values("min-heap()", "min", keys.pos(), style), style: style, catalog: resolve-catalog(language: language, messages: messages))
-#let max-heap(style: (:), language: "en", messages: (:), ..keys) = _create-heap-object("max", _create-heap-values("max-heap()", "max", keys.pos(), style), style: style, catalog: resolve-catalog(language: language, messages: messages))
+#let min-heap(style: (:), language: "en", messages: (:), ..keys) = {
+  check-no-unknown-named-arguments("min-heap()", keys)
+  _create-heap-object("min", _create-heap-values("min-heap()", "min", keys.pos(), style), style: style, catalog: resolve-catalog(language: language, messages: messages))
+}
+#let max-heap(style: (:), language: "en", messages: (:), ..keys) = {
+  check-no-unknown-named-arguments("max-heap()", keys)
+  _create-heap-object("max", _create-heap-values("max-heap()", "max", keys.pos(), style), style: style, catalog: resolve-catalog(language: language, messages: messages))
+}
 
 // ── Transition ───────────────────────────────────────────────────────────────
 

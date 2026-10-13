@@ -4,11 +4,11 @@
 // together rather than being forced through a generic linear-operation model.
 
 #import "@preview/cetz:0.5.2"
-#import "../shared/style.typ": resolve, scaled, resolve-mark-style, validate-style
+#import "../shared/style.typ": resolve, scaled, resolve-mark-style, validate-style, validate-cell-mark-styles
 #import "../shared/validate.typ": (
   check-array, check-bool, check-callback-result, check-comparable,
   check-comparable-with, check-function, check-index, check-integer,
-  check-positive, check-unique, fail, show-list, show-value,
+  check-no-unknown-named-arguments, check-positive, check-unique, fail, show-list, show-value,
 )
 #import "../shared/messages.typ": default-catalog, resolve-catalog, msg
 #import cetz.draw: line, rect, content
@@ -208,7 +208,7 @@
     )
   }
   if level == auto { return }
-  check-integer(where, "level:", level, min: 0, max: max-level)
+  check-integer(where, "level:", level, min: 0)
 }
 
 #let _validate-skip-list-key(where, nodes, key) = {
@@ -382,8 +382,10 @@
 }
 
 #let skip-list(style: (:), decision-fn: default-decision-fn, level-spacing: 1.4, max-level: 4, language: "en", messages: (:), ..vals) = {
+  check-no-unknown-named-arguments("skip-list()", vals)
   let values = vals.pos()
   validate-style("skip-list()", style)
+  validate-cell-mark-styles("skip-list()", style)
   check-function("skip-list()", "decision-fn:", decision-fn)
   check-integer("skip-list()", "max-level:", max-level, min: 0)
   check-positive("skip-list()", "level-spacing:", level-spacing)

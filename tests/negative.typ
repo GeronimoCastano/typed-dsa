@@ -252,9 +252,9 @@
     code: "#skip-list(1, 2, level-spacing: 0).diagram",
   ),
   (
-    name: "skip-list: inserting above max-level",
-    expect: "out of range",
-    code: "#let s = skip-list(1, 2, max-level: 3)\n#(s.insert)(5, level: 9).diagram",
+    name: "skip-list: explicit insert level below zero",
+    expect: "at least 0",
+    code: "#let s = skip-list(1, 2, max-level: 3)\n#(s.insert)(5, level: -1).diagram",
   ),
   (
     name: "skip-list: inserting a value that is already present",
@@ -931,7 +931,82 @@
     name: "node: children array cannot contain an empty entry",
     expect: "children: entry 0 is none",
     code: "#tree(node(\"A\", children: (none, node(\"B\"))))",
-  )
+  ),
+  (
+    name: "graph: bent edge angle is outside the finite range",
+    expect: "outside the supported bend range",
+    code: "#graph((\"A\": ((\"B\", [edge]),), \"B\": ()), layout: \"manual\", positions: (\"A\": (0, 0), \"B\": (3, 0)), edge-customizations: ((\"A\", \"B\", (bend: \"left\", angle: 90deg)),)).diagram",
+  ),
+  (
+    name: "graph: negative bent edge angle is outside the finite range",
+    expect: "outside the supported bend range",
+    code: "#graph((\"A\": ((\"B\", [edge]),), \"B\": ()), layout: \"manual\", positions: (\"A\": (0, 0), \"B\": (3, 0)), edge-customizations: ((\"A\", \"B\", (bend: \"left\", angle: -90deg)),)).diagram",
+  ),
+  (
+    name: "bst: unknown named argument is reported",
+    expect: "unknown named argument \"sytle\"",
+    code: "#bst(5, 3, 7, sytle: (node-fill: red)).diagram",
+  ),
+  (
+    name: "hash-table: unknown named argument is reported",
+    expect: "unknown named argument \"colision\"",
+    code: "#hash-table(1, 6, 11, size: 5, colision: \"linear\").diagram",
+  ),
+  (
+    name: "edge pattern rejects boolean true",
+    expect: "not a supported edge pattern",
+    code: "#bst(5, 3, 7, edge-customizations: ((5, 3, (pattern: true)),)).diagram",
+  ),
+  (
+    name: "node label options require content",
+    expect: "sets label options but no label content",
+    code: "#bst(5, 3, 8, node-labels: ((3, (position: \"left\", color: red)),)).diagram",
+  ),
+  (
+    name: "duplicate edge customizations are reported",
+    expect: "repeats target",
+    code: "#graph((\"A\": (\"B\",), \"B\": ()), edge-customizations: ((\"A\", \"B\", (color: red)), (\"A\", \"B\", (color: blue)))).diagram",
+  ),
+  (
+    name: "active edge style rejects fill",
+    expect: "unknown key \"fill\"",
+    code: "#bfs((\"A\": (\"B\",), \"B\": ()), \"A\", style: (active-edge-style: (fill: red))).result",
+  ),
+  (
+    name: "text rotation requires an angle",
+    expect: "style.operation-text.rotation must be angle",
+    code: "#transition(\"bst\", (5, 3, 7), tree-insert(4), style: (operation-text: (rotation: \"sideways\")))",
+  ),
+  (
+    name: "text font arrays require string families",
+    expect: "style.node-text.font entry must be str",
+    code: "#bst(5, 3, 7, style: (node-text: (font: (\"New Computer Modern\", 8))))",
+  ),
+  (
+    name: "index label size requires positive length",
+    expect: "style.indices.size must be length",
+    code: "#array-view(3, 1, 2, style: (indices: (size: \"small\")))",
+  ),
+  (
+    name: "node label default font families require strings",
+    expect: "style.node-labels.font entry must be str",
+    code: "#bst(5, 3, 7, style: (node-labels: (font: (\"New Computer Modern\", 8))))",
+  ),
+  (
+    name: "node label enabled requires boolean",
+    expect: "style.node-labels.enabled must be bool",
+    code: "#bst(5, 3, 7, style: (node-labels: (enabled: \"yes\")))",
+  ),
+  (
+    name: "cell marks reject node-only geometry keys",
+    expect: "not supported for array, list, stack, queue, or skip-list cells",
+    code: "#stack(1, 2, style: (new-style: (fill: red, shape: \"rounded\"))).diagram",
+  ),
+  (
+    name: "heap transition rejects tree-only customizations",
+    expect: "tree customization arguments were supplied",
+    code: "#transition(\"min-heap\", (5, 3, 8), heap-insert(1), node-labels: ((5, [hidden]),))",
+  ),
 )
 
 // Every case is evaluated with the whole public API in scope, exactly as a

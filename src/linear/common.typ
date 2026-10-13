@@ -4,7 +4,7 @@
 // container, and skip-list semantics remain in their owning modules.
 
 #import "@preview/cetz:0.5.2"
-#import "../shared/style.typ": resolve-mark-style, validate-style
+#import "../shared/style.typ": resolve-mark-style, validate-style, validate-cell-mark-styles
 #import "../shared/transition-view.typ": trans-view
 #import "../shared/validate.typ": (
   check-array, check-bool, check-index, fail, show-list, show-value,
@@ -18,6 +18,7 @@
 // leave the trailing cells unlabelled or drop the extra entries.
 #let _validate-linear-list-arguments(where, values, style, pointer, addresses, head) = {
   validate-style(where, style)
+  validate-cell-mark-styles(where, style)
   check-bool(where, "pointer:", pointer)
   check-bool(where, "head:", head)
   if addresses == none { return }
@@ -76,17 +77,24 @@
 // A cell with its lower-left corner at `(x, y)`. `w` and `fill` default to
 // the theme's box width and fill; `mark`, when set, overrides fill/stroke via
 // `mark-style` and takes priority over a plain `fill:`.
-#let _render-linear-cell(x, y, body, resolved-style, fill: auto, mark: none, w: auto) = {
+#let _render-linear-cell(x, y, body, resolved-style, fill: auto, mark: none, w: auto, text-style-override: (:)) = {
   let cell-width = if w == auto { resolved-style.box-w } else { w }
   let base-fill = if fill == auto { resolved-style.box-fill } else { fill }
   let mark-style = if mark != none {
-    resolve-mark-style(resolved-style, mark, base-fill: base-fill)
+    resolve-mark-style(
+      resolved-style,
+      mark,
+      base-fill: base-fill,
+      base-stroke: resolved-style.box-stroke,
+    )
   } else {
     none
   }
   let cell-fill = if mark-style != none { mark-style.fill } else { base-fill }
   let cell-stroke = if mark-style != none { mark-style.stroke } else { resolved-style.box-stroke }
+  let stripe-fill = if mark-style != none { mark-style.stripe-fill } else { none }
   let text-style = if mark-style != none { mark-style.text } else { resolved-style.value-text }
+  text-style = text-style + text-style-override
   let rotation = text-style.at("rotation", default: 0deg)
   if "rotation" in text-style { let _ = text-style.remove("rotation") }
   let corner-radius = if resolved-style.box-shape == "rounded" {
@@ -100,9 +108,26 @@
     (x, y),
     (x + cell-width, y + resolved-style.box-h),
     radius: corner-radius,
-    stroke: cell-stroke,
+    stroke: if stripe-fill == none { cell-stroke } else { none },
     fill: cell-fill,
   )
+  if stripe-fill != none {
+    for offset in (0, 0.2, 0.4, 0.6, 0.8) {
+      rect(
+        (x + cell-width * offset, y),
+        (x + cell-width * (offset + 0.1), y + resolved-style.box-h),
+        fill: stripe-fill,
+        stroke: none,
+      )
+    }
+    rect(
+      (x, y),
+      (x + cell-width, y + resolved-style.box-h),
+      radius: corner-radius,
+      fill: none,
+      stroke: cell-stroke,
+    )
+  }
   content(
     (x + cell-width / 2, y + resolved-style.box-h / 2),
     text(..text-style)[#body],

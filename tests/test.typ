@@ -1725,3 +1725,22 @@
   bst(2, 1, 3, node-labels: ((2, [note]),), style: (node-labels: (enabled: false))).diagram,
   graph(("A": ("B",), "B": ()), node-labels: ("A": [note]), style: (node-labels: (enabled: false))).diagram,
 ))
+#pagebreak()
+= Shared style and API audit
+#section("Dark presets keep highlighted values readable", grid(
+  columns: 2, column-gutter: 1.6em,
+  transition("bst", (50, 30, 70, 20, 40), tree-insert(45), style: theme-preset("dark")),
+  transition("avl", (20, 10, 30, 40), tree-insert(50), style: theme-preset("chalkboard")),
+))
+#section("Edge color customization keeps the theme's thickness", bst(
+  5, 3, 7,
+  edge-customizations: ((5, 3, (color: red, pattern: "dashed")),),
+).diagram)
+#let _audit-queue = queue(3, 8, enqueue: 6, dequeue: 2)
+#section("Queue builder frame vs. clean chained result", grid(
+  columns: 2, column-gutter: 1.6em,
+  _audit-queue.diagram,
+  (_audit-queue.enqueue)(9).result.diagram,
+))
+#section("Skip-list insert with a level above its automatic max", (skip-list(1, 2, 3, max-level: 2).insert)(4, level: 3).after)
+#section("Linear highlights keep the configured box stroke", (linked-list(3, 1, 7, style: (box-stroke: 2pt + blue)).search)(4).after)

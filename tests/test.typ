@@ -489,7 +489,7 @@
     new-style: (fill: rgb("#C8E6C9"), stroke: 1.4pt + rgb("#2E7D32"), text: (color: rgb("#2E7D32"), weight: "bold")),
     path-style: (fill: rgb("#FFE9A8"), stroke: 1.4pt + rgb("#F9A825"), text: (color: rgb("#6D4C00"), weight: "bold")),
   )),
-  transition("avl", (50, 30, 70, 20, 40), tree-insert(35, rebalance: (enabled: true)), style: (
+  transition("avl", (30, 10), tree-insert(20, rebalance: (enabled: true, all-steps: true)), style: (
     new-style: (fill: rgb("#C8E6C9"), stroke: 1.4pt + rgb("#2E7D32"), text: (color: rgb("#2E7D32"), weight: "bold")),
     rotate-style: (fill: rgb("#F3E5F5"), stroke: 1.4pt + rgb("#7B3FA1"), text: (color: rgb("#7B3FA1"), weight: "bold")),
   )),
@@ -1690,11 +1690,13 @@
 #section("Tree edge bends and height bracket spacing", grid(
   columns: 2, column-gutter: 2em,
   bst(5, 3, edge-customizations: ((5, 3, (bend: "left")),)).diagram,
-  tree(node(0, left: node(2), right: subtree("T", height: [h]))),
+  tree(node(0, left: node(2), right: subtree("T", height: [wide height label]))),
 ))
 #section("Dark subtree text and AVL inserted-node highlight", grid(
   columns: 2, column-gutter: 2em,
-  tree(node(1, left: subtree("TA", height: [h]), right: node(3)), style: theme-preset("dark")),
+  block(fill: rgb("#111827"), inset: 0.45cm)[
+    #tree(node(1, left: subtree("TA", height: [h]), right: node(3)), style: theme-preset("dark"))
+  ],
   transition("avl", (20, 10, 30, 40), tree-insert(50)),
 ))
 #section("Graph edge labels at resolved node boundaries", grid(
@@ -1707,6 +1709,11 @@
   layout: "manual", positions: ("A": (0, 0), "B": (3, 0)),
   edge-customizations: (("A", "B", (bend: true)),),
 ).diagram)
+#section("Automatic graph layouts reserve clearance for per-node radii", grid(
+  columns: 2, column-gutter: 2em,
+  graph(("A": ("B",), "B": ()), layout: "linear", node-customizations: (("A", (node-radius: 2.0)),)).diagram,
+  graph(("A": ("B",), "B": ()), layout: "force", node-customizations: (("A", (node-radius: 2.0)), ("B", (node-radius: 2.0)))).diagram,
+))
 #section("Dijkstra target stops with tentative other distances", dijkstra(
   ("S": (("T", 1), ("Y", 50), ("X", 100)), "Y": (("X", 10),), "T": (), "X": ()),
   "S", target: "T",

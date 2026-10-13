@@ -644,6 +644,15 @@ All invariant checks passed.
   ("S": (("A", 4),), "A": ()), "S",
   node-labels: ("A": (color: green)),
 ).steps.last().diagram
+#let _ = graph(("A": ("B",), "B": ()), style: (node-radius: 0.8)).diagram
+#let _ = graph(
+  ("A": ("B",), "B": ()), layout: "linear",
+  node-customizations: (("A", (node-radius: 2.0)),),
+).diagram
+#let _ = graph(
+  ("A": ("B",), "B": ()), layout: "force",
+  node-customizations: (("A", (node-radius: 2.0)), ("B", (node-radius: 2.0))),
+).diagram
 
 #import "../src/graph/model.typ": _collect-graph-edges
 #let _canonical-undirected-edges-forward = _collect-graph-edges(("A": ("B",), "B": ("A",)), false)

@@ -1976,11 +1976,13 @@ automatic layout and can intentionally reintroduce node-edge overlaps.]
 
 #note[#c("node-fit") needs a #c("square"), #c("rounded"), or #c("capsule") node
 shape. Circle, diamond, and hexagon nodes are rejected, and so is a per-node
-#c("node-customizations") shape of those kinds. The automatic, linear, force,
-and layered layouts place nodes without measuring labels, so they space nodes
-by #c("node-radius") and ignore fitted widths. Give wide labels room with
-#c("positions"), #c("gap"), or #c("radius"). The height is not fitted: a label
-with several lines can extend past the top and bottom of its node.]
+#c("node-customizations") shape of those kinds. Automatic circle, linear,
+force, and layered layouts use node radii and per-node shape sizes when
+reserving center spacing. They do not measure fitted label widths. Give wide
+labels room with #c("positions"), #c("gap"), or #c("radius"); explicit
+positions and spacing options remain caller-controlled. The height is not
+fitted: a label with several lines can extend past the top and bottom of its
+node.]
 
 == #raw("labels") and #raw("positions")
 
@@ -2234,10 +2236,10 @@ including force layouts, so state highlighting never makes nodes drift.]
   )
 ]
 
-#note[Automatic tree spacing accounts for node radii and elided-triangle widths.
-Height brackets reserve room in both automatic tree layouts. An explicit
-#c("style.x-gap") remains a layout choice; increase it when using unusually
-wide height-bracket text.]
+#note[Automatic tree spacing accounts for node radii, elided-triangle widths,
+and the measured width of height labels in both automatic layouts. An explicit
+#c("style.x-gap") remains the caller's layout choice and can reduce that
+clearance.]
 
 #note[Subtree triangle labels and height labels use #c("style.node-text"), so
 theme text colors apply to both.]

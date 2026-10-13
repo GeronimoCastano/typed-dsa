@@ -11,9 +11,41 @@
 
 // ── Render ───────────────────────────────────────────────────────────────────
 
-#let _calculate-tree-layout-style(resolved-style, node-customizations, style) = {
-  if "x-gap" in style { return resolved-style }
+#let _maximum-height-label-half-width(tree-node, resolved-style) = {
+  if tree-node == none { return 0.0 }
+  let maximum-half-width = 0.0
+  if tree-node.kind == "subtree" and tree-node.h-label != none {
+    let label-style = resolved-style.value-text
+    let rotation = label-style.at("rotation", default: 0deg)
+    if "rotation" in label-style { let _ = label-style.remove("rotation") }
+    let label-box = measure(
+      text(..label-style)[#tree-node.h-label],
+    )
+    let label-half-width = label-box.width / 1cm / 2
+    let label-half-height = label-box.height / 1cm / 2
+    maximum-half-width = (
+      calc.abs(calc.cos(rotation)) * label-half-width
+        + calc.abs(calc.sin(rotation)) * label-half-height
+    )
+  }
+  if tree-node.kind == "subtree" { return maximum-half-width }
+  for child-node in _visible-tree-children(tree-node) {
+    maximum-half-width = calc.max(
+      maximum-half-width,
+      _maximum-height-label-half-width(child-node, resolved-style),
+    )
+  }
+  maximum-half-width
+}
+
+#let _calculate-tree-layout-style(root, resolved-style, node-customizations, style) = {
+  let height-label-half-width = _maximum-height-label-half-width(
+    root,
+    resolved-style,
+  )
   let layout-style = resolved-style
+  layout-style._height-label-half-width = height-label-half-width
+  if "x-gap" in style { return layout-style }
   let maximum-node-half-width = resolved-style.node-radius
   if resolved-style.node-shape == "capsule" {
     maximum-node-half-width = 1.4 * resolved-style.node-radius
@@ -25,7 +57,9 @@
     maximum-node-half-width = calc.max(maximum-node-half-width, half-width)
   }
   let required-node-gap = 2 * maximum-node-half-width + 0.2
-  let required-subtree-gap = (resolved-style.tri-w + 0.2) / 2
+  let required-subtree-gap = (
+    resolved-style.tri-w / 2 + 0.72 + height-label-half-width + 0.1
+  )
   layout-style.x-gap = calc.max(
     resolved-style.x-gap,
     required-node-gap,
@@ -554,6 +588,15 @@
   if subtree-node.h-label != none {
     let bracket-gap = 0.32
     let bracket-x = node-position.at(0) - half-width - bracket-gap
+    let height-label-box = measure(
+      text(..text-style)[#subtree-node.h-label],
+    )
+    let height-label-half-width = height-label-box.width / 1cm / 2
+    let height-label-half-height = height-label-box.height / 1cm / 2
+    let height-label-half-extent = (
+      calc.abs(calc.cos(rotation)) * height-label-half-width
+        + calc.abs(calc.sin(rotation)) * height-label-half-height
+    )
     line(
       (bracket-x, node-position.at(1)),
       (bracket-x, node-position.at(1) - triangle-height),
@@ -562,7 +605,7 @@
     )
     content(
       (
-        bracket-x - 0.3,
+        bracket-x - height-label-half-extent - 0.08,
         node-position.at(1) - triangle-height / 2,
       ),
       text(..text-style, subtree-node.h-label),
@@ -648,18 +691,21 @@
 // default.
 #let _render-tree(root, marks: (:), resolved-style: theme, style: (:), edge-customizations: (), node-customizations: (), node-labels: (:)) = {
   if root == none { return scaled(resolved-style, cetz.canvas({ circle((0, 0), radius: 0.01, stroke: none) })) }
-  let layout-style = _calculate-tree-layout-style(
-    resolved-style,
-    node-customizations,
-    style,
-  )
-  let placed = if layout-style.tree-layout == "tidy" {
-    _calculate-tidy-tree-layout(root, layout-style)
-  } else {
-    _calculate-tree-layout(root, 0, 0).first()
+  context {
+    let layout-style = _calculate-tree-layout-style(
+      root,
+      resolved-style,
+      node-customizations,
+      style,
+    )
+    let placed = if layout-style.tree-layout == "tidy" {
+      _calculate-tidy-tree-layout(root, layout-style)
+    } else {
+      _calculate-tree-layout(root, 0, 0).first()
+    }
+    scaled(layout-style, cetz.canvas({
+      _render-tree-edges(placed, layout-style, edge-customizations, node-customizations)
+      _render-tree-nodes(placed, layout-style, marks, node-customizations, node-labels)
+    }))
   }
-  context scaled(layout-style, cetz.canvas({
-    _render-tree-edges(placed, layout-style, edge-customizations, node-customizations)
-    _render-tree-nodes(placed, layout-style, marks, node-customizations, node-labels)
-  }))
 }

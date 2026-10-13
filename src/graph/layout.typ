@@ -36,6 +36,27 @@
 // rectangular shapes so their rounded ends keep the default proportions.
 #let _default-node-half-width(shape, r) = if shape == "capsule" { 1.4 * r } else { r }
 
+#let _maximum-node-half-width(node-ids, resolved-style, node-customizations) = {
+  let maximum-half-width = 0.0
+  for node-id in node-ids {
+    let customization = none
+    for (custom-node-id, options) in node-customizations {
+      if custom-node-id == node-id {
+        customization = options
+        break
+      }
+    }
+    let shape = _resolve-graph-node-shape(resolved-style, customization)
+    let radius = _resolve-graph-node-radius(resolved-style, customization)
+    maximum-half-width = calc.max(
+      maximum-half-width,
+      radius,
+      _default-node-half-width(shape, radius),
+    )
+  }
+  maximum-half-width
+}
+
 // Half-width of a node that wraps a label `label-width` wide (both in diagram
 // units). The label gets its own half-width plus end padding. A capsule needs a
 // full radius there so the label corners stay inside its rounded ends. The
@@ -98,7 +119,7 @@
 
 // Evenly spaced on a circle, starting at the top and going clockwise.
 // `radius: auto` grows with node count; a number fixes the circle radius.
-#let _calculate-circular-graph-layout(node-ids, resolved-style, radius) = {
+#let _calculate-circular-graph-layout(node-ids, resolved-style, radius, maximum-node-half-width) = {
   let node-count = node-ids.len()
   let node-positions = (:)
   if node-count == 0 { return node-positions }
@@ -106,11 +127,7 @@
     node-positions.insert(node-ids.at(0), (0.0, 0.0))
     return node-positions
   }
-  let node-width = if resolved-style.node-shape == "capsule" {
-    2.8 * resolved-style.node-radius
-  } else {
-    2 * resolved-style.node-radius
-  }
+  let node-width = 2 * maximum-node-half-width
   let minimum-chord = node-width + 1.05
   let layout-radius = if radius == auto {
     calc.max(
@@ -388,6 +405,54 @@
     ))
   }
   node-boundaries
+}
+
+#let _force-node-clearance-radius(node-id, node-boundaries) = {
+  let boundary = node-boundaries.at(node-id)
+  calc.max(
+    boundary.radius,
+    _default-node-half-width(boundary.shape, boundary.radius),
+  )
+}
+
+#let _resolve-force-node-overlaps(component-node-ids, node-positions, node-boundaries) = {
+  for _ in range(16) {
+    let found-overlap = false
+    for left-index in range(component-node-ids.len()) {
+      let left-node-id = component-node-ids.at(left-index)
+      let left-position = node-positions.at(left-node-id)
+      for right-index in range(left-index + 1, component-node-ids.len()) {
+        let right-node-id = component-node-ids.at(right-index)
+        let right-position = node-positions.at(right-node-id)
+        let delta-x = right-position.at(0) - left-position.at(0)
+        let delta-y = right-position.at(1) - left-position.at(1)
+        let distance = calc.sqrt(delta-x * delta-x + delta-y * delta-y)
+        let required-distance = (
+          _force-node-clearance-radius(left-node-id, node-boundaries)
+            + _force-node-clearance-radius(right-node-id, node-boundaries)
+            + 0.2
+        )
+        if distance >= required-distance { continue }
+        found-overlap = true
+        let direction = if distance == 0 {
+          (1.0, 0.0)
+        } else {
+          (delta-x / distance, delta-y / distance)
+        }
+        let correction = (required-distance - distance) / 2 + 0.01
+        node-positions.insert(left-node-id, (
+          left-position.at(0) - direction.at(0) * correction,
+          left-position.at(1) - direction.at(1) * correction,
+        ))
+        node-positions.insert(right-node-id, (
+          right-position.at(0) + direction.at(0) * correction,
+          right-position.at(1) + direction.at(1) * correction,
+        ))
+      }
+    }
+    if not found-overlap { break }
+  }
+  _center-graph-positions(node-positions, component-node-ids)
 }
 
 #let _scale-force-component-for-node-edge-clearance(
@@ -750,6 +815,11 @@
     node-boundaries,
     options,
   )
+  node-positions = _resolve-force-node-overlaps(
+    component-node-ids,
+    node-positions,
+    node-boundaries,
+  )
   _center-graph-positions(node-positions, component-node-ids)
 }
 
@@ -842,6 +912,10 @@
   let node-boundaries = _resolve-force-node-boundaries(
     node-ids, resolved-style, node-customizations,
   )
+  let maximum-node-half-width = _maximum-node-half-width(
+    node-ids, resolved-style, node-customizations,
+  )
+  let minimum-component-gap = 2 * maximum-node-half-width + 0.3
   let component-layouts = _collect-graph-connected-components(adjacency).map(
     component-node-ids => (
       node-ids: component-node-ids,
@@ -850,7 +924,10 @@
       ),
     ),
   )
-  _pack-force-components(component-layouts, options.component-gap)
+  _pack-force-components(
+    component-layouts,
+    calc.max(options.component-gap, minimum-component-gap),
+  )
 }
 
 #let _build-layered-graph-ranks(adjacency, topological-node-ids) = {
@@ -1090,19 +1167,38 @@
   node-customizations,
 ) = {
   let node-ids = _collect-graph-node-ids(adjacency)
+  let maximum-node-half-width = _maximum-node-half-width(
+    node-ids, resolved-style, node-customizations,
+  )
+  let automatic-clearance-gap = 2 * maximum-node-half-width + 1.05
   let initial-node-positions = if layout == "auto" {
-    _calculate-circular-graph-layout(node-ids, resolved-style, radius)
+    _calculate-circular-graph-layout(
+      node-ids, resolved-style, radius, maximum-node-half-width,
+    )
   } else if layout == "linear" {
     _calculate-linear-graph-layout(
       node-ids,
-      if gap == auto { 1.5 } else { gap },
+      if gap == auto { calc.max(1.5, automatic-clearance-gap) } else { gap },
     )
   } else if layout == "force" {
     _calculate-force-graph-layout(
       adjacency, layout-options, resolved-style, node-customizations,
     )
   } else if layout == "layered" {
-    _calculate-layered-graph-layout(adjacency, layout-options)
+    let sized-options = layout-options
+    if "node-gap" not in sized-options {
+      sized-options.node-gap = calc.max(
+        _layered-layout-defaults.node-gap,
+        automatic-clearance-gap,
+      )
+    }
+    if "layer-gap" not in sized-options {
+      sized-options.layer-gap = calc.max(
+        _layered-layout-defaults.layer-gap,
+        automatic-clearance-gap,
+      )
+    }
+    _calculate-layered-graph-layout(adjacency, sized-options)
   } else {
     (:)
   }

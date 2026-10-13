@@ -18,14 +18,20 @@
 = D11 · Large tree nodes and tight graph layout
 #tree(node(1, left: node(2), right: node(3, left: node(4), right: node(5))), style: (node-radius: 0.6))
 #graph(("A": ("B",), "B": ()), layout: "linear", style: (node-radius: 0.8)).diagram
+#graph(("A": ("B",), "B": ()), layout: "linear", node-customizations: (("A", (node-radius: 2.0)),)).diagram
+#graph(("A": ("B",), "B": ()), layout: "layered", style: (node-radius: 0.8)).diagram
+#graph(("A": (), "B": ()), layout: "force", node-customizations: (("A", (node-radius: 2.0)), ("B", (node-radius: 2.0)))).diagram
 
 #pagebreak()
 = D12 · Subtree height bracket
 #tree(node(0, left: node(2), right: subtree("T", height: [h])))
+#tree(node(0, left: node(2), right: subtree("T", height: [a very wide height label])))
 
 #pagebreak()
 = D13 · Dark-theme subtree labels
-#tree(node(1, left: subtree("TA", height: [h]), right: node(3)), style: theme-preset("dark"))
+#block(fill: rgb("#111827"), inset: 0.45cm)[
+  #tree(node(1, left: subtree("TA", height: [h]), right: node(3)), style: theme-preset("dark"))
+]
 
 #pagebreak()
 = D16 · Inserted node during AVL rotation

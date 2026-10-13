@@ -114,6 +114,7 @@
       triangle-half-width
     } else {
       triangle-half-width + 0.72
+        + resolved-style.at("_height-label-half-width", default: 0)
     }
   } else {
     resolved-style.node-radius

@@ -201,6 +201,8 @@
   [#c("style.*-style.text")], [`dictionary`], [#c("style.node-text")], [Marked node/cell text overrides. Accepts #c("size"), #c("color"), #c("font"), and #c("weight").],
 )
 
+#let edge-arrow-symbol-description = [CeTZ mark for every arrowhead in the diagram, including wavy edges. #c("style.edge-arrow") and per-edge #c("arrow") choose the end only. #c("\">\""), #c("\"<\""), #c("\"<>\""), #c("\">>\""), #c("\")>\""), #c("\"[]\""), #c("\"[\""), #c("\"]\""), #c("\"|\""), #c("\"o\""), #c("\"+\""), #c("\"x\""), #c("\"*\""), #c("\")\""), or a mark name: #c("\"triangle\""), #c("\"stealth\""), #c("\"curved-stealth\""), #c("\"bar\""), #c("\"ellipse\""), #c("\"circle\""), #c("\"bracket\""), #c("\"diamond\""), #c("\"rect\""), #c("\"hook\""), #c("\"straight\""), #c("\"barbed\""), #c("\"plus\""), #c("\"star\""), #c("\"parenthesis\"").]
+
 #let tree-style-reference(extra-subtree: false) = {
   subargtable([Nested keys for #c("style")],
     [#c("style.node-radius")], [`float`], [`0.34`], [Circle radius, or base size for other node shapes, in canvas units.],
@@ -212,6 +214,7 @@
     [#c("style.node-fill")], [`color`], [`white`], [Default node fill.],
     [#c("style.edge-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Parent-child edge stroke.],
     [#c("style.edge-arrow")], [`none` / `bool` / `str`], [`none`], [Edge arrowheads: #c("none")/#c("false"), #c("\"end\"") or #c("true"), #c("\"start\""), or #c("\"both\"").],
+    [#c("style.edge-arrow-symbol")], [`str`], [`">"`], [#edge-arrow-symbol-description],
     [#c("style.edge-pattern")], [`str`], [`"normal"`], [#c("\"normal\""), #c("\"dashed\""), #c("\"dotted\""), or #c("\"wavy\"").],
     [#c("style.edge-wave-amplitude")], [`float`], [`0.07`], [Wave height in canvas units.],
     [#c("style.edge-wave-step")], [`float`], [`0.14`], [Approximate wavelength in canvas units.],
@@ -270,6 +273,7 @@
     [#c("style.edge-stroke")], [`stroke`], [#c("0.6pt + rgb(\"#333333\")")], [Default edge stroke.],
     [#c("style.edge-arrow")], [`none` / `bool` / `str`], [`none`], [Global arrowhead override: #c("none")/#c("false"), #c("\"end\"") or #c("true"), #c("\"start\""), or #c("\"both\""). #c("directed: true") uses #c("\"end\"") unless this overrides it.],
     [#c("style.edge-arrow-fill")], [`none` / `color`], [`none`], [#c("none") gives open arrowheads; a color fills arrowheads solid.],
+    [#c("style.edge-arrow-symbol")], [`str`], [`">"`], [#edge-arrow-symbol-description],
     [#c("style.edge-pattern")], [`str`], [`"normal"`], [#c("\"normal\""), #c("\"dashed\""), #c("\"dotted\""), or #c("\"wavy\"").],
     [#c("style.edge-wave-amplitude")], [`float`], [`0.07`], [Wave height in canvas units.],
     [#c("style.edge-wave-step")], [`float`], [`0.14`], [Approximate wavelength in canvas units.],
@@ -299,7 +303,7 @@
     [#c("edge-customizations[].options.stroke")], [`stroke`], [none], [Full stroke override. Wins over #c("color") if both are set.],
     [#c("edge-customizations[].options.color")], [`color`], [none], [Paint override that preserves the edge's configured thickness.],
     [#c("edge-customizations[].options.pattern")], [`str` / `array`], [`"normal"`], [A named pattern or a dash array of positive lengths.],
-    [#c("edge-customizations[].options.arrow")], [`none` / `bool` / `str`], [none], [Per-edge arrowheads: #c("none"), #c("\"end\"")/#c("true"), #c("\"start\""), or #c("\"both\"").],
+    [#c("edge-customizations[].options.arrow")], [`none` / `bool` / `str`], [none], [Per-edge arrowheads: #c("none"), #c("\"end\"")/#c("true"), #c("\"start\""), or #c("\"both\"") The mark comes from #c("style.edge-arrow-symbol").],
     [#c("edge-customizations[].options.bend")], [`str` / `bool`], [`false`], [#c("\"left\"") or #c("\"right\"") curves the edge relative to its travel direction. #c("false") keeps it straight.],
     [#c("edge-customizations[].options.angle")], [`angle`], [`25deg`], [Signed bend amount strictly between #c("-90deg") and #c("90deg"); negative angles curve to the opposite side.],
     [#c("edge-customizations[].options.label")], [`content` / `dictionary`], [none], [Tree edge label content, or graph edge-label text overrides. A dictionary can include #c("content") for trees.],
@@ -3013,6 +3017,21 @@ content.
   ```)
 ]
 
+#demo[
+  #c("style.edge-arrow-symbol") sets the CeTZ mark drawn on tree, heap, and
+  graph arrowheads, including wavy edges. One symbol applies to the whole
+  diagram. #c("style.edge-arrow") and a per-edge #c("arrow") option only
+  choose which end receives it.
+
+  #example(```typ
+  #bst(30, 20, 40, style: (edge-arrow: "end", edge-arrow-symbol: ">>")).diagram
+  #graph(
+    ("A": ("B",), "B": ()),
+    style: (edge-arrow-symbol: "stealth", edge-pattern: "wavy"),
+  ).diagram
+  ```)
+]
+
 == Named themes and typography roles
 
 #demo[
@@ -3405,6 +3424,7 @@ See @localization for the full message-key catalog and the resolution order.
   [#c("edge-stroke")], [`0.6pt + #333`], [Edge stroke.],
   [#c("edge-arrow")], [`none`], [Edge arrowheads: #c("none"), #c("\"end\"")/#c("true"), #c("\"start\""), #c("\"both\"").],
   [#c("edge-arrow-fill")], [`none`], [#c("graph") arrowheads: #c("none") (open) or a color (solid).],
+  [#c("edge-arrow-symbol")], [`">"`], [#edge-arrow-symbol-description],
   [#c("edge-pattern")], [`"normal"`], [Global tree/#c("graph") edge pattern.],
   [#c("edge-wave-amplitude")], [`0.07`], [Wave height in canvas units.],
   [#c("edge-wave-step")], [`0.14`], [Approximate wavelength in canvas units.],

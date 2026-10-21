@@ -28,6 +28,7 @@
   edge-stroke: 0.6pt + rgb("#333333"),
   edge-arrow: none, // edge arrowheads: none/false, "end" (or true), "start", "both"
   edge-arrow-fill: none, // graph() directed arrowheads: none (open) or a fill color (solid)
+  edge-arrow-symbol: ">", // CeTZ mark for every tree, heap, and graph arrowhead
   edge-pattern: "normal", // "normal", "dashed", "dotted", or "wavy"
   edge-wave-amplitude: 0.07,
   edge-wave-step: 0.14,
@@ -143,6 +144,12 @@
   "normal", "solid", "dashed", "dotted", "wavy", "wave", "dash", "dot", "dots",
 )
 #let edge-arrows = (none, false, true, "start", "end", "both")
+// CeTZ 0.5 mark mnemonics, then the mark names those mnemonics resolve to.
+#let edge-arrow-symbols = (
+  ">", "<", "<>", ">>", ")>", "[]", "[", "]", "|", "o", "+", "x", "*", ")",
+  "triangle", "stealth", "curved-stealth", "bar", "ellipse", "circle", "bracket",
+  "diamond", "rect", "hook", "straight", "barbed", "plus", "star", "parenthesis",
+)
 // `true` is the shorthand spelling of `"right"` that the bend renderer has
 // always accepted.
 #let bend-directions = (none, false, true, "left", "right")
@@ -498,6 +505,12 @@
   if key == "tree-layout" { return check-enum(where, what, value, tree-layouts) }
   if key == "box-shape" { return check-enum(where, what, value, box-shapes) }
   if key == "edge-arrow" { return check-enum(where, what, value, edge-arrows) }
+  if key == "edge-arrow-symbol" {
+    return check-enum(
+      where, what, value, edge-arrow-symbols,
+      fix: "use a CeTZ mark name, for example " + what + ": \"stealth\"",
+    )
+  }
   if key == "diff-colors" { return check-bool(where, what, value) }
   if key == "node-fit" { return check-bool(where, what, value) }
   if key == "node-labels" { return check-node-label-defaults(where, what, value) }
@@ -659,6 +672,7 @@
   edge-stroke: auto,
   edge-arrow: auto,
   edge-arrow-fill: auto,
+  edge-arrow-symbol: auto,
   edge-pattern: auto,
   edge-wave-amplitude: auto,
   edge-wave-step: auto,
@@ -707,6 +721,7 @@
   if edge-stroke != auto { result.edge-stroke = edge-stroke }
   if edge-arrow != auto { result.edge-arrow = edge-arrow }
   if edge-arrow-fill != auto { result.edge-arrow-fill = edge-arrow-fill }
+  if edge-arrow-symbol != auto { result.edge-arrow-symbol = edge-arrow-symbol }
   if edge-pattern != auto { result.edge-pattern = edge-pattern }
   if edge-wave-amplitude != auto { result.edge-wave-amplitude = edge-wave-amplitude }
   if edge-wave-step != auto { result.edge-wave-step = edge-wave-step }
@@ -748,7 +763,7 @@
 #let tree-style(
   node-radius: auto, node-shape: auto, x-gap: auto, y-gap: auto, tree-layout: auto,
   node-stroke: auto, node-fill: auto, edge-stroke: auto,
-  edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
+  edge-arrow: auto, edge-arrow-fill: auto, edge-arrow-symbol: auto, edge-pattern: auto,
   edge-wave-amplitude: auto, edge-wave-step: auto,
   tri-w: auto, tri-h: auto, node-text: auto, value-text: auto, label-text: auto,
   index-text: auto, pointer-text: auto, operation-text: auto,
@@ -759,7 +774,8 @@
 ) = _build-style-dictionary(
   node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap, tree-layout: tree-layout,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
-  edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
+  edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-arrow-symbol: edge-arrow-symbol,
+  edge-pattern: edge-pattern,
   edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
   tri-w: tri-w, tri-h: tri-h, node-text: node-text, value-text: value-text, label-text: label-text,
   index-text: index-text, pointer-text: pointer-text, operation-text: operation-text,
@@ -774,7 +790,7 @@
 #let heap-style(
   node-radius: auto, node-shape: auto, x-gap: auto, y-gap: auto, tree-layout: auto,
   node-stroke: auto, node-fill: auto, edge-stroke: auto,
-  edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
+  edge-arrow: auto, edge-arrow-fill: auto, edge-arrow-symbol: auto, edge-pattern: auto,
   edge-wave-amplitude: auto, edge-wave-step: auto,
   node-text: auto, value-text: auto, label-text: auto, operation-text: auto,
   edge-label-text: auto, scale: auto, diff-colors: auto,
@@ -782,7 +798,8 @@
 ) = _build-style-dictionary(
   node-radius: node-radius, node-shape: node-shape, x-gap: x-gap, y-gap: y-gap, tree-layout: tree-layout,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
-  edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
+  edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-arrow-symbol: edge-arrow-symbol,
+  edge-pattern: edge-pattern,
   edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
   node-text: node-text, value-text: value-text, label-text: label-text,
   operation-text: operation-text, edge-label-text: edge-label-text,
@@ -792,7 +809,7 @@
 
 #let graph-style(
   node-radius: auto, node-shape: auto, node-fit: auto, node-stroke: auto, node-fill: auto,
-  edge-stroke: auto, edge-arrow: auto, edge-arrow-fill: auto, edge-pattern: auto,
+  edge-stroke: auto, edge-arrow: auto, edge-arrow-fill: auto, edge-arrow-symbol: auto, edge-pattern: auto,
   edge-wave-amplitude: auto, edge-wave-step: auto,
   node-text: auto, value-text: auto, label-text: auto, edge-label-text: auto,
   algorithm-label-text: auto, distance-text: auto, node-labels: auto, scale: auto,
@@ -800,7 +817,8 @@
 ) = _build-style-dictionary(
   node-radius: node-radius, node-shape: node-shape, node-fit: node-fit,
   node-stroke: node-stroke, node-fill: node-fill, edge-stroke: edge-stroke,
-  edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-pattern: edge-pattern,
+  edge-arrow: edge-arrow, edge-arrow-fill: edge-arrow-fill, edge-arrow-symbol: edge-arrow-symbol,
+  edge-pattern: edge-pattern,
   edge-wave-amplitude: edge-wave-amplitude, edge-wave-step: edge-wave-step,
   node-text: node-text, value-text: value-text, label-text: label-text,
   edge-label-text: edge-label-text, algorithm-label-text: algorithm-label-text,
@@ -977,11 +995,11 @@
   }
 }
 
-#let edge-mark(spec, fill: none) = {
+#let edge-mark(spec, fill: none, symbol: ">") = {
   let arrow-specification = spec
-  if arrow-specification == "both" { (start: ">", end: ">", fill: fill) }
-  else if arrow-specification == "start" { (start: ">", fill: fill) }
-  else if arrow-specification == "end" or arrow-specification == true { (end: ">", fill: fill) }
+  if arrow-specification == "both" { (start: symbol, end: symbol, fill: fill) }
+  else if arrow-specification == "start" { (start: symbol, fill: fill) }
+  else if arrow-specification == "end" or arrow-specification == true { (end: symbol, fill: fill) }
   else { none }
 }
 
@@ -1053,7 +1071,11 @@
   } else {
     none
   }
-  edge-mark(arrow-specification, fill: resolved-style.edge-arrow-fill)
+  edge-mark(
+    arrow-specification,
+    fill: resolved-style.edge-arrow-fill,
+    symbol: resolved-style.edge-arrow-symbol,
+  )
 }
 
 #let edge-wave(th, custom: none) = {

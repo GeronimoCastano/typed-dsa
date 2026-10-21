@@ -1891,3 +1891,29 @@
   edge-routing: "auto", style: (edge-pattern: "wavy"),
   edge-customizations: (("A", "B", (bend: true, angle: 0deg)),),
 ).diagram)
+
+#section("Edge arrow symbols: default \">\" and \">>\" on BST edges", std.stack(
+  dir: ltr, spacing: 2.5em,
+  bst(30, 20, 40, style: (edge-arrow: "end")).diagram,
+  bst(30, 20, 40, style: (edge-arrow: "both", edge-arrow-symbol: ">>")).diagram,
+))
+
+#section("Wavy edges keep the arrow symbol: tree, straight graph edge, and bent graph edge", std.stack(
+  dir: ltr, spacing: 2.5em,
+  bst(30, 20, 40, style: (edge-arrow: "end", edge-arrow-symbol: ">>", edge-pattern: "wavy", y-gap: 1.8)).diagram,
+  graph(
+    ("A": ("B",), "B": ("C",), "C": ()),
+    layout: "linear", gap: 1.8,
+    style: (edge-arrow-symbol: "stealth", edge-pattern: "wavy"),
+  ).diagram,
+  graph(
+    ("A": ("B",), "B": ("A",)),
+    layout: "manual", positions: ("A": (0, 0), "B": (3, 0)),
+    edge-routing: "auto",
+    style: (edge-arrow-symbol: "stealth", edge-pattern: "wavy"),
+  ).diagram,
+))
+
+#section("Heap arrowheads use the same symbol", min-heap(
+  4, 2, 3, style: heap-style(edge-arrow: "end", edge-arrow-symbol: "o"),
+).diagram)

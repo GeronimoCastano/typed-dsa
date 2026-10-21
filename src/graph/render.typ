@@ -262,8 +262,8 @@
       let parts = wavy-parts(a, b, resolved-style, start-tip: start-tip, end-tip: end-tip)
       line(..parts.points, stroke: stroke)
       let fill = if mark == none { none } else { mark.at("fill", default: none) }
-      if start-tip { line(a, parts.start-cap, stroke: stroke, mark: (start: ">", fill: fill)) }
-      if end-tip { line(parts.end-cap, b, stroke: stroke, mark: (end: ">", fill: fill)) }
+      if start-tip { line(a, parts.start-cap, stroke: stroke, mark: (start: mark.start, fill: fill)) }
+      if end-tip { line(parts.end-cap, b, stroke: stroke, mark: (end: mark.end, fill: fill)) }
     } else {
       line(a, b, stroke: stroke, mark: mark)
     }
@@ -278,8 +278,8 @@
       let parts = wavy-path-parts(calculate-through-edge-segments(p2, bp, q2), resolved-style, start-tip: start-tip, end-tip: end-tip)
       line(..parts.points, stroke: stroke)
       let fill = if mark == none { none } else { mark.at("fill", default: none) }
-      if start-tip { line(p2, parts.start-cap, stroke: stroke, mark: (start: ">", fill: fill)) }
-      if end-tip { line(parts.end-cap, q2, stroke: stroke, mark: (end: ">", fill: fill)) }
+      if start-tip { line(p2, parts.start-cap, stroke: stroke, mark: (start: mark.start, fill: fill)) }
+      if end-tip { line(parts.end-cap, q2, stroke: stroke, mark: (end: mark.end, fill: fill)) }
     } else {
       bezier-through(p2, bp, q2, stroke: stroke, mark: mark)
     }

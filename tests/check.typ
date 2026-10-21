@@ -5,7 +5,7 @@
 #import "../src/tree/facade.typ": _build-search-tree, _remove-bst-node, _insert-bst-node, _remove-avl-node
 #import "../src/graph/layout.typ": _project-point-to-graph-edge
 #import "../src/sorting/common.typ": _sorting-trace-shows-indices
-#import "../src/shared/style.typ": resolve, theme-preset
+#import "../src/shared/style.typ": graph-style, heap-style, resolve, theme-preset, tree-style
 #import "../src/lib.typ": transition, tree-insert
 
 #let inorder(tree-node) = if tree-node == none {
@@ -164,6 +164,18 @@
 
 // Optional and alternative spellings of style values stay accepted.
 #let _ = bst(5, 3, style: (node-fill: none, edge-arrow: none, edge-pattern: none)).diagram
+#assert.eq(tree-style(edge-arrow-symbol: ">>"), (edge-arrow-symbol: ">>"))
+#assert.eq(heap-style(edge-arrow-symbol: "o"), (edge-arrow-symbol: "o"))
+#assert.eq(graph-style(edge-arrow-symbol: "stealth"), (edge-arrow-symbol: "stealth"))
+#let _ = bst(30, 20, 40, style: (edge-arrow: "both", edge-arrow-symbol: ">>", edge-pattern: "wavy")).diagram
+#let _ = min-heap(4, 2, 3, style: (edge-arrow: "end", edge-arrow-symbol: "o")).diagram
+#let _ = graph(("A": ("B",), "B": ()), style: (edge-arrow-symbol: "stealth", edge-pattern: "wavy")).diagram
+#let _ = graph(("A": ("B",), "B": ()), style: graph-style(edge-arrow-symbol: "parenthesis")).diagram
+#let _ = graph(
+  ("A": ("B",), "B": ()),
+  edge-customizations: (("A", "B", (bend: "left")),),
+  style: (edge-arrow-symbol: "stealth", edge-pattern: "wavy"),
+).diagram
 #let _ = bst(5, 3, style: theme-preset("dark")).diagram
 #let _ = bst(5, 3, style: (node-text: (color: red), new-style: (fill: red, shape: "square"))).diagram
 #let _ = bst(5, 3, 7, edge-customizations: ((5, 3, (stroke: 2pt, pattern: (2pt, 2pt))),)).diagram
@@ -594,6 +606,8 @@ All invariant checks passed.
 #assert(resolve((label-text: (fill: blue))).distance-text.fill == rgb("#7048E8"))
 #assert(resolve((distance-text: (color: red))).distance-text.fill == red)
 #assert(resolve((distance-text: (color: red))).distance-text.at("color", default: none) == none)
+#assert(resolve((:)).edge-arrow-symbol == ">")
+#assert(resolve((edge-arrow-symbol: "stealth")).edge-arrow-symbol == "stealth")
 
 // Default boundaries: squares and rounded boxes exit through their corner on
 // diagonals, and capsules are 1.4r half-wide.

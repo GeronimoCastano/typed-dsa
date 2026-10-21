@@ -237,6 +237,7 @@
     } else {
       resolved-style.edge-arrow
     },
+    symbol: resolved-style.edge-arrow-symbol,
   )
   let stroke = edge-stroke(resolved-style, custom: customization)
   let bend-direction = if customization != none {
@@ -304,7 +305,7 @@
           trimmed-start,
           wave-parts.start-cap,
           stroke: stroke,
-          mark: (start: ">", fill: arrow-fill),
+          mark: (start: arrow-mark.start, fill: arrow-fill),
         )
       }
       if has-end-tip {
@@ -312,7 +313,7 @@
           wave-parts.end-cap,
           trimmed-end,
           stroke: stroke,
-          mark: (end: ">", fill: arrow-fill),
+          mark: (end: arrow-mark.end, fill: arrow-fill),
         )
       }
     } else {
